@@ -52,6 +52,7 @@ type commandFunc func(ctx context.Context, args []string, stdout, stderr io.Writ
 func commands() map[string]commandFunc {
 	return map[string]commandFunc{
 		"serve":       cmdServe,
+		"migrate":     cmdMigrate,
 		"healthcheck": cmdHealthcheck,
 		"version":     cmdVersion,
 		"--version":   cmdVersion,

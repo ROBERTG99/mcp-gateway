@@ -6,6 +6,13 @@ x-build: &build
   args:
     HTTPS_PROXY: "${HTTPS_PROXY:-}"
 
+x-db-env: &db-env
+  MCPGW_MIGRATE_DATABASE_URL: postgres://postgres:postgres@postgres:5432/mcpgw?sslmode=disable
+  MCPGW_DATABASE_URL: postgres://mcpgw_app:${MCPGW_APP_DB_PASSWORD:-mcpgw_app}@postgres:5432/mcpgw?sslmode=disable
+  MCPGW_APP_DB_PASSWORD: ${MCPGW_APP_DB_PASSWORD:-mcpgw_app}
+  MCPGW_READONLY_DB_PASSWORD: ${MCPGW_READONLY_DB_PASSWORD:-mcpgw_readonly}
+  MCPGW_UPSTREAM_DB_PASSWORD: ${MCPGW_UPSTREAM_DB_PASSWORD:-mcpgw_upstream}
+
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -29,6 +36,16 @@ services:
       timeout: 3s
       retries: 30
 
+  migrate:
+    build: { <<: *build, target: gateway }
+    image: mcp-gateway:dev
+    command: ["migrate", "up"]
+    environment: *db-env
+    healthcheck:
+      disable: true
+    depends_on:
+      postgres: { condition: service_healthy }
+
   upstream-echo:
     build: { <<: *build, target: examples }
     image: mcp-gateway-examples:dev
@@ -44,9 +61,10 @@ services:
     build: { <<: *build, target: gateway }
     image: mcp-gateway:dev
     environment:
+      <<: *db-env
       MCPGW_UPSTREAMS_FILE: /config/upstreams.yaml
     ports: ["127.0.0.1:8200:8200", "127.0.0.1:8210:8210", "127.0.0.1:8211:8211"]
     depends_on:
-      postgres: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
       upstream-echo: { condition: service_healthy }

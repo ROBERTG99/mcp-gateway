@@ -39,6 +39,9 @@ type Config struct {
 
 	DatabaseURL        string `env:"MCPGW_DATABASE_URL" default:"postgres://mcpgw_app:mcpgw_app@localhost:8220/mcpgw?sslmode=disable" desc:"Postgres URL for the gateway role (mcpgw_app)"`
 	MigrateDatabaseURL string `env:"MCPGW_MIGRATE_DATABASE_URL" default:"postgres://postgres:postgres@localhost:8220/mcpgw?sslmode=disable" desc:"Postgres URL of the schema owner, used by migrate"`
+	AppDBPassword      string `env:"MCPGW_APP_DB_PASSWORD" default:"" secret:"true" desc:"Password set for role mcpgw_app by migrate (empty leaves it unchanged)"`
+	ReadonlyDBPassword string `env:"MCPGW_READONLY_DB_PASSWORD" default:"" secret:"true" desc:"Password set for role mcpgw_readonly by migrate"`
+	UpstreamDBPassword string `env:"MCPGW_UPSTREAM_DB_PASSWORD" default:"" secret:"true" desc:"Password set for role mcpgw_upstream (example upstreams) by migrate"`
 	RedisURL           string `env:"MCPGW_REDIS_URL" default:"redis://localhost:8230/0" desc:"Redis URL (idempotency, rate limits, budgets)"`
 
 	IdempotencyStore   string        `env:"MCPGW_IDEMPOTENCY_STORE" default:"redis" oneof:"redis,dynamodb,memory" desc:"Idempotency store backend"`
