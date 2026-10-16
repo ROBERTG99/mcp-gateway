@@ -66,3 +66,15 @@ footer { max-width: 1280px; margin: var(--space-6) auto; padding: 0 var(--space-
 @media (prefers-reduced-motion: no-preference) {
   main { transition: opacity 0.1s; }
 }
+
+/* Utility classes (the CSP forbids inline style attributes). */
+.bare { border: 0; padding: 0; margin: 0; }
+.flush { margin-top: 0; }
+.actions.flush { margin: 0; }
+caption { text-align: left; padding: var(--space-2) var(--space-3); }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.tabs ul { display: flex; flex-wrap: wrap; gap: var(--space-2); list-style: none; padding: 0; margin: 0 0 var(--space-4); }
+.tabs a { display: inline-block; padding: var(--space-1) var(--space-3); border: 1px solid var(--line); border-radius: 999px; color: var(--ink); text-decoration: none; }
+.tabs a[aria-current="page"] { border-color: var(--accent); font-weight: 600; }
+.decide { display: grid; gap: var(--space-4); grid-template-columns: 1fr; }
+@media (min-width: 768px) { .decide { grid-template-columns: 1fr 1fr; } }

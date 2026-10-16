@@ -11,12 +11,11 @@ func (c *Console) mountPages(r chi.Router) {
 	r.Get("/audit", c.auditPage)
 	r.Get("/audit/{seq}", c.auditEventPage)
 	r.Get("/approvals", c.approvalsPage)
+	r.Get("/approvals/{id}", c.approvalPage)
+	r.Post("/approvals/{id}/approve", c.decide(true))
+	r.Post("/approvals/{id}/reject", c.decide(false))
 	r.Get("/policy", c.policyPage)
 	r.Get("/upstreams", c.upstreamsPage)
-}
-
-func (c *Console) approvalsPage(w http.ResponseWriter, r *http.Request) {
-	c.render(w, r, http.StatusOK, "approvals", view{Title: "Approvals", Nav: "approvals"})
 }
 
 func (c *Console) policyPage(w http.ResponseWriter, r *http.Request) {

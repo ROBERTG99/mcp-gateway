@@ -87,7 +87,7 @@ chore: configure commit attribution
 | T-27 | Scripted demo agent | M3 | done | `go test -tags=integration -run TestDemoScenarioSteps ./internal/demo` ok (in-process stack, 6 steps PASS, repeatable); compose: `go run ./cmd/demo-agent --scenario --webhook-admin http://localhost:8241` → PASS steps 1-6 in 13 s (webhook seen by WireMock, stalled call → -32046 → same-key retry → exactly one refund, injection score 0.55) |
 | T-28 | Console shell, tokens, sign-in | M4 | done | `go test -race ./internal/console` ok (TestConsoleRequiresSession: 5 routes redirect to sign-in, security headers incl. CSP script-src self; TestSessionCookieAttributes HttpOnly/SameSite=Strict/Path; TestCSRFRejected sign-in and POST; TestThemesAndStatic light+dark tokens, console.js ≤ 3 KB, self-hosted fonts) |
 | T-29 | Audit pages | M4 | done | audit list/detail pages with filters, keyset paging, verify; TestAuditPageFiltersAndEmptyState, TestAuditQueryPostgres; BenchmarkAuditPage p95 11.31 ms over 100,000 rows (go test -tags=integration -bench BenchmarkAuditPage -benchtime 300x ./internal/console) |
-| T-30 | Approvals pages | M4 | todo | |
+| T-30 | Approvals pages | M4 | done | approvals queue (status tabs) and detail with what-will-execute, approve with note, reject with reason; TestConsoleApprovalsRBAC (reviewer: no buttons, POST 403; approver: approve/reject audited; other tenant 404); TestTemplatesHaveNoInlineCode |
 | T-31 | Policy tester and upstreams pages | M4 | todo | |
 | T-32 | Playwright, axe, screenshots | M4 | todo | |
 | T-33 | Eval datasets | M5 | todo | |

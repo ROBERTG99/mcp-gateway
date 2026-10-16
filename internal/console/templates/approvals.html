@@ -1,3 +1,31 @@
 {{define "content"}}
-<h1>{{.Title}}</h1>
+<h1>Approvals</h1>
+<nav class="tabs" aria-label="Approval status">
+  <ul>{{$cur := .Data.Status}}{{range .Data.Statuses}}
+    <li><a href="/console/approvals?status={{.}}"{{if eq . $cur}} aria-current="page"{{end}}>{{.}}</a></li>{{end}}
+  </ul>
+</nav>
+{{if .Error}}{{else if .Data.Approvals}}
+<div class="table-wrap">
+<table>
+  <caption class="muted">Held tool calls wait here until an approver of their tenant decides or they expire. Arguments are redacted.</caption>
+  <thead><tr><th scope="col">Tool</th><th scope="col">Tenant</th><th scope="col" class="hide-sm">Agent</th><th scope="col" class="hide-sm">Reasons</th><th scope="col">Expires</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Open</span></th></tr></thead>
+  <tbody>
+  {{range .Data.Approvals}}
+  <tr class="row">
+    <td class="mono">{{.Server}}.{{.Tool}}</td>
+    <td class="mono">{{.Tenant}}</td>
+    <td class="hide-sm">{{.Agent}}</td>
+    <td class="hide-sm">{{range $i, $r := .Reasons}}{{if $i}}, {{end}}<span class="mono">{{$r}}</span>{{end}}</td>
+    <td>{{.ExpiresIn}}</td>
+    <td><span class="status {{.Status}}">{{.Status}}</span></td>
+    <td><a href="/console/approvals/{{.ID}}">Review<span class="sr-only"> approval {{.ID}}</span></a></td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+</div>
+{{else}}
+<div class="empty">{{if eq .Data.Status "pending"}}<p><strong>No approvals are waiting.</strong></p><p>Calls that policy holds for a human appear here with their expiry.</p>{{else}}<p><strong>No {{.Data.Status}} approvals.</strong></p>{{end}}</div>
+{{end}}
 {{end}}

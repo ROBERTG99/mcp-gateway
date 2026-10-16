@@ -1,7 +1,7 @@
 {{define "content"}}
 <h1>Audit log</h1>
 <section class="card" aria-labelledby="filters-h">
-  <h2 id="filters-h" style="margin-top:0">Filters</h2>
+  <h2 id="filters-h" class="flush">Filters</h2>
   <form class="filters" method="get" action="/console/audit" aria-label="Audit filters">
     {{if .Data.CrossTen}}<div><label for="f-tenant">Tenant</label><input id="f-tenant" name="tenant" value="{{index .Data.Filters "tenant"}}" placeholder="t_alpha"></div>{{end}}
     <div><label for="f-agent">Agent</label><input id="f-agent" name="agent" value="{{index .Data.Filters "agent"}}" placeholder="agent-support"></div>
@@ -11,14 +11,14 @@
     <div><label for="f-approval">Approval id</label><input id="f-approval" name="approval_id" value="{{index .Data.Filters "approval_id"}}"></div>
     <div><label for="f-from">From (UTC)</label><input id="f-from" name="from" type="datetime-local" value="{{index .Data.Filters "from"}}"></div>
     <div><label for="f-to">To (UTC)</label><input id="f-to" name="to" type="datetime-local" value="{{index .Data.Filters "to"}}"></div>
-    <div class="actions" style="margin:0"><button type="submit" class="primary">Apply</button><a class="button" href="/console/audit">Reset</a></div>
+    <div class="actions flush"><button type="submit" class="primary">Apply</button><a class="button" href="/console/audit">Reset</a></div>
   </form>
 </section>
 {{if .Data.CanVerify}}<p class="actions"><a class="button pagelink" href="/console/audit?verify=1">Verify chain</a></p>{{end}}
 {{if .Error}}{{else if .Data.Page.Events}}
 <div class="table-wrap">
 <table>
-  <caption class="muted" style="text-align:left;padding:8px 12px">Newest first. Arguments are redacted before they are stored.</caption>
+  <caption class="muted">Newest first. Arguments are redacted before they are stored.</caption>
   <thead><tr><th scope="col">Seq</th><th scope="col">Time (UTC)</th><th scope="col">Tenant</th><th scope="col" class="hide-sm">Agent</th><th scope="col">Tool</th><th scope="col">Decision</th><th scope="col">Status</th><th scope="col" class="hide-sm">Latency</th></tr></thead>
   <tbody>
   {{range .Data.Page.Events}}

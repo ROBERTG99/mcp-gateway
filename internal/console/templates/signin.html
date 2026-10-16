@@ -3,7 +3,7 @@
 <p class="muted">Development sign-in: choose a persona. Tokens come from the dev issuer and expire within an hour.</p>
 <form method="post" action="/console/signin">
   <input type="hidden" name="csrf" value="{{.CSRF}}">
-  <fieldset class="personas" style="border:0;padding:0;margin:0">
+  <fieldset class="personas bare">
     <legend class="muted">Personas</legend>
     {{range .Data}}
     <div class="persona">
