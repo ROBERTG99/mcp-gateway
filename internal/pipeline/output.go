@@ -48,6 +48,16 @@ func (p *Pipeline) mark(ctx context.Context, c *call, res *mcp.CallToolResult) (
 	out.Content = make([]mcp.Content, 0, len(res.Content))
 	withhold := flagged && p.opts.InjectionMode == "block"
 	for _, ct := range res.Content {
+		if er, ok := ct.(*mcp.EmbeddedResource); ok && er.Resource != nil && er.Resource.Text != "" {
+			cp, rc := *er, *er.Resource
+			rc.Text = UntrustedPrefix + rc.Text
+			if withhold {
+				rc.Text = UntrustedPrefix + "[withheld by mcp-gateway: possible prompt injection]"
+			}
+			cp.Resource = &rc
+			out.Content = append(out.Content, &cp)
+			continue
+		}
 		tc, ok := ct.(*mcp.TextContent)
 		if !ok {
 			out.Content = append(out.Content, ct)
@@ -81,7 +91,9 @@ func (p *Pipeline) mark(ctx context.Context, c *call, res *mcp.CallToolResult) (
 	if flagged && p.deps.Findings != nil {
 		f := Finding{AuditSeq: c.auditSeq, Tenant: c.principal.Tenant, Server: c.tool.Server, Tool: c.tool.Name,
 			Score: score.Score, Signals: score.Signals, TS: p.deps.Clock.Now().UTC()}
-		if err := p.deps.Findings.RecordFinding(context.WithoutCancel(ctx), f); err != nil {
+		fctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+		defer cancel()
+		if err := p.deps.Findings.RecordFinding(fctx, f); err != nil {
 			p.deps.Logger.Warn("record injection finding failed", "request_id", c.requestID, "error", err)
 		}
 	}
@@ -92,9 +104,15 @@ func (p *Pipeline) mark(ctx context.Context, c *call, res *mcp.CallToolResult) (
 func outputText(res *mcp.CallToolResult) string {
 	var b strings.Builder
 	for _, ct := range res.Content {
-		if tc, ok := ct.(*mcp.TextContent); ok {
-			b.WriteString(tc.Text)
+		switch x := ct.(type) {
+		case *mcp.TextContent:
+			b.WriteString(x.Text)
 			b.WriteByte('\n')
+		case *mcp.EmbeddedResource:
+			if x.Resource != nil {
+				b.WriteString(x.Resource.Text)
+				b.WriteByte('\n')
+			}
 		}
 	}
 	collectStrings(res.StructuredContent, &b)

@@ -2,6 +2,8 @@ package pipeline
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -55,7 +57,7 @@ func (p *Pipeline) acquire(ctx context.Context, c *call) (*mcp.CallToolResult, b
 	if p.deps.Idempotency == nil {
 		return nil, false, nil
 	}
-	a, err := p.deps.Idempotency.Acquire(ctx, c.principal.Tenant, key, c.argsHash, p.opts.IdempotencyLockTTL)
+	a, err := p.deps.Idempotency.Acquire(ctx, c.principal.Tenant, key, c.idemHash(), p.opts.IdempotencyLockTTL)
 	if err != nil {
 		p.deps.Logger.Error("idempotency store unavailable; refusing write", "request_id", c.requestID, "error", err)
 		c.status = "error"
@@ -90,7 +92,7 @@ func (p *Pipeline) complete(ctx context.Context, c *call, res *mcp.CallToolResul
 	if err != nil || len(raw) > p.opts.MaxStoredResult {
 		raw, _ = json.Marshal(storedResult{Oversized: true})
 	}
-	if err := p.deps.Idempotency.Complete(context.WithoutCancel(ctx), c.principal.Tenant, c.idemKey, c.argsHash, raw, p.opts.IdempotencyTTL); err != nil {
+	if err := p.deps.Idempotency.Complete(context.WithoutCancel(ctx), c.principal.Tenant, c.idemKey, c.idemHash(), raw, p.opts.IdempotencyTTL); err != nil {
 		// The upstream committed; its own dedup still protects a retry.
 		p.deps.Logger.Warn("idempotency complete failed", "request_id", c.requestID, "error", err)
 	}
@@ -100,8 +102,15 @@ func (p *Pipeline) release(ctx context.Context, c *call) {
 	if !c.acquired || p.deps.Idempotency == nil {
 		return
 	}
-	if err := p.deps.Idempotency.Release(context.WithoutCancel(ctx), c.principal.Tenant, c.idemKey, c.argsHash); err != nil {
+	if err := p.deps.Idempotency.Release(context.WithoutCancel(ctx), c.principal.Tenant, c.idemKey, c.idemHash()); err != nil {
 		p.deps.Logger.Warn("idempotency release failed", "request_id", c.requestID, "error", err)
 	}
 	c.acquired = false
+}
+
+// idemHash binds a key to the tool as well as the arguments: the same key and arguments sent to
+// another tool is a conflict, never a replay of the other tool's result.
+func (c *call) idemHash() string {
+	sum := sha256.Sum256([]byte(c.tool.FullName() + "\x00" + c.argsHash))
+	return hex.EncodeToString(sum[:])
 }

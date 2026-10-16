@@ -31,6 +31,10 @@ func TestRedactorDetectors(t *testing.T) {
 		{"nino QQ 12 34 56 C", "nino [REDACTED:NATIONAL_ID]"},
 		{"order O-00001 refund 5000 cents due 2026-11-15", "order O-00001 refund 5000 cents due 2026-11-15"},
 		{"customer C-0042, invoice 2026-000123", "customer C-0042, invoice 2026-000123"},
+		// Regression (M2 review): trailing digits after a valid card must not hide it.
+		{"card 4111 1111 1111 1111 12/27", "card [REDACTED:CARD] 12/27"},
+		{"card 4111111111111111 123", "card [REDACTED:CARD] 123"},
+		{"tracking 12345678901234567890", "tracking 12345678901234567890"},
 	}
 	for _, c := range cases {
 		if got := r.String(c.in); got != c.want {
@@ -52,6 +56,9 @@ func TestRedactJSONKeepsStructure(t *testing.T) {
 	}
 	if !strings.Contains(string(got), `"email":"[REDACTED:EMAIL]"`) {
 		t.Fatalf("nested email not redacted: %s", got)
+	}
+	if got := string(r.JSON(json.RawMessage(`{"alice@example.com":1}`))); strings.Contains(got, "alice") {
+		t.Fatalf("map key not redacted: %s", got)
 	}
 	if string(r.JSON(json.RawMessage(`not json`))) != `"[REDACTED:UNPARSEABLE]"` {
 		t.Fatal("invalid JSON must be replaced, never passed through")

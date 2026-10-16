@@ -43,7 +43,7 @@ services:
 
   dynamodb:
     profiles: ["dynamodb"]
-    image: amazon/dynamodb-local:latest
+    image: amazon/dynamodb-local:3.3.2
     command: ["-jar", "DynamoDBLocal.jar", "-inMemory", "-sharedDb"]
     ports: ["127.0.0.1:8240:8000"]
     healthcheck:

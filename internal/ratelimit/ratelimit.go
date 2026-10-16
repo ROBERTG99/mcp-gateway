@@ -68,6 +68,7 @@ type Memory struct {
 	clock   clock.Clock
 	buckets map[string]*bucket
 	budgets map[string]int64 // key: tenant + day
+	calls   int
 }
 
 type bucket struct {
@@ -127,5 +128,24 @@ func (m *Memory) Allow(_ context.Context, tenant, agent string) (Verdict, error)
 	tb.tokens -= micro
 	ab.tokens -= micro
 	m.budgets[dayKey]++
+	if m.calls++; m.calls%4096 == 0 {
+		m.sweep(now)
+	}
 	return Verdict{Allowed: true}, nil
+}
+
+// sweep drops buckets idle for 10 minutes (they would be full again) and past days' budgets, so
+// the maps do not grow with every agent ever seen.
+func (m *Memory) sweep(now time.Time) {
+	for k, b := range m.buckets {
+		if now.Sub(b.at) > 10*time.Minute {
+			delete(m.buckets, k)
+		}
+	}
+	today := now.UTC().Format("20060102")
+	for k := range m.budgets {
+		if len(k) < 8 || k[len(k)-8:] != today {
+			delete(m.budgets, k)
+		}
+	}
 }

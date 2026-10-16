@@ -24,6 +24,8 @@ import (
 	"github.com/open-policy-agent/opa/v1/storage"
 	"github.com/open-policy-agent/opa/v1/storage/inmem"
 	"github.com/open-policy-agent/opa/v1/tester"
+
+	"github.com/ROBERTG99/mcp-gateway/internal/clock"
 )
 
 // Query is the single entry point of the bundle.
@@ -63,7 +65,8 @@ func Denied(reason string) Decision { return Decision{Reasons: []string{reason}}
 
 // Options configure an Engine.
 type Options struct {
-	Dir string
+	Dir   string
+	Clock clock.Clock // fills Input.Now when unset (default: wall clock)
 }
 
 type compiled struct {
@@ -85,6 +88,9 @@ type Engine struct {
 // New compiles the bundle in opts.Dir. On failure it returns the (not ready, deny-all) engine
 // together with the error, so the gateway can start, report not-ready and keep retrying.
 func New(ctx context.Context, opts Options) (*Engine, error) {
+	if opts.Clock == nil {
+		opts.Clock = clock.Real{}
+	}
 	e := &Engine{opts: opts}
 	return e, e.Reload(ctx)
 }
@@ -172,7 +178,7 @@ func (e *Engine) Evaluate(ctx context.Context, in Input) (Decision, error) {
 		return Denied("policy_unavailable"), ErrNotLoaded
 	}
 	if in.Now.IsZero() {
-		in.Now = time.Now().UTC()
+		in.Now = e.opts.Clock.Now().UTC()
 	}
 	value, err := inputValue(in)
 	if err != nil {

@@ -20,12 +20,13 @@ import (
 
 // fakeUpstream records calls and returns a canned result (or blocks until released).
 type fakeUpstream struct {
-	mu     sync.Mutex
-	calls  atomic.Int64
-	metas  []mcp.Meta
-	args   []string
-	result func(tool catalog.Tool, args json.RawMessage) (*mcp.CallToolResult, error)
-	block  chan struct{}
+	mu      sync.Mutex
+	calls   atomic.Int64
+	metas   []mcp.Meta
+	args    []string
+	result  func(tool catalog.Tool, args json.RawMessage) (*mcp.CallToolResult, error)
+	block   chan struct{}
+	started chan struct{} // receives once per call when set
 }
 
 func (f *fakeUpstream) Call(ctx context.Context, t catalog.Tool, args json.RawMessage, meta mcp.Meta) (*mcp.CallToolResult, error) {
@@ -34,6 +35,9 @@ func (f *fakeUpstream) Call(ctx context.Context, t catalog.Tool, args json.RawMe
 	f.metas = append(f.metas, meta)
 	f.args = append(f.args, string(args))
 	f.mu.Unlock()
+	if f.started != nil {
+		f.started <- struct{}{}
+	}
 	if f.block != nil {
 		select {
 		case <-f.block:
@@ -89,4 +93,9 @@ func code(t *testing.T, err error) int64 {
 func gwMeta(res *mcp.CallToolResult) map[string]any {
 	m, _ := res.Meta["mcpgw"].(map[string]any)
 	return m
+}
+
+func pipelineCall(t catalog.Tool, req *mcp.CallToolRequest) proxy.Call {
+	return proxy.Call{Principal: authn.Principal{Tenant: "t_alpha", Agent: "agent-collections",
+		Scopes: []string{"ledger:write", "orders:write"}}, Tool: t, Request: req}
 }

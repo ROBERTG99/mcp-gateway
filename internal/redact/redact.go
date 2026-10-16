@@ -43,7 +43,7 @@ func New() *Redactor {
 		{typ: Token, re: regexp.MustCompile(`\beyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]*`)},
 		{typ: Token, re: regexp.MustCompile(`(?i)\bbearer\s+[A-Za-z0-9._~+/-]{16,}=*`)},
 		{typ: IBAN, re: regexp.MustCompile(`\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]){11,30}\b`), valid: validIBAN},
-		{typ: Card, re: regexp.MustCompile(`\b\d(?:[ -]?\d){12,18}\b`), valid: func(m string) bool { return Luhn(digitsOf(m)) }},
+		{typ: Card, re: regexp.MustCompile(`\b\d(?:[ -]?\d){12,18}\b`)},
 		{typ: NationalID, re: regexp.MustCompile(`\b\d{3}-\d{2}-\d{4}\b`), valid: validSSN},
 		{typ: NationalID, re: regexp.MustCompile(`\b[A-Z]{2} ?\d{2} ?\d{2} ?\d{2} ?[A-D]\b`)},
 		{typ: Email, re: regexp.MustCompile(`[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}`)},
@@ -82,6 +82,14 @@ func (r *Redactor) redact(s string) (string, []Match) {
 					return Marker(IBAN) + m[n:]
 				}
 				return m
+			}
+			if d.typ == Card {
+				start, end, ok := cardSpan(m)
+				if !ok {
+					return m
+				}
+				found = append(found, Match{Type: Card, Value: m[start:end]})
+				return m[:start] + Marker(Card) + m[end:]
 			}
 			if d.valid != nil && !d.valid(m) {
 				return m
@@ -122,7 +130,7 @@ func (r *Redactor) Value(v any) any {
 	case map[string]any:
 		out := make(map[string]any, len(x))
 		for k, val := range x {
-			out[k] = r.Value(val)
+			out[r.String(k)] = r.Value(val) // keys can hold personal data too
 		}
 		return out
 	case []any:
@@ -178,6 +186,35 @@ func LuhnCheckDigit(body string) byte {
 		}
 	}
 	return 0
+}
+
+// cardSpan finds a Luhn-valid card number of 13-19 digits inside a digit run: the whole run, or
+// a sequence of whole separator-delimited groups (so "4111 1111 1111 1111 12" still redacts the
+// card). An unseparated run is only a card as a whole, which keeps long reference numbers intact.
+func cardSpan(m string) (start, end int, ok bool) {
+	if d := digitsOf(m); len(d) <= 19 && Luhn(d) {
+		return 0, len(m), true
+	}
+	type group struct{ start, end int }
+	var groups []group
+	gs := 0
+	for i := 0; i <= len(m); i++ {
+		if i == len(m) || m[i] == ' ' || m[i] == '-' {
+			if i > gs {
+				groups = append(groups, group{gs, i})
+			}
+			gs = i + 1
+		}
+	}
+	for i := range groups {
+		for j := len(groups) - 1; j >= i; j-- {
+			span := m[groups[i].start:groups[j].end]
+			if d := digitsOf(span); len(d) >= 13 && len(d) <= 19 && Luhn(d) {
+				return groups[i].start, groups[j].end, true
+			}
+		}
+	}
+	return 0, 0, false
 }
 
 // ibanPrefix finds the longest prefix of m (at least 15 characters without spaces) that is a valid

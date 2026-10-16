@@ -120,6 +120,9 @@ func Load(getenv func(string) string) (Config, error) {
 			errs = append(errs, fmt.Errorf("%s=%q: must be one of %s", name, raw, oneof))
 		}
 	}
+	if cfg.JWTIssuer == "" || cfg.JWTAudience == "" {
+		errs = append(errs, errors.New("MCPGW_JWT_ISSUER and MCPGW_JWT_AUDIENCE must not be empty (an empty value would skip the check)"))
+	}
 	if cfg.InjectionThreshold < 0 || cfg.InjectionThreshold > 1 {
 		errs = append(errs, fmt.Errorf("MCPGW_INJECTION_THRESHOLD=%v: must be within [0, 1]", cfg.InjectionThreshold))
 	}

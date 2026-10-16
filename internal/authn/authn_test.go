@@ -170,6 +170,30 @@ func TestJWKSCacheAndStaleLimit(t *testing.T) {
 	}
 }
 
+// Regression (M2 review): a hung issuer must not block verification while cached keys are
+// within the stale limit.
+func TestJWKSHungIssuerDoesNotBlock(t *testing.T) {
+	f := newFixture(t)
+	if _, err := f.v.Verify(t.Context(), f.sign(t, f.claims(), "k1")); err != nil {
+		t.Fatal(err)
+	}
+	hang := make(chan struct{})
+	defer close(hang)
+	f.jwks.Config.Handler = http.HandlerFunc(func(http.ResponseWriter, *http.Request) { <-hang })
+	f.clock.Advance(10 * time.Minute) // cache stale, within the stale limit
+	for range 5 {
+		c := f.claims()
+		c["iat"], c["exp"] = f.clock.Now().Unix(), f.clock.Now().Add(30*time.Minute).Unix()
+		start := time.Now()
+		if _, err := f.v.Verify(t.Context(), f.sign(t, c, "k1")); err != nil {
+			t.Fatal(err)
+		}
+		if d := time.Since(start); d > 200*time.Millisecond {
+			t.Fatalf("verification blocked for %s on a hung issuer", d)
+		}
+	}
+}
+
 func TestMiddlewareWWWAuthenticate(t *testing.T) {
 	f := newFixture(t)
 	h := f.v.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

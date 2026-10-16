@@ -99,17 +99,15 @@ func TestIdempotencyKeyRequired(t *testing.T) {
 }
 
 func TestIdempotencyInProgress(t *testing.T) {
-	up := &fakeUpstream{block: make(chan struct{})}
+	up := &fakeUpstream{block: make(chan struct{}), started: make(chan struct{}, 1)}
 	p := newPipeline(up)
 	meta := mcp.Meta{"idempotency_key": "refund-key-0003"}
 	var wg sync.WaitGroup
 	wg.Go(func() { _, _ = call(p, refundTool, refundArgs, meta) })
-	deadline := time.Now().Add(5 * time.Second)
-	for up.calls.Load() == 0 {
-		if time.Now().After(deadline) {
-			t.Fatal("first call never reached the upstream")
-		}
-		time.Sleep(time.Millisecond) //nolint:forbidigo // waiting for the first call to start
+	select {
+	case <-up.started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("first call never reached the upstream")
 	}
 	_, err := call(p, refundTool, refundArgs, meta)
 	if c := code(t, err); c != mcperr.CodeIdempotencyInProgress {
@@ -170,3 +168,20 @@ func (downStore) Release(context.Context, string, string, string) error {
 	return context.DeadlineExceeded
 }
 func (downStore) Ping(context.Context) error { return context.DeadlineExceeded }
+
+// Regression (M2 review): the same key and arguments on another tool is a conflict, not a replay.
+func TestIdempotencyKeyBoundToTool(t *testing.T) {
+	up := &fakeUpstream{}
+	p := newPipeline(up)
+	meta := mcp.Meta{"idempotency_key": "shared-key-0001"}
+	args := map[string]any{"customer_id": "C-1", "amount_cents": 100, "reason": "x"}
+	if _, err := call(p, refundTool, args, meta); err != nil {
+		t.Fatal(err)
+	}
+	other := catalog.Tool{Server: "ledger", Name: "record_promise_to_pay", Def: &mcp.Tool{Name: "ledger.record_promise_to_pay",
+		Annotations: &mcp.ToolAnnotations{}}}
+	_, err := call(p, other, args, meta)
+	if code(t, err) != mcperr.CodeIdempotencyConflict {
+		t.Fatalf("err = %v, want -32040", err)
+	}
+}

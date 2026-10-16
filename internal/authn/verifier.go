@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/ROBERTG99/mcp-gateway/internal/clock"
 )
@@ -43,10 +44,14 @@ type Options struct {
 type Verifier struct {
 	opts Options
 
+	flight singleflight.Group
+
 	mu          sync.Mutex
 	keys        map[string]*rsa.PublicKey
 	fetchedAt   time.Time
 	lastAttempt time.Time
+	backoff     time.Duration
+	refreshing  bool
 }
 
 // NewVerifier returns a verifier; keys are fetched lazily.
@@ -106,34 +111,79 @@ func (v *Verifier) Verify(ctx context.Context, token string) (Principal, error) 
 	return Principal{Tenant: c.Tenant, Agent: c.Subject, Scopes: c.Scopes, Issuer: c.Issuer, ExpiresAt: exp}, nil
 }
 
-// key returns the public key for kid, refreshing the JWKS when the cache is stale or the kid
-// unknown. While the issuer is unreachable, cached keys stay usable up to StaleLimit.
+// key returns the public key for kid. Known keys are served from the cache, without waiting on
+// the issuer, until StaleLimit; once older than CacheTTL a single background refresh is started.
+// Unknown kids (or keys past StaleLimit) need a synchronous fetch, which is single-flight and
+// throttled after failures, so a hung issuer never serialises verification.
 func (v *Verifier) key(ctx context.Context, kid string) (*rsa.PublicKey, error) {
+	now := v.opts.Clock.Now()
+	v.mu.Lock()
+	k, known := v.keys[kid]
+	age := now.Sub(v.fetchedAt)
+	switch {
+	case known && age < v.opts.CacheTTL:
+		v.mu.Unlock()
+		return k, nil
+	case known && age < v.opts.StaleLimit:
+		v.mu.Unlock()
+		v.refreshAsync()
+		return k, nil
+	}
+	throttled := now.Sub(v.lastAttempt) < v.backoff
+	v.mu.Unlock()
+	if throttled {
+		return nil, fmt.Errorf("unknown kid %q (jwks refresh throttled)", kid)
+	}
+	if err := v.refresh(ctx); err != nil {
+		return nil, err
+	}
 	v.mu.Lock()
 	defer v.mu.Unlock()
-	now := v.opts.Clock.Now()
-	k, known := v.keys[kid]
-	fresh := now.Sub(v.fetchedAt) < v.opts.CacheTTL
-	if known && fresh {
+	if k, ok := v.keys[kid]; ok {
 		return k, nil
 	}
-	// Unknown kids trigger at most one refresh per 10 s, so garbage tokens cannot hammer the issuer.
-	if fresh && !known && now.Sub(v.lastAttempt) < 10*time.Second {
-		return nil, fmt.Errorf("unknown kid %q", kid)
-	}
-	v.lastAttempt = now
-	keys, err := v.fetch(ctx)
-	if err == nil {
-		v.keys, v.fetchedAt = keys, now
-		if k, ok := keys[kid]; ok {
-			return k, nil
+	return nil, fmt.Errorf("unknown kid %q", kid)
+}
+
+// refresh fetches the JWKS once for all concurrent callers.
+func (v *Verifier) refresh(ctx context.Context) error {
+	ch := v.flight.DoChan("jwks", func() (any, error) {
+		fctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), v.opts.HTTPClient.Timeout+time.Second)
+		defer cancel()
+		keys, err := v.fetch(fctx)
+		now := v.opts.Clock.Now()
+		v.mu.Lock()
+		defer v.mu.Unlock()
+		v.lastAttempt = now
+		if err != nil {
+			v.backoff = min(max(2*v.backoff, time.Second), 30*time.Second)
+			return nil, err
 		}
-		return nil, fmt.Errorf("unknown kid %q", kid)
+		v.keys, v.fetchedAt, v.backoff = keys, now, 10*time.Second // unknown kids: at most one fetch per 10 s
+		return nil, nil
+	})
+	select {
+	case r := <-ch:
+		return r.Err
+	case <-ctx.Done():
+		return fmt.Errorf("jwks refresh: %w", ctx.Err())
 	}
-	if known && now.Sub(v.fetchedAt) < v.opts.StaleLimit {
-		return k, nil
+}
+
+func (v *Verifier) refreshAsync() {
+	v.mu.Lock()
+	if v.refreshing || v.opts.Clock.Now().Sub(v.lastAttempt) < v.backoff {
+		v.mu.Unlock()
+		return
 	}
-	return nil, fmt.Errorf("jwks unavailable: %w", err)
+	v.refreshing = true
+	v.mu.Unlock()
+	go func() {
+		_ = v.refresh(context.Background())
+		v.mu.Lock()
+		v.refreshing = false
+		v.mu.Unlock()
+	}()
 }
 
 type jwk struct {

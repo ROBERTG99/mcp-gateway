@@ -30,7 +30,7 @@ func dynamoEndpoint(t *testing.T) string {
 		return "http://localhost:8240"
 	}
 	ctx := context.Background()
-	c, err := testcontainers.Run(ctx, "amazon/dynamodb-local:latest",
+	c, err := testcontainers.Run(ctx, "amazon/dynamodb-local:3.3.2",
 		testcontainers.WithExposedPorts("8000/tcp"),
 		testcontainers.WithCmd("-jar", "DynamoDBLocal.jar", "-inMemory", "-sharedDb"),
 		testcontainers.WithWaitStrategy(wait.ForListeningPort("8000/tcp").WithStartupTimeout(2*time.Minute)))

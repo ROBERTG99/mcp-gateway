@@ -208,6 +208,16 @@ func (p *Pipeline) parseArgs(c *call) error {
 	if err := json.Unmarshal(c.args, &c.argsVal); err != nil {
 		return &jsonrpc.Error{Code: jsonrpc.CodeInvalidParams, Message: "arguments are not valid JSON"}
 	}
+	// tools/call always evaluates the policy with an arguments object: args = null is reserved
+	// for tools/list, where argument rules must not fire.
+	switch c.argsVal.(type) {
+	case nil:
+		c.args, c.argsVal = json.RawMessage("{}"), map[string]any{}
+		c.argsHash, _ = canonicaljson.SHA256Hex(c.args)
+	case map[string]any:
+	default:
+		return &jsonrpc.Error{Code: jsonrpc.CodeInvalidParams, Message: "arguments must be a JSON object"}
+	}
 	if m := c.meta(); m != nil {
 		c.runID, _ = m["run_id"].(string)
 	}
