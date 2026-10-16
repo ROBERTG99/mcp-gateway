@@ -1,0 +1,52 @@
+name: mcp-gateway
+
+x-build: &build
+  context: .
+  network: host
+  args:
+    HTTPS_PROXY: "${HTTPS_PROXY:-}"
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: mcpgw
+    ports: ["8220:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mcpgw"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7
+    ports: ["8230:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  upstream-echo:
+    build: { <<: *build, target: examples }
+    image: mcp-gateway-examples:dev
+    entrypoint: ["/usr/local/bin/upstream-echo", "--addr", ":8216"]
+    ports: ["8216:8216"]
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/mcp-gateway", "healthcheck", "http://127.0.0.1:8216/healthz"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  gateway:
+    build: { <<: *build, target: gateway }
+    image: mcp-gateway:dev
+    environment:
+      MCPGW_UPSTREAMS_FILE: /config/upstreams.yaml
+    ports: ["8200:8200", "8210:8210", "8211:8211"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      upstream-echo: { condition: service_healthy }

@@ -1,0 +1,4 @@
+upstreams:
+  - name: echo
+    url: http://upstream-echo:8216/mcp
+    timeout: 10s
