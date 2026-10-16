@@ -47,7 +47,7 @@ chore: configure commit attribution
 | T-16 | Idempotency store: memory and Redis | M2 | done | `go test -race ./internal/idempotency` ok: storetest.Run on memory and Redis (miniredis); `go test -tags=integration -run Real` ok on redis:7 (acquire/in-progress/conflict/replay, release, TTLs, tenant isolation, 24-way concurrent acquire → 1 winner) |
 | T-17 | Idempotency store: DynamoDB | M2 | done | `go test -tags=integration -run DynamoDB ./internal/idempotency` ok: storetest.Run on amazon/dynamodb-local (conditional writes, expires_at TTL); compose profile `dynamodb` on 8240; idempotency.Open selects redis/dynamodb/memory |
 | T-18 | Idempotency stage | M2 | done | `go test -race ./internal/pipeline` ok (TestIdempotencyReplay, TestIdempotencyConflict, TestIdempotencyKeyRequired, TestIdempotencyInProgress, TestIdempotencyReleasedOnUpstreamFailure, TestIdempotencyStoreDownFailsClosed); compose: same-key refund twice → 1 row, 2nd idempotent_replay=true |
-| T-19 | PII redaction | M2 | todo | |
+| T-19 | PII redaction | M2 | done | `go test -race ./internal/redact` ok (TestRedactorDetectors 18 cases incl. Luhn-invalid untouched, TestRedactorProperties: idempotent / Luhn-invalid never / Luhn-valid always, TestRedactJSONKeepsStructure, TestHandlerRedactsLogs); gateway logger wrapped with redact.Handler; audit and webhook use it in T-22/T-24 |
 | T-20 | Untrusted marking and injection scoring | M2 | todo | |
 | T-21 | Rate limit and daily budget | M2 | todo | |
 | T-22 | Audit writer | M3 | todo | |

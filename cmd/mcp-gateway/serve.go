@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/ROBERTG99/mcp-gateway/internal/config"
+	"github.com/ROBERTG99/mcp-gateway/internal/redact"
 	"github.com/ROBERTG99/mcp-gateway/internal/server"
 )
 
@@ -28,5 +29,6 @@ func cmdServe(ctx context.Context, _ []string, _, stderr io.Writer) int {
 func newLogger(w io.Writer, level string) *slog.Logger {
 	var l slog.Level
 	_ = l.UnmarshalText([]byte(level))
-	return slog.New(slog.NewJSONHandler(w, &slog.HandlerOptions{Level: l}))
+	// Every log line passes through the redactor (NFR-4: no secrets, tokens or raw PII in logs).
+	return slog.New(redact.NewHandler(slog.NewJSONHandler(w, &slog.HandlerOptions{Level: l}), redact.New()))
 }
