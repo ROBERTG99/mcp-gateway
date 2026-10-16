@@ -6,6 +6,8 @@ Build tracker for `docs/specs/000-build-spec.md` (originally `BUILD.md`). Tasks 
 
 - **`.claude/settings.json` could not be written by the agent.** The Claude Code auto-mode classifier denied the write as self-modification (both via Bash and the Write tool). The intended content is in `docs/harness/settings.json`; copy it to `.claude/settings.json` (`cp docs/harness/settings.json .claude/settings.json`) and commit. Until then the hooks in `.claude/hooks/` are not registered and the attribution key is enforced only by `.claude/rules/git-commits.md` and by hand.
 
+- **Maintainer review of 40 injection cases (spec §11).** The injection suite is labelled by construction from attack and benign templates in `internal/datagen/evals.go`; please read 40 cases (for example the first 20 of `evals/datasets/dev/injection.v1.jsonl` and the first 20 of `evals/datasets/test/injection.v1.jsonl`) and confirm the labels. Not done by the agent.
+
 ## Identity evidence (§1.1)
 
 `.claude/settings.json` and `.claude/rules/git-commits.md` were not pre-seeded (the initial commit contains only `BUILD.md`, `README.md`, `LICENSE`, `.gitignore`). The rule file was created and committed alone; see the item above for the settings file.
@@ -97,7 +99,7 @@ chore: configure commit attribution
 | T-30 | Approvals pages | M4 | done | approvals queue (status tabs) and detail with what-will-execute, approve with note, reject with reason; TestConsoleApprovalsRBAC (reviewer: no buttons, POST 403; approver: approve/reject audited; other tenant 404); TestTemplatesHaveNoInlineCode |
 | T-31 | Policy tester and upstreams pages | M4 | done | policy tester with six examples (allow, hold, deny, approval_granted) showing matched rules; upstreams page with health, breaker, tools; TestPolicyTesterShowsMatchedRules, TestUpstreamsPage |
 | T-32 | Playwright, axe, screenshots | M4 | done | make e2e (cd e2e && pnpm exec playwright test) on the compose stack: 33 passed (approvals.spec.ts keyboard-only approve + audit, reject with reason, reviewer no buttons and API 403; console.spec.ts axe 0 serious/critical on 7 screens at 375 and 1280 px in light and dark, no horizontal scroll, error and empty states); screenshots in docs/images/ |
-| T-33 | Eval datasets | M5 | todo | |
+| T-33 | Eval datasets | M5 | done | go run ./cmd/datagen evals (seed 20260): policy.v1 90/60, injection.v1 120/80 (100 malicious incl. 30 obfuscated, 100 benign incl. 30 hard negatives), redaction.v1 72/48 (90 with PII spans, 30 decoy-only); TestEvalDatasetsCountsAndSplits (counts, strata, unique ids, determinism, committed files == generator, test partition never rewritten) |
 | T-34 | Eval runner and reports | M5 | todo | |
 | T-35 | Chaos eval | M5 | todo | |
 | T-36 | Eval gate | M5 | todo | |
