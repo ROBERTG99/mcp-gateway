@@ -1,0 +1,60 @@
+version: "2"
+
+run:
+  timeout: 5m
+  build-tags: [integration]
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - depguard
+    - errorlint
+    - gosec
+    - misspell
+    - nolintlint
+    - noctx
+    - unconvert
+  settings:
+    depguard:
+      rules:
+        no-model-provider-sdks:
+          list-mode: lax
+          files: ["$all"]
+          deny:
+            - pkg: github.com/anthropics/anthropic-sdk-go
+              desc: "mcp-gateway calls no model (spec §2): provider SDKs are forbidden"
+            - pkg: github.com/openai/openai-go
+              desc: "mcp-gateway calls no model (spec §2): provider SDKs are forbidden"
+            - pkg: github.com/sashabaranov/go-openai
+              desc: "mcp-gateway calls no model (spec §2): provider SDKs are forbidden"
+            - pkg: google.golang.org/genai
+              desc: "mcp-gateway calls no model (spec §2): provider SDKs are forbidden"
+            - pkg: github.com/google/generative-ai-go
+              desc: "mcp-gateway calls no model (spec §2): provider SDKs are forbidden"
+            - pkg: github.com/aws/aws-sdk-go-v2/service/bedrockruntime
+              desc: "mcp-gateway calls no model (spec §2): provider SDKs are forbidden"
+            - pkg: github.com/cohere-ai/cohere-go
+              desc: "mcp-gateway calls no model (spec §2): provider SDKs are forbidden"
+            - pkg: github.com/ollama/ollama
+              desc: "mcp-gateway calls no model (spec §2): provider SDKs are forbidden"
+            - pkg: github.com/tmc/langchaingo
+              desc: "mcp-gateway calls no model (spec §2): provider SDKs are forbidden"
+    gosec:
+      excludes:
+        - G104 # duplicated by errcheck
+  exclusions:
+    generated: lax
+    presets: [std-error-handling]
+    rules:
+      - path: _test\.go
+        linters: [gosec, noctx, bodyclose]
+      - path: (cmd/datagen|cmd/evalgen|internal/datagen|cmd/loadgen)/
+        text: "G404" # math/rand with a fixed seed is the point of deterministic synthetic data
+        linters: [gosec]
+
+formatters:
+  enable: [gofmt, goimports]
+  settings:
+    goimports:
+      local-prefixes: [github.com/ROBERTG99/mcp-gateway]
