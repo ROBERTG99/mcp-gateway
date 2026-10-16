@@ -1,0 +1,66 @@
+{
+  "attribution": { "commit": "", "pr": "", "sessionUrl": false },
+  "permissions": {
+    "allow": [
+      "Bash(make *)",
+      "Bash(go test *)",
+      "Bash(go build *)",
+      "Bash(go run *)",
+      "Bash(go mod *)",
+      "Bash(docker compose *)",
+      "Bash(docker build *)",
+      "Bash(pnpm *)",
+      "Bash(uv run *)",
+      "Bash(uvx *)",
+      "Bash(helm *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git push -u origin *)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.local)",
+      "Bash(terraform apply *)",
+      "Bash(terraform destroy *)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(rm -rf /*)",
+      "Bash(rm -rf ~*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/session_start.py\"", "timeout": 600 }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Write|Edit",
+        "hooks": [
+          { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/pre_tool_guard.py\"" }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/post_edit_format.py\"" }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/stop_check.py\"", "timeout": 300 }
+        ]
+      }
+    ]
+  }
+}
