@@ -150,6 +150,7 @@ services:
       MCPGW_DATABASE_URL: postgres://mcpgw_app:${MCPGW_APP_DB_PASSWORD:-mcpgw_app}@postgres:5432/mcpgw?sslmode=disable
       MCPGW_UPSTREAMS_FILE: /config/upstreams.yaml
       MCPGW_JWKS_URL: http://dev-issuer:8212/.well-known/jwks.json
+      MCPGW_DEV_ISSUER_URL: http://dev-issuer:8212
       MCPGW_REDIS_URL: redis://redis:6379/0
       MCPGW_APPROVAL_WEBHOOK_URL: http://approval-sink:8080/approvals
       MCPGW_APPROVAL_WEBHOOK_SECRET: ${MCPGW_APPROVAL_WEBHOOK_SECRET:-dev-webhook-secret-change-me}

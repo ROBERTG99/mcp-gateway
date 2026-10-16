@@ -23,6 +23,8 @@ import (
 	"github.com/ROBERTG99/mcp-gateway/internal/authn"
 	"github.com/ROBERTG99/mcp-gateway/internal/catalog"
 	"github.com/ROBERTG99/mcp-gateway/internal/config"
+	"github.com/ROBERTG99/mcp-gateway/internal/console"
+	"github.com/ROBERTG99/mcp-gateway/internal/devissuer"
 	"github.com/ROBERTG99/mcp-gateway/internal/idempotency"
 	"github.com/ROBERTG99/mcp-gateway/internal/injection"
 	"github.com/ROBERTG99/mcp-gateway/internal/pipeline"
@@ -50,6 +52,7 @@ type App struct {
 
 	approvalStore *approvals.Postgres
 	approvals     *approvals.Service
+	console       *console.Console
 }
 
 // New wires the gateway components. A policy bundle that fails to compile does not stop the
@@ -98,6 +101,15 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	a.approvalStore = approvals.NewPostgres(a.db)
 	a.approvals = approvals.NewService(a.approvalStore, approvals.Options{TTL: cfg.ApprovalTTL, Redactor: a.redactor,
 		Audit: a.audit, Logger: logger})
+	issuerClient := &http.Client{Timeout: 5 * time.Second}
+	a.console, err = console.New(console.Deps{Verifier: a.verifier, Audit: audit.NewPostgresReader(a.db), Approvals: a.approvals,
+		Policy: a.policy, Catalog: a.catalog, Flush: a.audit.Flush,
+		Tokens: func(ctx context.Context, p devissuer.Persona) (string, error) {
+			return devissuer.RequestToken(ctx, issuerClient, cfg.DevIssuerURL, p.Tenant, p.Subject, p.Scopes)
+		}}, console.Options{SecureCookies: cfg.ConsoleSecureCookies, Logger: logger})
+	if err != nil {
+		return nil, fmt.Errorf("console: %w", err)
+	}
 	a.pipeline = pipeline.New(pipeline.Deps{Upstream: a.catalog, Policy: a.policy, Idempotency: idem, Logger: logger,
 		Audit: a.audit, Redactor: a.redactor, Approvals: a.approvals,
 		Limiter: ratelimit.NewRedis(a.redis, tenants, nil), LocalLimiter: ratelimit.NewMemory(tenants, nil),
@@ -131,6 +143,10 @@ func (a *App) AdminHandler() http.Handler {
 		r.Use(a.verifier.Middleware)
 		api.Mount(r)
 	})
+	if a.console != nil {
+		a.console.Mount(r)
+		r.Get("/", func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, "/console", http.StatusSeeOther) })
+	}
 	return r
 }
 

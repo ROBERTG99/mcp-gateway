@@ -1,0 +1,15 @@
+{{define "content"}}
+<h1>Sign in</h1>
+<p class="muted">Development sign-in: choose a persona. Tokens come from the dev issuer and expire within an hour.</p>
+<form method="post" action="/console/signin">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+  <fieldset class="personas" style="border:0;padding:0;margin:0">
+    <legend class="muted">Personas</legend>
+    {{range .Data}}
+    <div class="persona">
+      <button type="submit" name="persona" value="{{.ID}}"><span>{{.Title}}</span><small>{{.Description}}</small><small class="mono">{{.Subject}} · tenant {{.Tenant}} · {{range $i, $s := .Scopes}}{{if $i}}, {{end}}{{$s}}{{end}}</small></button>
+    </div>
+    {{end}}
+  </fieldset>
+</form>
+{{end}}

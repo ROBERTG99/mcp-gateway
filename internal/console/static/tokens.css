@@ -1,0 +1,73 @@
+/* mcp-gateway console design tokens: visual direction "switchboard" (spec §13). */
+:root {
+  --bg: #F5F6F4;
+  --surface: #FFFFFF;
+  --surface-2: #ECEEEA;
+  --ink: #16181D;
+  --ink-muted: #4B5059;
+  --line: #C9CCC6;
+  --accent: #C2410C;
+  --accent-ink: #FFFFFF;
+  --allow: #15803D;
+  --hold: #A16207;
+  --deny: #B91C1C;
+  --allow-bg: #E7F4EC;
+  --hold-bg: #FBF1DC;
+  --deny-bg: #FBE6E6;
+  --focus: #1D4ED8;
+  --font-sans: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Fira Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --radius: 4px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111317;
+    --surface: #1A1D23;
+    --surface-2: #232730;
+    --ink: #E7E9EE;
+    --ink-muted: #A9AEB8;
+    --line: #3A3F4A;
+    --accent: #FB923C;
+    --accent-ink: #111317;
+    --allow: #4ADE80;
+    --hold: #FACC15;
+    --deny: #F87171;
+    --allow-bg: #13281C;
+    --hold-bg: #2C2510;
+    --deny-bg: #2E1517;
+    --focus: #93C5FD;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #111317;
+  --surface: #1A1D23;
+  --surface-2: #232730;
+  --ink: #E7E9EE;
+  --ink-muted: #A9AEB8;
+  --line: #3A3F4A;
+  --accent: #FB923C;
+  --accent-ink: #111317;
+  --allow: #4ADE80;
+  --hold: #FACC15;
+  --deny: #F87171;
+  --allow-bg: #13281C;
+  --hold-bg: #2C2510;
+  --deny-bg: #2E1517;
+  --focus: #93C5FD;
+  color-scheme: dark;
+}
+
+@font-face { font-family: "Public Sans"; font-weight: 400; font-display: swap; src: url("fonts/public-sans-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Public Sans"; font-weight: 600; font-display: swap; src: url("fonts/public-sans-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Public Sans"; font-weight: 700; font-display: swap; src: url("fonts/public-sans-latin-700-normal.woff2") format("woff2"); }
+@font-face { font-family: "Fira Mono"; font-weight: 400; font-display: swap; src: url("fonts/fira-mono-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Fira Mono"; font-weight: 700; font-display: swap; src: url("fonts/fira-mono-latin-700-normal.woff2") format("woff2"); }
