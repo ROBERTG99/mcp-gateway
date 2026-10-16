@@ -18,10 +18,38 @@ ROBERTG99 <54124633+ROBERTG99@users.noreply.github.com> | ROBERTG99 <54124633+RO
 chore: configure commit attribution
 ```
 
+## Resume here (handoff, 2026-10-16)
+
+**State:** T-01..T-26 done and pushed on `claude/build-md-execution-blkq3q` (milestones M0, M1, M2 reviewed "ship"; M3 is T-22..T-27, with T-27 next). `make check-fast` is green; integration tests pass with Docker (testcontainers).
+
+**Next task: T-27 (scripted demo agent, `cmd/demo-agent`, `TestDemoScenarioSteps`)**, then run the `reviewer` subagent on M3 (`git diff c2bee71~1..HEAD`, M3 = T-22..T-27) and fix its blockers before M4.
+
+**Start of a new session (Claude Code on the web):**
+1. Start Docker (Appendix A) if `docker info` fails: write `/etc/docker/daemon.json` with the `mirror.gcr.io` mirror, `nohup dockerd &`, wait. (The SessionStart hook does this once `.claude/settings.json` is installed, see "Needs the maintainer".)
+2. `make tools` (idempotent; tools in `./bin`, built with the go.mod toolchain), `uv sync`.
+3. Re-read `docs/specs/000-build-spec.md`, this file, `docs/DECISIONS.md`, `git log --oneline -30`.
+
+**What exists (for orientation):**
+- Gateway assembly: `internal/server/server.go` (App: verifier, catalog, policy engine, Redis, Postgres pool, audit writer + Postgres sink/seq, approvals service + outbox worker + maintenance loop, pipeline, proxy, admin API on chi). `cmd/mcp-gateway`: serve, migrate, dev-issuer, dev-token, policy test/fmt, audit verify, healthcheck.
+- Pipeline (`internal/pipeline`): audit reserve -> args parse (I-JSON, object) -> rate limit -> key validation (writes) -> policy -> approval -> idempotency acquire -> upstream -> idempotency complete/release -> output marking -> audit commit. Not yet built: NFR-9 limits stage (`limits.go`, T-39: body/result/stored-result size and args depth), telemetry spans/metrics (T-37/T-38).
+- Example upstreams on Postgres (`internal/upstreams`, `cmd/upstream-*`), seed via `datagen seed` (compose profile `tools`). `cmd/upstream-echo` remains for tests/benchmarks (not in compose).
+- Compose (`compose.yaml`): postgres 8220, redis 8230, migrate (one-shot), dev-issuer 8212, upstream-ledger/crm/orders 8213-8215, gateway 8200/8210/8211, profile `dynamodb` (8240), profile `tools` (seed). Missing so far: `approval-sink` WireMock 8241 (needed for T-27 demo step 3 webhook), observability profile (T-38), chaos profile (T-35), `compose.test.yaml` (T-41). `make up`, `make seed`, `make dev-token` work; `make demo` (`scripts/demo.sh`) does not exist yet (T-44).
+- `demo-agent` already supports `--list` and `--call TOOL --args JSON --key K --approval-id ID`; T-27 adds the scripted scenario.
+- Admin API is mounted on :8200 (bearer only). The console (T-28..T-31) will add cookie sessions on the same router.
+- Not started: console (M4), evals (M5: `internal/datagen/evals.go` is a stub that returns an error), observability (M6), Helm/CI (M7), docs (M8: README is still the placeholder; ADR 0002 exists), release (M9).
+
+**Gotchas learned:**
+- Pipe exit codes: gate commits on `make check-fast >/tmp/cf.log 2>&1 && ...`, never through `| tail`.
+- When writing Go test strings with `\u200b`, check that the file holds the escape, not the literal character (staticcheck ST1018).
+- `docker compose build -q` with `network: host` fails silently ("additional privileges requested"); build without `-q`.
+- Schemathesis: `./scripts/schemathesis.sh` (uvx schemathesis 4.31.1) needs the stack up (`docker compose up -d --build --wait`).
+- `/usr/local/bin/golangci-lint` is an old system binary; the Makefile puts `./bin` first in PATH.
+
 ## Milestone reviews
 
 | Milestone | Reviewer verdict | Notes |
 |---|---|---|
+| M3 | pending | Run after T-27. |
 | M2 | ship (third pass) | Blockers fixed with regression tests: `arguments: null` bypassed argument rules (TestNullArgumentsDoNotBypassArgumentRules), JWKS refresh blocked under a mutex (TestJWKSHungIssuerDoesNotBlock), cards followed by digits escaped redaction, reload failure undocumented (ADR 0002 + stale readiness), docs citing not-yet-built metrics reworded. |
 | M1 | ship (second pass) | First pass "fix first": concurrent refunds could exceed the order amount (snapshot taken before the row lock). Fixed by locking first and summing in a second statement; deterministic `TestInsertRefundSerialisesOnOrderLock` fails on the old SQL, passes now. Suggestions applied: I-JSON checks in canonicaljson, raw dedup results, goose advisory lock, password guards, narrower gateway env. |
 | M0 | ship (second pass) | First pass "fix first": 2 blockers in `pre_tool_guard.py` (env-read and force-push/identity bypasses) fixed in "fix: close guard-hook bypasses..." with 18 regression cases; proxy/catalog races and fail-open session binding fixed; `TestSessionBoundToPrincipal` added. |
