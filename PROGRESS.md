@@ -51,7 +51,7 @@ chore: configure commit attribution
 | T-20 | Untrusted marking and injection scoring | M2 | done | `go test -race ./internal/injection ./internal/pipeline` ok (TestInjectionSignals 13 cases incl. hidden Unicode, homoglyphs, fullwidth, leetspeak; spec example scores ≥ 0.5 with override_phrase+tool_reference; TestUntrustedMarking; TestInjectionFlaggedAndBlocked mark/block); TestFindingsStored (integration) ok |
 | T-21 | Rate limit and daily budget | M2 | done | `go test -race ./internal/ratelimit ./internal/pipeline` ok (TestTokenBucketRedis memory+miniredis: 11th call in 1 s → rate_limited, retry_after ≤ 200 ms; TestDailyBudgetResets at 00:00 UTC; agent bucket; burst property; TestRateLimitStage -32042/-32043; limiter down → writes -32049, reads local bucket); TestTokenBucketRealRedis on redis:7 |
 | T-22 | Audit writer | M3 | done | `go test -race ./internal/audit ./internal/pipeline` ok (TestAuditChainAppend 1,000 events verified; TestAuditEnqueueLatency p99 ≤ 1 ms; TestAuditBackpressure; TestAuditDrainOnShutdown; TestEveryOutcomeAuditedOnce 7 outcomes → 7 events, card redacted; TestFailClosedAuditSaturated -32048 with no upstream call); integration TestAuditChainAppendPostgres: 2 writers, 1,000 events, one verified chain |
-| T-23 | Audit verify | M3 | todo | |
+| T-23 | Audit verify | M3 | done | `go test -tags=integration -run TestAuditVerifyDetectsTamper ./cmd/mcp-gateway` ok: 1,000 events verify exit 0; superuser UPDATE at chain_pos 500 → exit 1 naming that seq; --from-seq after it → 0; DELETE detected; scripts/tamper_audit.sh for the drill (make audit-verify on compose in T-44) |
 | T-24 | Approvals and webhook outbox | M3 | todo | |
 | T-25 | Approval retry path | M3 | todo | |
 | T-26 | Admin API and OpenAPI | M3 | todo | |
