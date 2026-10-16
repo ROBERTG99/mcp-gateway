@@ -1,12 +1,14 @@
 package server_test
 
 import (
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/ROBERTG99/mcp-gateway/internal/config"
@@ -25,11 +27,17 @@ func testConfig(t *testing.T, policyDir string) config.Config {
 	return cfg
 }
 
-func readyz(t *testing.T, a *server.App) int {
+// readyz returns the status code and the policy check (Postgres and Redis are not running in
+// this unit test, so overall readiness is 503 either way; the policy check is what is asserted).
+func readyz(t *testing.T, a *server.App) (int, string) {
 	t.Helper()
 	rec := httptest.NewRecorder()
 	a.AdminHandler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
-	return rec.Code
+	var body struct {
+		Checks map[string]string `json:"checks"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	return rec.Code, body.Checks["policy"]
 }
 
 func TestReadyzReflectsPolicyBundle(t *testing.T) {
@@ -38,8 +46,8 @@ func TestReadyzReflectsPolicyBundle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if code := readyz(t, good); code != http.StatusOK {
-		t.Fatalf("readyz with a good bundle = %d", code)
+	if _, check := readyz(t, good); check != "ok" {
+		t.Fatalf("policy check with a good bundle = %q", check)
 	}
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "authz.rego"), []byte("package mcpgw.authz\n\ndecision := {"), 0o600); err != nil {
@@ -49,7 +57,7 @@ func TestReadyzReflectsPolicyBundle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if code := readyz(t, bad); code != http.StatusServiceUnavailable {
-		t.Fatalf("readyz with a broken bundle = %d, want 503", code)
+	if code, check := readyz(t, bad); code != http.StatusServiceUnavailable || !strings.HasPrefix(check, "not loaded") {
+		t.Fatalf("readyz with a broken bundle = %d %q, want 503 not loaded", code, check)
 	}
 }

@@ -1,0 +1,427 @@
+openapi: 3.0.3
+info:
+  title: mcp-gateway admin API
+  version: 0.1.0
+  description: |
+    Admin API of mcp-gateway v0.1.0 (port 8200). Every /admin route needs a bearer JWT (RS256)
+    with the scope listed on the operation. Tenant-scoped principals only see their own tenant;
+    principals with tenant "*" see every tenant. Errors are RFC 9457 problem documents.
+  license:
+    name: MIT
+servers:
+  - url: http://localhost:8200
+security:
+  - bearerAuth: []
+paths:
+  /healthz:
+    get:
+      summary: Liveness
+      security: []
+      responses:
+        "200":
+          description: Process is alive
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+  /readyz:
+    get:
+      summary: Readiness (policy bundle, Postgres, Redis)
+      security: []
+      responses:
+        "200":
+          description: Ready
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Readiness" }
+        "503":
+          description: Not ready
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Readiness" }
+  /admin/audit:
+    get:
+      summary: Search the audit log (newest first, keyset pagination)
+      description: "Scope: mcpgw:audit:read or mcpgw:admin."
+      parameters:
+        - { name: tenant, in: query, schema: { type: string, minLength: 1, maxLength: 64 } }
+        - { name: agent, in: query, schema: { type: string, minLength: 1, maxLength: 128 } }
+        - { name: tool, in: query, description: "server.tool or tool", schema: { type: string, minLength: 1, maxLength: 128 } }
+        - name: status
+          in: query
+          schema: { type: string, enum: [ok, replayed, held, denied, rejected, error] }
+        - { name: approval_id, in: query, schema: { type: string, minLength: 1, maxLength: 64 } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: cursor, in: query, description: "next_cursor of the previous page", schema: { type: string, pattern: "^[1-9][0-9]{0,17}$" } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+      responses:
+        "200":
+          description: One page of events
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /admin/audit/verify:
+    get:
+      summary: Verify the audit hash chain
+      description: "Scope: mcpgw:audit:read or mcpgw:admin."
+      parameters:
+        - { name: from_seq, in: query, schema: { type: integer, minimum: 1, maximum: 9007199254740991 } }
+      responses:
+        "200":
+          description: Verification result (ok is false when the chain is broken)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VerifyResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /admin/audit/{seq}:
+    get:
+      summary: One audit event
+      description: "Scope: mcpgw:audit:read or mcpgw:admin."
+      parameters:
+        - { name: seq, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 9007199254740991 } }
+      responses:
+        "200":
+          description: The event
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditEvent" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /admin/approvals:
+    get:
+      summary: List approvals (newest first)
+      description: "Scope: mcpgw:approve, mcpgw:audit:read or mcpgw:admin."
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, approved, rejected, expired, consumed] }
+      responses:
+        "200":
+          description: Approvals
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [approvals]
+                properties:
+                  approvals:
+                    type: array
+                    items: { $ref: "#/components/schemas/Approval" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /admin/approvals/{id}:
+    get:
+      summary: One approval
+      description: "Scope: mcpgw:approve, mcpgw:audit:read or mcpgw:admin. Other tenants' approvals are 404."
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The approval
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Approval" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /admin/approvals/{id}:approve:
+    post:
+      summary: Approve a pending approval
+      description: "Scope: mcpgw:approve, same tenant as the approval."
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: { type: string, maxLength: 2000 }
+      responses:
+        "200": { $ref: "#/components/responses/Decision" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "410": { $ref: "#/components/responses/Gone" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /admin/approvals/{id}:reject:
+    post:
+      summary: Reject a pending approval
+      description: "Scope: mcpgw:approve, same tenant as the approval. A reason is required."
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 1, maxLength: 2000 }
+      responses:
+        "200": { $ref: "#/components/responses/Decision" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "410": { $ref: "#/components/responses/Gone" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /admin/policy/evaluate:
+    post:
+      summary: Evaluate the policy for an input (policy tester)
+      description: "Scope: mcpgw:admin or mcpgw:audit:read."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PolicyInput" }
+      responses:
+        "200":
+          description: Decision and the rules (reasons) that matched
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [decision, matched_rules, bundle_hash]
+                properties:
+                  decision: { $ref: "#/components/schemas/PolicyDecision" }
+                  matched_rules: { type: array, items: { type: string } }
+                  bundle_hash: { type: string }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /admin/policy/reload:
+    post:
+      summary: Reload the policy bundle (atomic; the previous bundle stays on failure)
+      description: "Scope: mcpgw:admin."
+      responses:
+        "200":
+          description: Reloaded
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [bundle_hash, reloaded]
+                properties:
+                  bundle_hash: { type: string }
+                  reloaded: { type: boolean }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /admin/upstreams:
+    get:
+      summary: Upstream health, tools and breaker state
+      description: "Scope: mcpgw:admin or mcpgw:audit:read."
+      responses:
+        "200":
+          description: Upstreams
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [upstreams]
+                properties:
+                  upstreams:
+                    type: array
+                    items: { $ref: "#/components/schemas/Upstream" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Unauthorized:
+      description: Missing or invalid bearer token
+      headers:
+        WWW-Authenticate:
+          schema: { type: string }
+      content:
+        text/plain:
+          schema: { type: string }
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Forbidden:
+      description: Missing scope or another tenant
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    NotFound:
+      description: Not found (or not visible to this tenant)
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Conflict:
+      description: The approval is not pending
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Gone:
+      description: The approval expired
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Unprocessable:
+      description: The policy could not be evaluated or reloaded
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Unavailable:
+      description: A dependency (Postgres, audit) is unavailable
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Decision:
+      description: Decision recorded
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [id, status, decided_by, decided_at]
+            properties:
+              id: { type: string, format: uuid }
+              status: { type: string, enum: [approved, rejected] }
+              decided_by: { type: string }
+              decided_at: { type: string, format: date-time }
+  schemas:
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string }
+    Readiness:
+      type: object
+      required: [ready, checks]
+      properties:
+        ready: { type: boolean }
+        checks:
+          type: object
+          additionalProperties: { type: string }
+    AuditEvent:
+      type: object
+      description: mcpgw.audit.v1 event; hash = sha256(prev_hash + canonical_json(event without hash)).
+      required: [seq, ts, tenant, agent, server, tool, args_redacted, args_sha256, decision, approval_id, idempotency_key, status, latency_ms, prev_hash, hash]
+      properties:
+        seq: { type: integer, minimum: 1 }
+        ts: { type: string, format: date-time }
+        tenant: { type: string }
+        agent: { type: string }
+        server: { type: string }
+        tool: { type: string }
+        args_redacted: {}
+        args_sha256: { type: string, pattern: "^[0-9a-f]{64}$" }
+        decision: { type: string, enum: [allow, require_approval, deny, none] }
+        approval_id: { type: string, nullable: true }
+        idempotency_key: { type: string, nullable: true }
+        status: { type: string, enum: [ok, replayed, held, denied, rejected, error] }
+        latency_ms: { type: number, minimum: 0 }
+        prev_hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+        hash: { type: string, pattern: "^[0-9a-f]{64}$" }
+    AuditPage:
+      type: object
+      required: [events]
+      properties:
+        events:
+          type: array
+          items: { $ref: "#/components/schemas/AuditEvent" }
+        next_cursor: { type: string }
+    VerifyResult:
+      type: object
+      required: [ok, checked]
+      properties:
+        ok: { type: boolean }
+        checked: { type: integer, minimum: 0 }
+        first_bad_seq: { type: integer }
+        reason: { type: string }
+        head_hash: { type: string }
+    Approval:
+      type: object
+      required: [id, tenant, agent, server, tool, args_sha256, args_redacted, reasons, status, expires_at, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        tenant: { type: string }
+        agent: { type: string }
+        server: { type: string }
+        tool: { type: string }
+        args_sha256: { type: string }
+        args_redacted: {}
+        reasons: { type: array, items: { type: string } }
+        idempotency_key: { type: string }
+        status: { type: string, enum: [pending, approved, rejected, expired, consumed] }
+        expires_at: { type: string, format: date-time }
+        decided_by: { type: string }
+        decided_at: { type: string, format: date-time }
+        decision_note: { type: string }
+        consumed_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    PolicyInput:
+      type: object
+      properties:
+        tenant: { type: string }
+        agent: { type: string }
+        scopes: { type: array, items: { type: string } }
+        server: { type: string }
+        tool: { type: string }
+        args: { nullable: true }
+        annotations: { type: object, additionalProperties: true }
+        approval:
+          type: object
+          nullable: true
+          required: [id, status]
+          properties:
+            id: { type: string }
+            status: { type: string }
+    PolicyDecision:
+      type: object
+      required: [allow, require_approval, reasons]
+      properties:
+        allow: { type: boolean }
+        require_approval: { type: boolean }
+        reasons: { type: array, items: { type: string } }
+    Upstream:
+      type: object
+      required: [name, url, up, breaker, tools, last_refresh]
+      properties:
+        name: { type: string }
+        url: { type: string }
+        up: { type: boolean }
+        breaker: { type: string, enum: [closed, open, half_open] }
+        tools: { type: array, items: { type: string } }
+        last_error: { type: string }
+        last_refresh: { type: string, format: date-time }

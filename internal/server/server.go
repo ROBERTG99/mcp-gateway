@@ -12,10 +12,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/ROBERTG99/mcp-gateway/internal/admin"
+	"github.com/ROBERTG99/mcp-gateway/internal/approvals"
 	"github.com/ROBERTG99/mcp-gateway/internal/audit"
 	"github.com/ROBERTG99/mcp-gateway/internal/authn"
 	"github.com/ROBERTG99/mcp-gateway/internal/catalog"
@@ -44,6 +47,9 @@ type App struct {
 	audit    *audit.Writer
 	seq      *audit.PostgresSeq
 	redactor *redact.Redactor
+
+	approvalStore *approvals.Postgres
+	approvals     *approvals.Service
 }
 
 // New wires the gateway components. A policy bundle that fails to compile does not stop the
@@ -89,8 +95,11 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		FlushInterval: cfg.AuditFlushInterval, Batch: cfg.AuditBatch, EnqueueTimeout: cfg.AuditEnqueueTimeout,
 		ShutdownTimeout: cfg.ShutdownTimeout, Logger: logger})
 	a.redactor = redact.New()
+	a.approvalStore = approvals.NewPostgres(a.db)
+	a.approvals = approvals.NewService(a.approvalStore, approvals.Options{TTL: cfg.ApprovalTTL, Redactor: a.redactor,
+		Audit: a.audit, Logger: logger})
 	a.pipeline = pipeline.New(pipeline.Deps{Upstream: a.catalog, Policy: a.policy, Idempotency: idem, Logger: logger,
-		Audit: a.audit, Redactor: a.redactor,
+		Audit: a.audit, Redactor: a.redactor, Approvals: a.approvals,
 		Limiter: ratelimit.NewRedis(a.redis, tenants, nil), LocalLimiter: ratelimit.NewMemory(tenants, nil),
 		Scorer: injection.New(injection.Options{}), Findings: store.NewFindings(a.db)},
 		pipeline.Options{IdempotencyTTL: cfg.IdempotencyTTL, IdempotencyLockTTL: cfg.IdempotencyLockTTL,
@@ -112,17 +121,35 @@ func (a *App) MCPHandler() http.Handler {
 
 // AdminHandler serves the admin API, console and health endpoints.
 func (a *App) AdminHandler() http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
+	r := chi.NewRouter()
+	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
-	mux.HandleFunc("GET /readyz", a.readyz)
-	return mux
+	r.Get("/readyz", a.readyz)
+	api := admin.New(a.adminDeps())
+	r.Group(func(r chi.Router) {
+		r.Use(a.verifier.Middleware)
+		api.Mount(r)
+	})
+	return r
 }
 
-func (a *App) readyz(w http.ResponseWriter, _ *http.Request) {
-	checks := map[string]string{"policy": "ok"}
+func (a *App) adminDeps() admin.Deps {
+	return admin.Deps{Verifier: a.verifier, Audit: audit.NewPostgresReader(a.db), Approvals: a.approvals,
+		Policy: a.policy, Catalog: a.catalog, Flush: a.audit.Flush}
+}
+
+func (a *App) readyz(w http.ResponseWriter, r *http.Request) {
+	checks := map[string]string{"policy": "ok", "postgres": "ok", "redis": "ok"}
 	ready := true
+	ctx, cancel := context.WithTimeout(r.Context(), 500*time.Millisecond)
+	defer cancel()
+	if err := a.db.Ping(ctx); err != nil {
+		checks["postgres"], ready = "unreachable", false
+	}
+	if err := a.redis.Ping(ctx).Err(); err != nil {
+		checks["redis"], ready = "unreachable", false
+	}
 	switch {
 	case !a.policy.Ready():
 		checks["policy"], ready = "not loaded: "+a.policy.LastError(), false
@@ -153,6 +180,13 @@ func (a *App) Run(ctx context.Context) error {
 	a.serve(g, gctx, a.cfg.MCPAddr, a.MCPHandler())
 	a.serve(g, gctx, a.cfg.AdminAddr, a.AdminHandler())
 	g.Go(func() error { return a.catalog.Run(gctx, a.cfg.CatalogRefresh) })
+	if a.cfg.ApprovalWebhookURL != "" {
+		ow := approvals.NewOutboxWorker(a.approvalStore,
+			approvals.NewWebhookNotifier(a.cfg.ApprovalWebhookURL, a.cfg.ApprovalWebhookSecret, nil),
+			approvals.OutboxOptions{Logger: a.logger})
+		g.Go(func() error { return ow.Run(gctx, time.Second) })
+	}
+	g.Go(func() error { return a.maintain(gctx) })
 	g.Go(func() error {
 		return a.policy.Watch(gctx, a.cfg.PolicyReload, func(err error) {
 			a.logger.Error("policy reload failed; keeping the previous bundle", "error", err)
@@ -162,6 +196,22 @@ func (a *App) Run(ctx context.Context) error {
 		return fmt.Errorf("gateway: %w", err)
 	}
 	return nil
+}
+
+// maintain expires overdue approvals every minute and applies retention every RetentionInterval.
+func (a *App) maintain(ctx context.Context) error {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			if err := a.approvals.Maintain(ctx); err != nil {
+				a.logger.Warn("approval maintenance failed", "error", err)
+			}
+		}
+	}
 }
 
 func (a *App) serve(g *errgroup.Group, ctx context.Context, addr string, h http.Handler) {

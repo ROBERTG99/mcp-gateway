@@ -87,7 +87,11 @@ func VerifyPostgres(ctx context.Context, pool *pgxpool.Pool, fromSeq int64) (Ver
 	startPos := int64(0)
 	anchor := GenesisHash
 	if fromSeq > 0 {
-		if err := pool.QueryRow(ctx, "SELECT chain_pos FROM audit_events WHERE seq = $1", fromSeq).Scan(&startPos); err != nil {
+		err := pool.QueryRow(ctx, "SELECT chain_pos FROM audit_events WHERE seq = $1", fromSeq).Scan(&startPos)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return VerifyResult{}, ErrEventNotFound
+		}
+		if err != nil {
 			return VerifyResult{}, fmt.Errorf("verify: seq %d: %w", fromSeq, err)
 		}
 		startPos--
