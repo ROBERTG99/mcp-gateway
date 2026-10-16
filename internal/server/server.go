@@ -52,6 +52,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		logger.Error("policy bundle failed to load; denying all calls", "error", err)
 	}
 	a.proxy = proxy.New(proxy.Options{Catalog: a.catalog, Caller: proxy.PassThrough(a.catalog), Logger: logger,
+		Visible:  proxy.PolicyVisibility(a.policy),
 		CacheTTL: cfg.PrincipalCacheTTL, MaxBodyBytes: cfg.MaxBodyBytes})
 	a.policy.OnReload(a.proxy.Invalidate)
 	return a, nil

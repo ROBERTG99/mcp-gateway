@@ -43,7 +43,7 @@ chore: configure commit attribution
 | T-12 | Dev issuer | M2 | done | `go test -race ./internal/devissuer` ok (TestDevIssuerTokenVerifies via authn.Verifier, TestDevIssuerDisabledByDefault, bad-request cases); compose: `make dev-token SCOPES=crm:read` token → `demo-agent --list` lists tools, no token → exit 1 (401) |
 | T-13 | Catalog and namespacing | M2 | done | `go test -race ./internal/catalog` ok (TestProxyAggregatesNamespaces: 7 tools, definitions identical except the name prefix; TestCatalogListChanged: upstream AddTool reaches the agent as notifications/tools/list_changed; concurrent refresh; upstream down) |
 | T-14 | Policy engine and Rego bundle | M2 | done | `make policy-test` → 24 Rego tests passed + TestDecisionContract (8 golden decisions: 5000 allow, 50000 hold, 150000 deny); TestBrokenBundleDeniesEverything, TestReloadIsAtomicAndKeepsLastGood, TestReadyzReflectsPolicyBundle (503 on broken bundle) |
-| T-15 | Policy-filtered discovery | M2 | todo | |
+| T-15 | Policy-filtered discovery | M2 | done | `go test -race ./internal/proxy` ok (TestToolsListFilteredByPolicy: crm:read → [crm.get_customer], all scopes → 7, t_gamma no ledger; TestHiddenToolLooksUnknown: -32602 identical shape; TestVisibilityFollowsPolicyReload: list_changed and empty list after reload) |
 | T-16 | Idempotency store: memory and Redis | M2 | todo | |
 | T-17 | Idempotency store: DynamoDB | M2 | todo | |
 | T-18 | Idempotency stage | M2 | todo | |
