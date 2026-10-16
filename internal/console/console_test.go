@@ -32,7 +32,11 @@ type env struct {
 	svc    *approvals.Service
 }
 
-func newEnv(t *testing.T) env {
+func newEnv(t testing.TB) env { return newEnvWith(t, nil) }
+
+// newEnvWith builds the console over an in-memory audit writer; reader, when set, replaces the
+// memory reader (the benchmark reads a seeded Postgres table).
+func newEnvWith(t testing.TB, reader audit.Reader) env {
 	t.Helper()
 	iss, err := devissuer.New(devissuer.Options{Enabled: true})
 	if err != nil {
@@ -52,8 +56,11 @@ func newEnv(t *testing.T) env {
 		t.Fatal(err)
 	}
 	svc := approvals.NewService(approvals.NewMemory(), approvals.Options{Audit: w})
+	if reader == nil {
+		reader = audit.MemoryReader{Sink: sink}
+	}
 	c, err := console.New(console.Deps{
-		Verifier: verifier, Audit: audit.MemoryReader{Sink: sink}, Approvals: svc, Policy: engine, Catalog: staticCatalog{},
+		Verifier: verifier, Audit: reader, Approvals: svc, Policy: engine, Catalog: staticCatalog{},
 		Flush: w.Flush,
 		Tokens: func(_ context.Context, p devissuer.Persona) (string, error) {
 			tok, _, err := iss.Mint(p.Tenant, p.Subject, p.Scopes, 0)
@@ -68,7 +75,7 @@ func newEnv(t *testing.T) env {
 	return env{srv: srv, issuer: iss, sink: sink, writer: w, svc: svc}
 }
 
-func client(t *testing.T) *http.Client {
+func client(t testing.TB) *http.Client {
 	t.Helper()
 	jar, _ := cookiejar.New(nil)
 	return &http.Client{Jar: jar, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
@@ -76,7 +83,7 @@ func client(t *testing.T) *http.Client {
 
 var csrfRe = regexp.MustCompile(`name="csrf" value="([^"]+)"`)
 
-func get(t *testing.T, c *http.Client, url string) (*http.Response, string) {
+func get(t testing.TB, c *http.Client, url string) (*http.Response, string) {
 	t.Helper()
 	resp, err := c.Get(url)
 	if err != nil {
@@ -87,7 +94,7 @@ func get(t *testing.T, c *http.Client, url string) (*http.Response, string) {
 	return resp, string(b)
 }
 
-func post(t *testing.T, c *http.Client, u string, form url.Values) (*http.Response, string) {
+func post(t testing.TB, c *http.Client, u string, form url.Values) (*http.Response, string) {
 	t.Helper()
 	resp, err := c.PostForm(u, form)
 	if err != nil {
@@ -99,7 +106,7 @@ func post(t *testing.T, c *http.Client, u string, form url.Values) (*http.Respon
 }
 
 // signIn signs in as persona and returns the page CSRF token.
-func signIn(t *testing.T, e env, c *http.Client, persona string) {
+func signIn(t testing.TB, e env, c *http.Client, persona string) {
 	t.Helper()
 	_, body := get(t, c, e.srv.URL+"/console/signin")
 	m := csrfRe.FindStringSubmatch(body)

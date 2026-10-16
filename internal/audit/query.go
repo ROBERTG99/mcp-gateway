@@ -72,6 +72,26 @@ func splitTool(t string) (server, tool string) {
 	return "", t
 }
 
+// validUUID reports whether s has the canonical 8-4-4-4-12 hex shape.
+func validUUID(s string) bool {
+	if len(s) != 36 {
+		return false
+	}
+	for i, c := range s {
+		switch i {
+		case 8, 13, 18, 23:
+			if c != '-' {
+				return false
+			}
+		default:
+			if !strings.ContainsRune("0123456789abcdefABCDEF", c) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // PostgresReader reads audit_events.
 type PostgresReader struct{ pool *pgxpool.Pool }
 
@@ -86,19 +106,43 @@ func (r *PostgresReader) List(ctx context.Context, f Filter) (Page, error) {
 		return Page{}, err
 	}
 	server, tool := splitTool(f.Tool)
-	var from, to any
+	// Only the filters in use reach the WHERE clause, so the planner can use the tenant and
+	// approval indexes instead of evaluating "($n = '' OR col = $n)" for every row.
+	var conds []string
+	var args []any
+	add := func(cond string, v any) {
+		args = append(args, v)
+		conds = append(conds, fmt.Sprintf(cond, len(args)))
+	}
+	for _, c := range []struct{ col, v string }{
+		{"tenant", f.Tenant}, {"agent", f.Agent}, {"server", server}, {"tool", tool}, {"status", f.Status},
+	} {
+		if c.v != "" {
+			add(c.col+" = $%d", c.v)
+		}
+	}
+	if f.ApprovalID != "" {
+		if !validUUID(f.ApprovalID) {
+			return Page{Events: []Event{}}, nil // no event can carry a malformed approval id
+		}
+		add("approval_id = $%d::uuid", f.ApprovalID)
+	}
 	if !f.From.IsZero() {
-		from = f.From
+		add("ts >= $%d", f.From)
 	}
 	if !f.To.IsZero() {
-		to = f.To
+		add("ts <= $%d", f.To)
 	}
-	rows, err := r.pool.Query(ctx, selectEvents+` WHERE ($1 = '' OR tenant = $1) AND ($2 = '' OR agent = $2)
-		AND ($3 = '' OR server = $3) AND ($4 = '' OR tool = $4) AND ($5 = '' OR status = $5)
-		AND ($6 = '' OR approval_id::text = $6) AND ($7::timestamptz IS NULL OR ts >= $7)
-		AND ($8::timestamptz IS NULL OR ts <= $8) AND ($9::bigint = 0 OR chain_pos < $9::bigint)
-		ORDER BY chain_pos DESC LIMIT $10::int`,
-		f.Tenant, f.Agent, server, tool, f.Status, f.ApprovalID, from, to, before, f.Limit+1)
+	if before > 0 {
+		add("chain_pos < $%d", before)
+	}
+	q := selectEvents
+	if len(conds) > 0 {
+		q += " WHERE " + strings.Join(conds, " AND ")
+	}
+	args = append(args, f.Limit+1)
+	q += fmt.Sprintf(" ORDER BY chain_pos DESC LIMIT $%d", len(args))
+	rows, err := r.pool.Query(ctx, q, args...)
 	if err != nil {
 		return Page{}, fmt.Errorf("list audit: %w", err)
 	}

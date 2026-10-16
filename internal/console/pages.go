@@ -9,13 +9,10 @@ import (
 // mountPages registers the session-protected pages.
 func (c *Console) mountPages(r chi.Router) {
 	r.Get("/audit", c.auditPage)
+	r.Get("/audit/{seq}", c.auditEventPage)
 	r.Get("/approvals", c.approvalsPage)
 	r.Get("/policy", c.policyPage)
 	r.Get("/upstreams", c.upstreamsPage)
-}
-
-func (c *Console) auditPage(w http.ResponseWriter, r *http.Request) {
-	c.render(w, r, http.StatusOK, "audit", view{Title: "Audit log", Nav: "audit"})
 }
 
 func (c *Console) approvalsPage(w http.ResponseWriter, r *http.Request) {
