@@ -36,7 +36,7 @@ chore: configure commit attribution
 | T-06 | Configuration | M1 | done | `go test -race ./internal/config` ok (TestConfigRejectsBadServerName, TestEnvOverrides, TestEnvValidation, TestTenantsFile, TestEveryVariableDocumented); 58 MCPGW_ variables in .env.example |
 | T-07 | Migrations and append-only trigger | M1 | done | `go test -tags=integration ./internal/store` ok (TestAuditAppendOnly: app role UPDATE/DELETE/TRUNCATE rejected, owner blocked by trigger; TestMigrateUpDown); `docker compose run --rm migrate migrate up/reset/up/status` all exit 0 |
 | T-08 | Synthetic data generator | M1 | done | `go test ./internal/datagen` ok (TestDatagenDeterministic: 600 customers, 2,000 orders, 1,500 notes, 40 injected); `go run ./cmd/datagen hash` twice → 874d425a745c689a556c570039eb6913a583186d343bde224a0206f50d665d8d both runs; TestSeedTwiceGivesEqualCounts (integration) ok |
-| T-09 | pkg/mcpserver | M1 | todo | |
+| T-09 | pkg/mcpserver | M1 | done | `go test -race ./pkg/...` ok (TestWriteToolDedup, TestWriteToolRequiresKey, TestWriteToolConcurrentDedup, Example); integration TestPostgresDedupConcurrent: 12 concurrent same-key writes → 1 refund row; RFC 8785 pkg/canonicaljson with rapid key-order property |
 | T-10 | Example upstreams and seed job | M1 | todo | |
 | T-11 | JWT authentication | M2 | todo | |
 | T-12 | Dev issuer | M2 | todo | |
