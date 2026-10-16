@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -65,16 +66,21 @@ func NewPostgresDedup(pool *pgxpool.Pool, schema string) (DedupStore, error) {
 	if !schemaName.MatchString(schema) {
 		return nil, fmt.Errorf("invalid schema name %q", schema)
 	}
-	return &pgDedup{pool: pool, table: pgx.Identifier{schema, "mcp_idempotency"}.Sanitize()}, nil
+	return &pgDedup{pool: pool, table: pgx.Identifier{schema, "mcp_idempotency"}.Sanitize(), timeout: 60 * time.Second}, nil
 }
 
 type pgDedup struct {
-	pool  *pgxpool.Pool
-	table string
+	pool    *pgxpool.Pool
+	table   string
+	timeout time.Duration // upper bound for one write transaction
 }
 
 func (p *pgDedup) Once(ctx context.Context, tenant, key, tool, argsSHA256 string,
 	fn func(ctx context.Context, tx Tx) (json.RawMessage, error)) (json.RawMessage, bool, error) {
+	// A write that started completes even if the caller disconnects (as real systems do); the
+	// caller's retry then replays the stored result instead of writing twice.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), p.timeout)
+	defer cancel()
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return nil, false, fmt.Errorf("dedup: begin: %w", err)

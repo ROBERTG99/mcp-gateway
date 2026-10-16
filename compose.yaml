@@ -13,6 +13,11 @@ x-db-env: &db-env
   MCPGW_READONLY_DB_PASSWORD: ${MCPGW_READONLY_DB_PASSWORD:-mcpgw_readonly}
   MCPGW_UPSTREAM_DB_PASSWORD: ${MCPGW_UPSTREAM_DB_PASSWORD:-mcpgw_upstream}
 
+x-upstream-env: &upstream-env
+  MCPGW_UPSTREAM_DATABASE_URL: postgres://mcpgw_upstream:${MCPGW_UPSTREAM_DB_PASSWORD:-mcpgw_upstream}@postgres:5432/mcpgw?sslmode=disable
+  MCPGW_FAULT_TIMEOUT_RATE: ${MCPGW_FAULT_TIMEOUT_RATE:-0}
+  MCPGW_FAULT_STALL: ${MCPGW_FAULT_STALL:-12s}
+
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -46,16 +51,60 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
 
-  upstream-echo:
+  upstream-ledger:
     build: { <<: *build, target: examples }
     image: mcp-gateway-examples:dev
-    entrypoint: ["/usr/local/bin/upstream-echo", "--addr", ":8216"]
-    ports: ["127.0.0.1:8216:8216"]
+    entrypoint: ["/usr/local/bin/upstream-ledger", "--addr", ":8213"]
+    environment:
+      <<: *upstream-env
+    ports: ["127.0.0.1:8213:8213"]
     healthcheck:
-      test: ["CMD", "/usr/local/bin/mcp-gateway", "healthcheck", "http://127.0.0.1:8216/healthz"]
+      test: ["CMD", "/usr/local/bin/mcp-gateway", "healthcheck", "http://127.0.0.1:8213/healthz"]
       interval: 2s
       timeout: 3s
       retries: 30
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  upstream-crm:
+    build: { <<: *build, target: examples }
+    image: mcp-gateway-examples:dev
+    entrypoint: ["/usr/local/bin/upstream-crm", "--addr", ":8214"]
+    environment:
+      <<: *upstream-env
+    ports: ["127.0.0.1:8214:8214"]
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/mcp-gateway", "healthcheck", "http://127.0.0.1:8214/healthz"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  upstream-orders:
+    build: { <<: *build, target: examples }
+    image: mcp-gateway-examples:dev
+    entrypoint: ["/usr/local/bin/upstream-orders", "--addr", ":8215"]
+    environment:
+      <<: *upstream-env
+    ports: ["127.0.0.1:8215:8215"]
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/mcp-gateway", "healthcheck", "http://127.0.0.1:8215/healthz"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  seed:
+    profiles: ["tools"]
+    build: { <<: *build, target: examples }
+    image: mcp-gateway-examples:dev
+    entrypoint: ["/usr/local/bin/datagen", "seed"]
+    environment:
+      <<: *upstream-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
 
   gateway:
     build: { <<: *build, target: gateway }
@@ -67,4 +116,6 @@ services:
     depends_on:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
-      upstream-echo: { condition: service_healthy }
+      upstream-ledger: { condition: service_healthy }
+      upstream-crm: { condition: service_healthy }
+      upstream-orders: { condition: service_healthy }

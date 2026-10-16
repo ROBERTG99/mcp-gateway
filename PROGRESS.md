@@ -37,7 +37,7 @@ chore: configure commit attribution
 | T-07 | Migrations and append-only trigger | M1 | done | `go test -tags=integration ./internal/store` ok (TestAuditAppendOnly: app role UPDATE/DELETE/TRUNCATE rejected, owner blocked by trigger; TestMigrateUpDown); `docker compose run --rm migrate migrate up/reset/up/status` all exit 0 |
 | T-08 | Synthetic data generator | M1 | done | `go test ./internal/datagen` ok (TestDatagenDeterministic: 600 customers, 2,000 orders, 1,500 notes, 40 injected); `go run ./cmd/datagen hash` twice → 874d425a745c689a556c570039eb6913a583186d343bde224a0206f50d665d8d both runs; TestSeedTwiceGivesEqualCounts (integration) ok |
 | T-09 | pkg/mcpserver | M1 | done | `go test -race ./pkg/...` ok (TestWriteToolDedup, TestWriteToolRequiresKey, TestWriteToolConcurrentDedup, Example); integration TestPostgresDedupConcurrent: 12 concurrent same-key writes → 1 refund row; RFC 8785 pkg/canonicaljson with rapid key-order property |
-| T-10 | Example upstreams and seed job | M1 | todo | |
+| T-10 | Example upstreams and seed job | M1 | done | `go test -tags=integration ./internal/upstreams` ok (TestLedgerRecordPromise, TestUpstreamTenantIsolation, TestUpstreamToolsListed, TestRefundValidation); compose: upstreams healthy on 8213-8215, `make seed` twice → accounts=600 customers=600 orders=2000 notes=1500 both runs; `demo-agent --list` → 7 namespaced tools |
 | T-11 | JWT authentication | M2 | todo | |
 | T-12 | Dev issuer | M2 | todo | |
 | T-13 | Catalog and namespacing | M2 | todo | |
