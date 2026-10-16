@@ -16,6 +16,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/ROBERTG99/mcp-gateway/internal/audit"
 	"github.com/ROBERTG99/mcp-gateway/internal/authn"
 	"github.com/ROBERTG99/mcp-gateway/internal/catalog"
 	"github.com/ROBERTG99/mcp-gateway/internal/config"
@@ -25,6 +26,7 @@ import (
 	"github.com/ROBERTG99/mcp-gateway/internal/policy"
 	"github.com/ROBERTG99/mcp-gateway/internal/proxy"
 	"github.com/ROBERTG99/mcp-gateway/internal/ratelimit"
+	"github.com/ROBERTG99/mcp-gateway/internal/redact"
 	"github.com/ROBERTG99/mcp-gateway/internal/store"
 )
 
@@ -39,6 +41,9 @@ type App struct {
 	pipeline *pipeline.Pipeline
 	redis    *redis.Client
 	db       *pgxpool.Pool
+	audit    *audit.Writer
+	seq      *audit.PostgresSeq
+	redactor *redact.Redactor
 }
 
 // New wires the gateway components. A policy bundle that fails to compile does not stop the
@@ -79,7 +84,13 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	if err != nil {
 		return nil, err
 	}
+	a.seq = audit.NewPostgresSeq(a.db, 1024)
+	a.audit = audit.NewWriter(audit.NewPostgresSink(a.db), a.seq, audit.Options{Buffer: cfg.AuditBuffer,
+		FlushInterval: cfg.AuditFlushInterval, Batch: cfg.AuditBatch, EnqueueTimeout: cfg.AuditEnqueueTimeout,
+		ShutdownTimeout: cfg.ShutdownTimeout, Logger: logger})
+	a.redactor = redact.New()
 	a.pipeline = pipeline.New(pipeline.Deps{Upstream: a.catalog, Policy: a.policy, Idempotency: idem, Logger: logger,
+		Audit: a.audit, Redactor: a.redactor,
 		Limiter: ratelimit.NewRedis(a.redis, tenants, nil), LocalLimiter: ratelimit.NewMemory(tenants, nil),
 		Scorer: injection.New(injection.Options{}), Findings: store.NewFindings(a.db)},
 		pipeline.Options{IdempotencyTTL: cfg.IdempotencyTTL, IdempotencyLockTTL: cfg.IdempotencyLockTTL,
@@ -130,7 +141,11 @@ func (a *App) Run(ctx context.Context) error {
 	if err := a.catalog.Refresh(ctx); err != nil {
 		a.logger.Warn("initial catalog refresh failed", "error", err)
 	}
+	if err := a.seq.Warm(ctx); err != nil {
+		a.logger.Error("audit sequence unavailable; calls fail with -32048 until Postgres is reachable", "error", err)
+	}
 	g, gctx := errgroup.WithContext(ctx)
+	g.Go(func() error { return a.audit.Run(gctx) })
 	a.serve(g, gctx, a.cfg.MCPAddr, a.MCPHandler())
 	a.serve(g, gctx, a.cfg.AdminAddr, a.AdminHandler())
 	g.Go(func() error { return a.catalog.Run(gctx, a.cfg.CatalogRefresh) })

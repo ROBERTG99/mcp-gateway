@@ -12,11 +12,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/ROBERTG99/mcp-gateway/internal/audit"
 	"github.com/ROBERTG99/mcp-gateway/internal/authn"
 	"github.com/ROBERTG99/mcp-gateway/internal/catalog"
 	"github.com/ROBERTG99/mcp-gateway/internal/clock"
@@ -25,6 +27,7 @@ import (
 	"github.com/ROBERTG99/mcp-gateway/internal/policy"
 	"github.com/ROBERTG99/mcp-gateway/internal/proxy"
 	"github.com/ROBERTG99/mcp-gateway/internal/ratelimit"
+	"github.com/ROBERTG99/mcp-gateway/internal/redact"
 	"github.com/ROBERTG99/mcp-gateway/pkg/canonicaljson"
 )
 
@@ -50,8 +53,17 @@ type Deps struct {
 	// for reads when Limiter fails. Writes fail closed (-32049).
 	Limiter      ratelimit.Limiter
 	LocalLimiter ratelimit.Limiter
-	Clock        clock.Clock
-	Logger       *slog.Logger
+	// Audit reserves a slot before any side effect and records one event per outcome.
+	Audit Auditor
+	// Redactor redacts arguments before they reach the audit log.
+	Redactor *redact.Redactor
+	Clock    clock.Clock
+	Logger   *slog.Logger
+}
+
+// Auditor reserves audit slots (audit.Writer).
+type Auditor interface {
+	Reserve(ctx context.Context) (*audit.Ticket, error)
 }
 
 // Options are the pipeline's tunables.
@@ -110,7 +122,8 @@ type call struct {
 	argsHash string          // SHA-256 of RFC 8785 canonical args
 	argsVal  any             // decoded arguments for policy
 
-	auditSeq int64 // allocated when the audit slot is reserved
+	auditSeq   int64 // allocated when the audit slot is reserved
+	approvalID string
 
 	idemKey  string
 	acquired bool
@@ -123,7 +136,20 @@ type call struct {
 func (p *Pipeline) CallTool(ctx context.Context, pc proxy.Call) (*mcp.CallToolResult, error) {
 	c := &call{principal: pc.Principal, tool: pc.Tool, req: pc.Request, start: p.deps.Clock.Now(),
 		requestID: newRequestID(), decision: "none", status: "error"}
+	// Audit first: without a slot nothing may happen (-32048, fail closed).
+	var ticket *audit.Ticket
+	if p.deps.Audit != nil {
+		t, err := p.deps.Audit.Reserve(ctx)
+		if err != nil {
+			p.deps.Logger.Error("audit saturated; rejecting call", "request_id", c.requestID, "error", err)
+			return nil, mcperr.New(mcperr.CodeAuditBackpressure, nil)
+		}
+		ticket, c.auditSeq = t, t.Seq()
+	}
 	res, err := p.run(ctx, c)
+	if ticket != nil {
+		ticket.Commit(p.auditEvent(c))
+	}
 	if err != nil {
 		var je *jsonrpc.Error
 		if !errors.As(err, &je) {
@@ -193,6 +219,31 @@ func (c *call) meta() mcp.Meta {
 		return nil
 	}
 	return c.req.Params.Meta
+}
+
+// auditEvent builds the event for the call's outcome, with redacted arguments.
+func (p *Pipeline) auditEvent(c *call) audit.Event {
+	args := json.RawMessage(`"[REDACTED:NO_REDACTOR]"`) // never store unredacted arguments
+	if p.deps.Redactor != nil {
+		args = p.deps.Redactor.JSON(c.args)
+	}
+	e := audit.Event{
+		TS: c.start, Tenant: c.principal.Tenant, Agent: c.principal.Agent, Server: c.tool.Server, Tool: c.tool.Name,
+		ArgsRedacted: args, ArgsSHA256: c.argsHash, Decision: c.decision, Status: c.status,
+		LatencyMS: float64(p.deps.Clock.Now().Sub(c.start).Microseconds()) / 1000,
+	}
+	if e.ArgsSHA256 == "" {
+		e.ArgsSHA256 = strings.Repeat("0", 64) // arguments were not valid JSON
+	}
+	if c.idemKey != "" {
+		k := c.idemKey
+		e.IdempotencyKey = &k
+	}
+	if c.approvalID != "" {
+		id := c.approvalID
+		e.ApprovalID = &id
+	}
+	return e
 }
 
 // rateLimit is the rate limit and budget stage.
@@ -280,6 +331,7 @@ func (p *Pipeline) finish(ctx context.Context, c *call, res *mcp.CallToolResult)
 		meta[k] = v
 	}
 	meta["mcpgw"] = map[string]any{
+		"audit_seq":         c.auditSeq,
 		"idempotent_replay": c.replayed,
 		"request_id":        c.requestID,
 		"injection":         map[string]any{"score": score.Score, "signals": score.Signals},
