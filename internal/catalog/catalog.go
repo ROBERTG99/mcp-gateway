@@ -97,6 +97,8 @@ type Catalog struct {
 	tools     map[string]Tool
 	listeners []func()
 	closed    bool
+
+	rebuildMu sync.Mutex // serialises snapshot-and-swap in rebuild
 }
 
 type upstream struct {
@@ -274,10 +276,10 @@ func (c *Catalog) refreshUpstream(ctx context.Context, u *upstream) error {
 			u.markDown(err, c.opts.Clock.Now())
 			return err
 		}
-		session = s
-		u.mu.Lock()
-		u.session = s
-		u.mu.Unlock()
+		session = c.adopt(u, s)
+		if session == nil {
+			return nil // catalog closed meanwhile
+		}
 	}
 	lctx, cancel := context.WithTimeout(ctx, u.cfg.Timeout)
 	defer cancel()
@@ -314,6 +316,26 @@ func (c *Catalog) refreshUpstream(ctx context.Context, u *upstream) error {
 	return nil
 }
 
+// adopt installs a freshly connected session unless another goroutine won the race (the new
+// session is closed and the existing one returned) or the catalog was closed (returns nil).
+func (c *Catalog) adopt(u *upstream, s *mcp.ClientSession) *mcp.ClientSession {
+	c.mu.RLock()
+	closed := c.closed
+	c.mu.RUnlock()
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	if closed {
+		_ = s.Close()
+		return nil
+	}
+	if u.session != nil {
+		_ = s.Close()
+		return u.session
+	}
+	u.session = s
+	return s
+}
+
 func (u *upstream) markDown(err error, now time.Time) {
 	u.mu.Lock()
 	u.up, u.lastErr, u.lastRefresh, u.tools = false, err.Error(), now, nil
@@ -322,6 +344,8 @@ func (u *upstream) markDown(err error, now time.Time) {
 
 // rebuild recomputes the tool map and notifies listeners when it changed.
 func (c *Catalog) rebuild() {
+	c.rebuildMu.Lock()
+	defer c.rebuildMu.Unlock()
 	next := map[string]Tool{}
 	for _, u := range c.upstreams {
 		u.mu.Lock()
@@ -399,14 +423,10 @@ func (c *Catalog) callOnce(ctx context.Context, u *upstream, t Tool, args json.R
 			u.breaker.Failure()
 			return nil, fmt.Errorf("%w: %w", ErrUpstreamUnavailable, err)
 		}
-		u.mu.Lock()
-		if u.session == nil {
-			u.session = s
-		} else {
-			_ = s.Close()
+		session = c.adopt(u, s)
+		if session == nil {
+			return nil, fmt.Errorf("%w: catalog closed", ErrUpstreamUnavailable)
 		}
-		session = u.session
-		u.mu.Unlock()
 	}
 	cctx, cancel := context.WithTimeout(ctx, u.cfg.Timeout)
 	defer cancel()

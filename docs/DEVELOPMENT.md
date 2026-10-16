@@ -30,7 +30,7 @@ make up && make seed  # full stack in Docker Compose, synthetic data
 make demo             # scripted scenario, prints PASS per step
 ```
 
-Ports are in the 8200-8299 range (see `compose.yaml` and the port table in `README.md`).
+Ports are in the 8200-8299 range (see `compose.yaml`; host ports are bound to 127.0.0.1).
 
 ## Conventions
 

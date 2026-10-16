@@ -106,6 +106,19 @@ def test_guard_blocks_test_partition_edit() -> None:
         "sendmail someone@example.com < note.txt",
         "git push origin v0.1.0",
         "git push --tags",
+        # reviewer findings (M0): bypasses that must be blocked
+        "cat /home/user/mcp-gateway/.env",
+        "cat config/.env",
+        "git log -1; cat .env",
+        "git commit -m x; cat .env",
+        "cp .env.example .env && cat .env",
+        "git push origin +main",
+        "git -C . push --force",
+        "git push -uf origin main",
+        "git -c user.name=x commit -m 'chore: x'",
+        "git commit --author='X <x@y.z>' -m 'chore: x'",
+        "cd evals/datasets/test && rm a.jsonl",
+        "echo x > evals/datasets/test/policy.v1.jsonl",
     ],
 )
 def test_guard_blocks_never_do_commands(command: str) -> None:
@@ -126,6 +139,10 @@ def test_guard_blocks_never_do_commands(command: str) -> None:
         "git log --format=%B | grep -E 'Co-Authored-By|Claude-Session|Generated with Claude Code'",
         "docker compose up -d --wait",
         "go test ./...",
+        "ls evals/datasets/test 2>/dev/null",
+        "git -C /tmp/x log --oneline",
+        "git commit -m 'docs: explain .env.example usage'",
+        "git push -u origin feature/x",
     ],
 )
 def test_guard_allows_normal_commands(command: str) -> None:
@@ -136,6 +153,23 @@ def test_guard_allows_normal_commands(command: str) -> None:
 def test_guard_blocks_env_file_edit() -> None:
     assert run_hook("pre_tool_guard.py", edit(str(ROOT / ".env.production"), "Write")).returncode == 2
     assert run_hook("pre_tool_guard.py", edit(str(ROOT / ".env.example"), "Write")).returncode == 0
+
+
+def test_guard_blocks_env_read_tool() -> None:
+    payload = {"hook_event_name": "PreToolUse", "tool_name": "Read",
+               "tool_input": {"file_path": str(ROOT / ".env.production")}}
+    assert run_hook("pre_tool_guard.py", payload).returncode == 2
+    payload["tool_input"] = {"file_path": str(ROOT / ".env.example")}
+    assert run_hook("pre_tool_guard.py", payload).returncode == 0
+
+
+def test_guard_scans_pr_body_file(tmp_path: Path) -> None:
+    body = tmp_path / "body.md"
+    body.write_text("Summary\n\nGenerated with Claude Code\n", encoding="utf-8")
+    assert run_hook("pre_tool_guard.py", bash(f"gh pr create --title t --body-file {body}")).returncode == 2
+    binary = tmp_path / "msg.bin"
+    binary.write_bytes(b"\xff\xfe\x00bad")
+    assert run_hook("pre_tool_guard.py", bash(f"git commit -F {binary}")).returncode == 0
 
 
 def test_guard_fails_open_on_garbage_input() -> None:

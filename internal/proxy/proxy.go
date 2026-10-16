@@ -81,7 +81,8 @@ type Proxy struct {
 type entry struct {
 	server    *mcp.Server
 	principal authn.Principal
-	lastUsed  time.Time // guarded by Proxy.mu
+	lastUsed  time.Time     // guarded by Proxy.mu
+	ready     chan struct{} // closed once the first sync completed
 
 	syncMu sync.Mutex
 	tools  map[string]string // full name -> definition fingerprint currently registered
@@ -118,21 +119,33 @@ func New(opts Options) *Proxy {
 // context it is also exposed to the SDK as token info, which binds sessions to that principal.
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if pr, ok := authn.FromContext(r.Context()); ok {
-		r = withTokenInfo(r, pr)
+		bound, ok := withTokenInfo(r, pr)
+		if !ok {
+			// Never serve an authenticated principal without binding its session to it.
+			w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token"`)
+			http.Error(w, "invalid token", http.StatusUnauthorized)
+			return
+		}
+		r = bound
 	}
 	p.handler.ServeHTTP(w, r)
 }
 
-func withTokenInfo(r *http.Request, pr authn.Principal) *http.Request {
+// withTokenInfo exposes the principal to the SDK as token info (the SDK keeps the token-info
+// context key private, so its own middleware is the only way to set it). The SDK then rejects
+// requests for a session that belongs to a different principal.
+func withTokenInfo(r *http.Request, pr authn.Principal) (*http.Request, bool) {
 	var out *http.Request
 	mw := auth.RequireBearerToken(func(context.Context, string, *http.Request) (*auth.TokenInfo, error) {
 		return &auth.TokenInfo{Scopes: pr.Scopes, Expiration: pr.ExpiresAt, UserID: pr.Key()}, nil
 	}, &auth.RequireBearerTokenOptions{AllowMissingExpiration: true})
-	mw(http.HandlerFunc(func(_ http.ResponseWriter, req *http.Request) { out = req })).ServeHTTP(discard{}, r)
-	if out == nil {
-		return r
+	if r.Header.Get("Authorization") == "" {
+		// The SDK middleware needs a bearer header; authentication already happened upstream.
+		r = r.Clone(r.Context())
+		r.Header.Set("Authorization", "Bearer verified")
 	}
-	return out
+	mw(http.HandlerFunc(func(_ http.ResponseWriter, req *http.Request) { out = req })).ServeHTTP(discard{}, r)
+	return out, out != nil
 }
 
 // discard is a ResponseWriter for the token-info adapter, which never writes on success.
@@ -172,6 +185,7 @@ func (p *Proxy) serverFor(r *http.Request) *mcp.Server {
 				&mcp.ServerOptions{Capabilities: &mcp.ServerCapabilities{Tools: &mcp.ToolCapabilities{ListChanged: true}}}),
 			principal: pr,
 			tools:     map[string]string{},
+			ready:     make(chan struct{}),
 		}
 		p.servers[key] = e
 	}
@@ -179,7 +193,9 @@ func (p *Proxy) serverFor(r *http.Request) *mcp.Server {
 	p.mu.Unlock()
 	if !ok {
 		p.sync(r.Context(), e)
+		close(e.ready)
 	}
+	<-e.ready
 	return e.server
 }
 
@@ -203,14 +219,15 @@ func (p *Proxy) evictLocked(now time.Time) {
 // sync makes the entry's server hold exactly the tools visible to its principal. Only actual
 // changes touch the server, so unchanged tool sets send no list_changed notification.
 func (p *Proxy) sync(ctx context.Context, e *entry) {
+	// Computing the wanted set under syncMu keeps concurrent syncs from applying stale sets.
+	e.syncMu.Lock()
+	defer e.syncMu.Unlock()
 	want := map[string]catalog.Tool{}
 	for _, t := range p.opts.Catalog.Tools() {
 		if p.opts.Visible == nil || p.opts.Visible(ctx, e.principal, t) {
 			want[t.FullName()] = t
 		}
 	}
-	e.syncMu.Lock()
-	defer e.syncMu.Unlock()
 	var remove []string
 	for name := range e.tools {
 		if _, ok := want[name]; !ok {
