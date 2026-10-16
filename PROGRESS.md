@@ -35,7 +35,7 @@ chore: configure commit attribution
 | T-05 | Walking skeleton in Docker | M0 | done | `go test -race ./internal/proxy -run TestProxyForwardsCall` ok; `docker compose up -d --build --wait` all healthy in 50 s; `go run ./cmd/demo-agent --list` → echo.echo |
 | T-06 | Configuration | M1 | done | `go test -race ./internal/config` ok (TestConfigRejectsBadServerName, TestEnvOverrides, TestEnvValidation, TestTenantsFile, TestEveryVariableDocumented); 58 MCPGW_ variables in .env.example |
 | T-07 | Migrations and append-only trigger | M1 | done | `go test -tags=integration ./internal/store` ok (TestAuditAppendOnly: app role UPDATE/DELETE/TRUNCATE rejected, owner blocked by trigger; TestMigrateUpDown); `docker compose run --rm migrate migrate up/reset/up/status` all exit 0 |
-| T-08 | Synthetic data generator | M1 | todo | |
+| T-08 | Synthetic data generator | M1 | done | `go test ./internal/datagen` ok (TestDatagenDeterministic: 600 customers, 2,000 orders, 1,500 notes, 40 injected); `go run ./cmd/datagen hash` twice → sha256 874d425a…5d8d both runs; TestSeedTwiceGivesEqualCounts (integration) ok |
 | T-09 | pkg/mcpserver | M1 | todo | |
 | T-10 | Example upstreams and seed job | M1 | todo | |
 | T-11 | JWT authentication | M2 | todo | |
