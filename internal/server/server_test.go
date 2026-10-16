@@ -20,6 +20,7 @@ func testConfig(t *testing.T, policyDir string) config.Config {
 		t.Fatal(err)
 	}
 	cfg.UpstreamsFile = "../../config/upstreams.yaml"
+	cfg.TenantsFile = "../../config/tenants.yaml"
 	cfg.PolicyDir = policyDir
 	return cfg
 }

@@ -49,7 +49,7 @@ chore: configure commit attribution
 | T-18 | Idempotency stage | M2 | done | `go test -race ./internal/pipeline` ok (TestIdempotencyReplay, TestIdempotencyConflict, TestIdempotencyKeyRequired, TestIdempotencyInProgress, TestIdempotencyReleasedOnUpstreamFailure, TestIdempotencyStoreDownFailsClosed); compose: same-key refund twice → 1 row, 2nd idempotent_replay=true |
 | T-19 | PII redaction | M2 | done | `go test -race ./internal/redact` ok (TestRedactorDetectors 18 cases incl. Luhn-invalid untouched, TestRedactorProperties: idempotent / Luhn-invalid never / Luhn-valid always, TestRedactJSONKeepsStructure, TestHandlerRedactsLogs); gateway logger wrapped with redact.Handler; audit and webhook use it in T-22/T-24 |
 | T-20 | Untrusted marking and injection scoring | M2 | done | `go test -race ./internal/injection ./internal/pipeline` ok (TestInjectionSignals 13 cases incl. hidden Unicode, homoglyphs, fullwidth, leetspeak; spec example scores ≥ 0.5 with override_phrase+tool_reference; TestUntrustedMarking; TestInjectionFlaggedAndBlocked mark/block); TestFindingsStored (integration) ok |
-| T-21 | Rate limit and daily budget | M2 | todo | |
+| T-21 | Rate limit and daily budget | M2 | done | `go test -race ./internal/ratelimit ./internal/pipeline` ok (TestTokenBucketRedis memory+miniredis: 11th call in 1 s → rate_limited, retry_after ≤ 200 ms; TestDailyBudgetResets at 00:00 UTC; agent bucket; burst property; TestRateLimitStage -32042/-32043; limiter down → writes -32049, reads local bucket); TestTokenBucketRealRedis on redis:7 |
 | T-22 | Audit writer | M3 | todo | |
 | T-23 | Audit verify | M3 | todo | |
 | T-24 | Approvals and webhook outbox | M3 | todo | |

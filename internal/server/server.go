@@ -24,6 +24,7 @@ import (
 	"github.com/ROBERTG99/mcp-gateway/internal/pipeline"
 	"github.com/ROBERTG99/mcp-gateway/internal/policy"
 	"github.com/ROBERTG99/mcp-gateway/internal/proxy"
+	"github.com/ROBERTG99/mcp-gateway/internal/ratelimit"
 	"github.com/ROBERTG99/mcp-gateway/internal/store"
 )
 
@@ -74,7 +75,12 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	if err != nil {
 		return nil, fmt.Errorf("MCPGW_DATABASE_URL: %w", err)
 	}
+	tenants, err := config.LoadTenants(cfg.TenantsFile)
+	if err != nil {
+		return nil, err
+	}
 	a.pipeline = pipeline.New(pipeline.Deps{Upstream: a.catalog, Policy: a.policy, Idempotency: idem, Logger: logger,
+		Limiter: ratelimit.NewRedis(a.redis, tenants, nil), LocalLimiter: ratelimit.NewMemory(tenants, nil),
 		Scorer: injection.New(injection.Options{}), Findings: store.NewFindings(a.db)},
 		pipeline.Options{IdempotencyTTL: cfg.IdempotencyTTL, IdempotencyLockTTL: cfg.IdempotencyLockTTL,
 			MaxStoredResult: int(cfg.MaxStoredResultBytes), InjectionThreshold: cfg.InjectionThreshold,

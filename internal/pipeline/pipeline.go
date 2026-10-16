@@ -24,6 +24,7 @@ import (
 	"github.com/ROBERTG99/mcp-gateway/internal/mcperr"
 	"github.com/ROBERTG99/mcp-gateway/internal/policy"
 	"github.com/ROBERTG99/mcp-gateway/internal/proxy"
+	"github.com/ROBERTG99/mcp-gateway/internal/ratelimit"
 	"github.com/ROBERTG99/mcp-gateway/pkg/canonicaljson"
 )
 
@@ -45,8 +46,12 @@ type Deps struct {
 	Idempotency idempotency.Store
 	Scorer      Scorer
 	Findings    FindingSink
-	Clock       clock.Clock
-	Logger      *slog.Logger
+	// Limiter enforces rate limits and budgets (Redis); LocalLimiter is the per-process fallback
+	// for reads when Limiter fails. Writes fail closed (-32049).
+	Limiter      ratelimit.Limiter
+	LocalLimiter ratelimit.Limiter
+	Clock        clock.Clock
+	Logger       *slog.Logger
 }
 
 // Options are the pipeline's tunables.
@@ -135,6 +140,9 @@ func (p *Pipeline) run(ctx context.Context, c *call) (*mcp.CallToolResult, error
 		c.status = "rejected"
 		return nil, err
 	}
+	if err := p.rateLimit(ctx, c); err != nil {
+		return nil, err
+	}
 	if err := p.authorize(ctx, c); err != nil {
 		return nil, err
 	}
@@ -185,6 +193,36 @@ func (c *call) meta() mcp.Meta {
 		return nil
 	}
 	return c.req.Params.Meta
+}
+
+// rateLimit is the rate limit and budget stage.
+func (p *Pipeline) rateLimit(ctx context.Context, c *call) error {
+	if p.deps.Limiter == nil {
+		return nil
+	}
+	v, err := p.deps.Limiter.Allow(ctx, c.principal.Tenant, c.principal.Agent)
+	if err != nil {
+		if !c.tool.ReadOnly() || p.deps.LocalLimiter == nil {
+			p.deps.Logger.Error("rate limiter unavailable; refusing write", "request_id", c.requestID, "error", err)
+			c.status = "error"
+			return mcperr.New(mcperr.CodeDependencyUnavailable, map[string]any{"dependency": "rate_limiter"})
+		}
+		p.deps.Logger.Warn("rate limiter unavailable; reads use the local bucket", "request_id", c.requestID, "error", err)
+		if v, err = p.deps.LocalLimiter.Allow(ctx, c.principal.Tenant, c.principal.Agent); err != nil {
+			c.status = "error"
+			return mcperr.New(mcperr.CodeDependencyUnavailable, map[string]any{"dependency": "rate_limiter"})
+		}
+	}
+	switch {
+	case v.Allowed:
+		return nil
+	case v.Reason == ratelimit.BudgetExhausted:
+		c.status = "rejected"
+		return mcperr.New(mcperr.CodeBudgetExhausted, map[string]any{"resets_at": v.ResetsAt.UTC().Format(time.RFC3339)})
+	default:
+		c.status = "rejected"
+		return mcperr.New(mcperr.CodeRateLimited, map[string]any{"retry_after_ms": v.RetryAfter.Milliseconds()})
+	}
 }
 
 // authorize is the policy stage: deny -> -32044 with the reasons.
