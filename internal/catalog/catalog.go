@@ -89,6 +89,8 @@ type Options struct {
 // Catalog is the live view of upstream tools. It is safe for concurrent use.
 type Catalog struct {
 	opts      Options
+	baseCtx   context.Context // cancelled by Close; parent of background refreshes
+	cancel    context.CancelFunc
 	mu        sync.RWMutex
 	upstreams []*upstream
 	byName    map[string]*upstream
@@ -126,7 +128,8 @@ func New(cfgs []UpstreamConfig, opts Options) *Catalog {
 	if opts.BreakerCooldown == 0 {
 		opts.BreakerCooldown = 30 * time.Second
 	}
-	c := &Catalog{opts: opts, byName: map[string]*upstream{}, tools: map[string]Tool{}}
+	baseCtx, cancel := context.WithCancel(context.Background())
+	c := &Catalog{opts: opts, baseCtx: baseCtx, cancel: cancel, byName: map[string]*upstream{}, tools: map[string]Tool{}}
 	for _, cfg := range cfgs {
 		if cfg.Timeout == 0 {
 			cfg.Timeout = 10 * time.Second
@@ -221,6 +224,7 @@ func (c *Catalog) Close() {
 	c.mu.Lock()
 	c.closed = true
 	c.mu.Unlock()
+	c.cancel()
 	for _, u := range c.upstreams {
 		u.mu.Lock()
 		if u.session != nil {
@@ -236,7 +240,7 @@ func (c *Catalog) connect(ctx context.Context, u *upstream) (*mcp.ClientSession,
 		ToolListChangedHandler: func(context.Context, *mcp.ToolListChangedRequest) {
 			// Re-list in the background: the handler runs on the session's read loop.
 			go func() {
-				rctx, cancel := context.WithTimeout(context.Background(), u.cfg.Timeout)
+				rctx, cancel := context.WithTimeout(c.baseCtx, u.cfg.Timeout)
 				defer cancel()
 				if err := c.refreshUpstream(rctx, u); err != nil {
 					c.opts.Logger.Warn("upstream list_changed refresh failed", "upstream", u.cfg.Name, "error", err)

@@ -169,7 +169,7 @@ func (p *Proxy) serverFor(r *http.Request) *mcp.Server {
 	if !ok {
 		e = &entry{
 			server: mcp.NewServer(&mcp.Implementation{Name: "mcp-gateway", Version: version.Version()},
-				&mcp.ServerOptions{HasTools: true}),
+				&mcp.ServerOptions{Capabilities: &mcp.ServerCapabilities{Tools: &mcp.ToolCapabilities{ListChanged: true}}}),
 			principal: pr,
 			tools:     map[string]string{},
 		}

@@ -51,7 +51,7 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) error {
 	serve := func(addr string, h http.Handler) {
 		srv := &http.Server{Addr: addr, Handler: h, ReadHeaderTimeout: 10 * time.Second}
 		g.Go(func() error {
-			ln, err := net.Listen("tcp", addr)
+			ln, err := (&net.ListenConfig{}).Listen(gctx, "tcp", addr)
 			if err != nil {
 				return fmt.Errorf("listen %s: %w", addr, err)
 			}
