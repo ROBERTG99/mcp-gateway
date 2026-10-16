@@ -41,7 +41,7 @@ chore: configure commit attribution
 | T-10 | Example upstreams and seed job | M1 | done | `go test -tags=integration ./internal/upstreams` ok (TestLedgerRecordPromise, TestUpstreamTenantIsolation, TestUpstreamToolsListed, TestRefundValidation); compose: upstreams healthy on 8213-8215, `make seed` twice → accounts=600 customers=600 orders=2000 notes=1500 both runs; `demo-agent --list` → 7 namespaced tools |
 | T-11 | JWT authentication | M2 | done | `go test -race ./internal/authn` ok (TestJWTRejectsWrongAudience, TestJWTRejectsAlgNone incl. HS256 key confusion, expired/iss/kid/tenant/lifetime cases, TestJWKSCacheAndStaleLimit, TestMiddlewareWWWAuthenticate) |
 | T-12 | Dev issuer | M2 | done | `go test -race ./internal/devissuer` ok (TestDevIssuerTokenVerifies via authn.Verifier, TestDevIssuerDisabledByDefault, bad-request cases); compose: `make dev-token SCOPES=crm:read` token → `demo-agent --list` lists tools, no token → exit 1 (401) |
-| T-13 | Catalog and namespacing | M2 | todo | |
+| T-13 | Catalog and namespacing | M2 | done | `go test -race ./internal/catalog` ok (TestProxyAggregatesNamespaces: 7 tools, definitions identical except the name prefix; TestCatalogListChanged: upstream AddTool reaches the agent as notifications/tools/list_changed; concurrent refresh; upstream down) |
 | T-14 | Policy engine and Rego bundle | M2 | todo | |
 | T-15 | Policy-filtered discovery | M2 | todo | |
 | T-16 | Idempotency store: memory and Redis | M2 | todo | |
