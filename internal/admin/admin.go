@@ -380,23 +380,14 @@ func (a *API) decide(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) evaluate(w http.ResponseWriter, r *http.Request) {
-	var in policy.Input
 	raw, err := io.ReadAll(io.LimitReader(r.Body, 256<<10))
-	if err == nil && !bytes.HasPrefix(bytes.TrimSpace(raw), []byte("{")) {
-		err = errors.New("body must be a JSON object")
-	}
+	var in policy.Input
 	if err == nil {
-		err = json.Unmarshal(raw, &in)
-	}
-	if err == nil {
-		err = validApprovalField(raw)
+		in, err = ParsePolicyInput(raw)
 	}
 	if err != nil {
 		Problem(w, http.StatusBadRequest, "body must be a policy input object: "+err.Error())
 		return
-	}
-	if in.Scopes == nil {
-		in.Scopes = []string{}
 	}
 	d, err := a.deps.Policy.Evaluate(r.Context(), in)
 	if err != nil && !errors.Is(err, policy.ErrNotLoaded) {
@@ -416,6 +407,24 @@ func (a *API) reload(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) upstreams(w http.ResponseWriter, _ *http.Request) {
 	JSON(w, http.StatusOK, map[string]any{"upstreams": a.deps.Catalog.Status()})
+}
+
+// ParsePolicyInput decodes a policy tester input (the PolicyInput schema of api/openapi.yaml).
+func ParsePolicyInput(raw []byte) (policy.Input, error) {
+	var in policy.Input
+	if !bytes.HasPrefix(bytes.TrimSpace(raw), []byte("{")) {
+		return in, errors.New("body must be a JSON object")
+	}
+	if err := json.Unmarshal(raw, &in); err != nil {
+		return in, err //nolint:wrapcheck // reported to the client as is
+	}
+	if err := validApprovalField(raw); err != nil {
+		return in, err
+	}
+	if in.Scopes == nil {
+		in.Scopes = []string{}
+	}
+	return in, nil
 }
 
 // validApprovalField enforces the PolicyInput schema for approval: null or {id: string, status: string}.

@@ -1,8 +1,6 @@
 package console
 
 import (
-	"net/http"
-
 	"github.com/go-chi/chi/v5"
 )
 
@@ -15,13 +13,6 @@ func (c *Console) mountPages(r chi.Router) {
 	r.Post("/approvals/{id}/approve", c.decide(true))
 	r.Post("/approvals/{id}/reject", c.decide(false))
 	r.Get("/policy", c.policyPage)
+	r.Post("/policy", c.evaluatePolicy)
 	r.Get("/upstreams", c.upstreamsPage)
-}
-
-func (c *Console) policyPage(w http.ResponseWriter, r *http.Request) {
-	c.render(w, r, http.StatusOK, "policy", view{Title: "Policy tester", Nav: "policy"})
-}
-
-func (c *Console) upstreamsPage(w http.ResponseWriter, r *http.Request) {
-	c.render(w, r, http.StatusOK, "upstreams", view{Title: "Upstreams", Nav: "upstreams"})
 }

@@ -1,3 +1,25 @@
 {{define "content"}}
-<h1>{{.Title}}</h1>
+<h1>Upstreams</h1>
+{{if .Error}}{{else if .Data}}
+<div class="table-wrap">
+<table>
+  <caption class="muted">Health comes from the last catalog refresh; an open breaker stops calls until a probe succeeds.</caption>
+  <thead><tr><th scope="col">Name</th><th scope="col">Health</th><th scope="col">Breaker</th><th scope="col">Tools</th><th scope="col" class="hide-sm">URL</th><th scope="col" class="hide-sm">Last refresh (UTC)</th></tr></thead>
+  <tbody>
+  {{range .Data}}
+  <tr class="row">
+    <td class="mono">{{.Name}}</td>
+    <td>{{if .Up}}<span class="status up">up</span>{{else}}<span class="status down">down</span>{{end}}{{if .LastError}}<div class="muted">{{.LastError}}</div>{{end}}</td>
+    <td><span class="status {{.Breaker}}">{{.Breaker}}</span></td>
+    <td>{{if .Tools}}<ul class="rules">{{range .Tools}}<li class="mono">{{.}}</li>{{end}}</ul>{{else}}<span class="muted">none</span>{{end}}</td>
+    <td class="hide-sm mono">{{.URL}}</td>
+    <td class="hide-sm mono">{{ts .LastRefresh}}</td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+</div>
+{{else}}
+<div class="empty"><p><strong>No upstreams are configured.</strong></p><p>Add servers to <span class="mono">MCPGW_UPSTREAMS_FILE</span> and restart the gateway.</p></div>
+{{end}}
 {{end}}

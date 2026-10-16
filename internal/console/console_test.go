@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ROBERTG99/mcp-gateway/internal/approvals"
 	"github.com/ROBERTG99/mcp-gateway/internal/audit"
@@ -22,7 +23,14 @@ import (
 
 type staticCatalog struct{}
 
-func (staticCatalog) Status() []catalog.UpstreamStatus { return nil }
+func (staticCatalog) Status() []catalog.UpstreamStatus {
+	return []catalog.UpstreamStatus{
+		{Name: "orders", URL: "http://upstream-orders:8215/mcp", Up: true, Breaker: catalog.BreakerClosed,
+			Tools: []string{"orders.get_order", "orders.refund_order"}, LastRefresh: time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)},
+		{Name: "ledger", URL: "http://upstream-ledger:8213/mcp", Up: false, Breaker: catalog.BreakerOpen,
+			LastError: "dial tcp: connection refused", LastRefresh: time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)},
+	}
+}
 
 type env struct {
 	srv    *httptest.Server
