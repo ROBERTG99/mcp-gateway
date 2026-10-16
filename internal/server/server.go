@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/errgroup"
 
@@ -19,9 +20,11 @@ import (
 	"github.com/ROBERTG99/mcp-gateway/internal/catalog"
 	"github.com/ROBERTG99/mcp-gateway/internal/config"
 	"github.com/ROBERTG99/mcp-gateway/internal/idempotency"
+	"github.com/ROBERTG99/mcp-gateway/internal/injection"
 	"github.com/ROBERTG99/mcp-gateway/internal/pipeline"
 	"github.com/ROBERTG99/mcp-gateway/internal/policy"
 	"github.com/ROBERTG99/mcp-gateway/internal/proxy"
+	"github.com/ROBERTG99/mcp-gateway/internal/store"
 )
 
 // App is an assembled gateway.
@@ -34,6 +37,7 @@ type App struct {
 	proxy    *proxy.Proxy
 	pipeline *pipeline.Pipeline
 	redis    *redis.Client
+	db       *pgxpool.Pool
 }
 
 // New wires the gateway components. A policy bundle that fails to compile does not stop the
@@ -66,9 +70,15 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	if err != nil {
 		return nil, fmt.Errorf("idempotency store: %w", err)
 	}
-	a.pipeline = pipeline.New(pipeline.Deps{Upstream: a.catalog, Policy: a.policy, Idempotency: idem, Logger: logger},
+	a.db, err = pgxpool.New(ctx, cfg.DatabaseURL) // connects lazily; readiness pings it
+	if err != nil {
+		return nil, fmt.Errorf("MCPGW_DATABASE_URL: %w", err)
+	}
+	a.pipeline = pipeline.New(pipeline.Deps{Upstream: a.catalog, Policy: a.policy, Idempotency: idem, Logger: logger,
+		Scorer: injection.New(injection.Options{}), Findings: store.NewFindings(a.db)},
 		pipeline.Options{IdempotencyTTL: cfg.IdempotencyTTL, IdempotencyLockTTL: cfg.IdempotencyLockTTL,
-			MaxStoredResult: int(cfg.MaxStoredResultBytes)})
+			MaxStoredResult: int(cfg.MaxStoredResultBytes), InjectionThreshold: cfg.InjectionThreshold,
+			InjectionMode: cfg.InjectionMode})
 	a.proxy = proxy.New(proxy.Options{Catalog: a.catalog, Caller: a.pipeline, Logger: logger,
 		Visible:  proxy.PolicyVisibility(a.policy),
 		CacheTTL: cfg.PrincipalCacheTTL, MaxBodyBytes: cfg.MaxBodyBytes})
@@ -110,6 +120,7 @@ func (a *App) readyz(w http.ResponseWriter, _ *http.Request) {
 func (a *App) Run(ctx context.Context) error {
 	defer a.catalog.Close()
 	defer func() { _ = a.redis.Close() }()
+	defer a.db.Close()
 	if err := a.catalog.Refresh(ctx); err != nil {
 		a.logger.Warn("initial catalog refresh failed", "error", err)
 	}

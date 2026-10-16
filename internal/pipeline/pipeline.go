@@ -43,6 +43,8 @@ type Deps struct {
 	Upstream    Upstream
 	Policy      Policy
 	Idempotency idempotency.Store
+	Scorer      Scorer
+	Findings    FindingSink
 	Clock       clock.Clock
 	Logger      *slog.Logger
 }
@@ -52,6 +54,8 @@ type Options struct {
 	IdempotencyTTL     time.Duration // completed record lifetime (default 24 h)
 	IdempotencyLockTTL time.Duration // in-progress lock lifetime (default 30 s)
 	MaxStoredResult    int           // bytes; larger results are not stored for replay (default 256 KiB)
+	InjectionThreshold float64       // score at or above which output is flagged (default 0.5)
+	InjectionMode      string        // "mark" (default) or "block"
 }
 
 // Pipeline executes governed tool calls. It implements proxy.Caller.
@@ -79,6 +83,12 @@ func New(deps Deps, opts Options) *Pipeline {
 	if opts.MaxStoredResult == 0 {
 		opts.MaxStoredResult = 256 << 10
 	}
+	if opts.InjectionThreshold == 0 {
+		opts.InjectionThreshold = 0.5
+	}
+	if opts.InjectionMode == "" {
+		opts.InjectionMode = "mark"
+	}
 	return &Pipeline{deps: deps, opts: opts}
 }
 
@@ -94,6 +104,8 @@ type call struct {
 	args     json.RawMessage // raw arguments ("{}" when absent)
 	argsHash string          // SHA-256 of RFC 8785 canonical args
 	argsVal  any             // decoded arguments for policy
+
+	auditSeq int64 // allocated when the audit slot is reserved
 
 	idemKey  string
 	acquired bool
@@ -146,7 +158,7 @@ func (p *Pipeline) run(ctx context.Context, c *call) (*mcp.CallToolResult, error
 		}
 	}
 	c.status = "ok"
-	return p.finish(c, res), nil
+	return p.finish(ctx, c, res), nil
 }
 
 func (p *Pipeline) parseArgs(c *call) error {
@@ -222,16 +234,20 @@ func (p *Pipeline) forward(ctx context.Context, c *call) (*mcp.CallToolResult, e
 	return res, nil
 }
 
-// finish adds the gateway's _meta to the result.
-func (p *Pipeline) finish(c *call, res *mcp.CallToolResult) *mcp.CallToolResult {
-	out := *res
+// finish marks the output as untrusted, scores it and adds the gateway's _meta.
+func (p *Pipeline) finish(ctx context.Context, c *call, res *mcp.CallToolResult) *mcp.CallToolResult {
+	out, score := p.mark(ctx, c, res)
 	meta := mcp.Meta{}
 	for k, v := range res.Meta {
 		meta[k] = v
 	}
-	meta["mcpgw"] = map[string]any{"idempotent_replay": c.replayed, "request_id": c.requestID}
+	meta["mcpgw"] = map[string]any{
+		"idempotent_replay": c.replayed,
+		"request_id":        c.requestID,
+		"injection":         map[string]any{"score": score.Score, "signals": score.Signals},
+	}
 	out.Meta = meta
-	return &out
+	return out
 }
 
 func newRequestID() string {

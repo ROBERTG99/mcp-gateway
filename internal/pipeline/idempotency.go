@@ -71,7 +71,7 @@ func (p *Pipeline) acquire(ctx context.Context, c *call) (*mcp.CallToolResult, b
 			return nil, false, nil // forward: the upstream replays its own stored result
 		}
 		c.replayed, c.status = true, "replayed"
-		return p.finish(c, sr.Result), true, nil
+		return p.finish(ctx, c, sr.Result), true, nil
 	case idempotency.InProgress:
 		c.status = "rejected"
 		return nil, true, mcperr.New(mcperr.CodeIdempotencyInProgress, nil)
