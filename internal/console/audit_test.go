@@ -59,7 +59,7 @@ func TestAuditPageFiltersAndEmptyState(t *testing.T) {
 		t.Fatal("from filter (datetime-local) not applied")
 	}
 	_, body = get(t, reviewer, e.srv.URL+"/console/audit?limit=bogus")
-	if !strings.Contains(body, `role="alert"`) || !strings.Contains(body, "Retry") {
+	if !strings.Contains(body, `role="alert"`) || !strings.Contains(body, "Reset filters") {
 		t.Fatalf("error banner: %s", body)
 	}
 	_, body = get(t, reviewer, e.srv.URL+"/console/audit?verify=1")
@@ -108,5 +108,36 @@ func TestAuditPagePagination(t *testing.T) {
 	_, body = get(t, c, fmt.Sprintf("%s/console/audit?limit=5&cursor=%s", e.srv.URL, cursor))
 	if strings.Count(body, `class="row"`) != 5 {
 		t.Fatalf("second page: %s", body)
+	}
+}
+
+// brokenChain reads the memory sink but reports a tampered chain.
+type brokenChain struct{ audit.MemoryReader }
+
+func (brokenChain) Verify(context.Context, int64) (audit.VerifyResult, error) {
+	return audit.VerifyResult{Checked: 1, FirstBadSeq: 2, Reason: "hash does not match the event content"}, nil
+}
+
+// TestAuditVerifyFailureKeepsList: a broken chain is announced as such, links the first bad
+// event, and leaves the event list on screen.
+func TestAuditVerifyFailureKeepsList(t *testing.T) {
+	sink := audit.NewMemorySink()
+	e := newEnvWith(t, envOpts{reader: brokenChain{audit.MemoryReader{Sink: sink}}})
+	// Seed through the env's writer, then copy the chain into the sink behind the broken reader.
+	seedAudit(t, e)
+	if _, err := sink.Append(context.Background(), e.sink.Events()); err != nil {
+		t.Fatal(err)
+	}
+	c := client(t)
+	signIn(t, e, c, "security-reviewer")
+	_, body := get(t, c, e.srv.URL+"/console/audit?status=ok&verify=1")
+	if !strings.Contains(body, "Audit chain verification failed.") || !strings.Contains(body, `href="/console/audit/2"`) {
+		t.Fatalf("verify failure banner: %s", body)
+	}
+	if strings.Count(body, `class="row"`) != 2 {
+		t.Fatalf("the event list must stay visible after a failed verification: %s", body)
+	}
+	if !strings.Contains(body, `status=ok`) || !strings.Contains(body, "verify=1") {
+		t.Fatalf("verify link must keep the filters: %s", body)
 	}
 }

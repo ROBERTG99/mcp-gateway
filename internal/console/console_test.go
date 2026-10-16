@@ -16,6 +16,7 @@ import (
 	"github.com/ROBERTG99/mcp-gateway/internal/audit"
 	"github.com/ROBERTG99/mcp-gateway/internal/authn"
 	"github.com/ROBERTG99/mcp-gateway/internal/catalog"
+	"github.com/ROBERTG99/mcp-gateway/internal/clock"
 	"github.com/ROBERTG99/mcp-gateway/internal/console"
 	"github.com/ROBERTG99/mcp-gateway/internal/devissuer"
 	"github.com/ROBERTG99/mcp-gateway/internal/policy"
@@ -40,11 +41,20 @@ type env struct {
 	svc    *approvals.Service
 }
 
-func newEnv(t testing.TB) env { return newEnvWith(t, nil) }
+func newEnv(t testing.TB) env { return newEnvWith(t, envOpts{}) }
 
-// newEnvWith builds the console over an in-memory audit writer; reader, when set, replaces the
-// memory reader (the benchmark reads a seeded Postgres table).
-func newEnvWith(t testing.TB, reader audit.Reader) env {
+// envOpts adjust the test console: reader replaces the memory audit reader (the benchmark reads a
+// seeded Postgres table), personas replace the defaults, clock drives session expiry, and noSignin
+// leaves the token source unset.
+type envOpts struct {
+	reader   audit.Reader
+	personas []devissuer.Persona
+	clock    clock.Clock
+	noSignin bool
+}
+
+// newEnvWith builds the console over an in-memory audit writer.
+func newEnvWith(t testing.TB, o envOpts) env {
 	t.Helper()
 	iss, err := devissuer.New(devissuer.Options{Enabled: true})
 	if err != nil {
@@ -64,17 +74,21 @@ func newEnvWith(t testing.TB, reader audit.Reader) env {
 		t.Fatal(err)
 	}
 	svc := approvals.NewService(approvals.NewMemory(), approvals.Options{Audit: w})
+	reader := o.reader
 	if reader == nil {
 		reader = audit.MemoryReader{Sink: sink}
 	}
+	tokens := console.TokenSource(func(_ context.Context, p devissuer.Persona) (string, error) {
+		tok, _, err := iss.Mint(p.Tenant, p.Subject, p.Scopes, 0)
+		return tok, err
+	})
+	if o.noSignin {
+		tokens = nil
+	}
 	c, err := console.New(console.Deps{
 		Verifier: verifier, Audit: reader, Approvals: svc, Policy: engine, Catalog: staticCatalog{},
-		Flush: w.Flush,
-		Tokens: func(_ context.Context, p devissuer.Persona) (string, error) {
-			tok, _, err := iss.Mint(p.Tenant, p.Subject, p.Scopes, 0)
-			return tok, err
-		},
-	}, console.Options{})
+		Flush: w.Flush, Tokens: tokens, Personas: o.personas,
+	}, console.Options{Clock: o.clock})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,9 +217,21 @@ func TestCSRFRejected(t *testing.T) {
 	if resp, _ := get(t, c, e.srv.URL+"/console/audit"); resp.StatusCode != 200 {
 		t.Fatalf("session lost: %d", resp.StatusCode)
 	}
-	// Unknown persona.
-	_, body := get(t, client(t), e.srv.URL+"/console/signin")
-	_ = body
+	// Expired or forged sign-in forms and unknown personas get a page with a fresh form, not plain text.
+	c2 := client(t)
+	_, body := get(t, c2, e.srv.URL+"/console/signin")
+	resp, body := post(t, c2, e.srv.URL+"/console/signin", url.Values{"csrf": {csrfOf(t, body)}, "persona": {"nobody"}})
+	if resp.StatusCode != http.StatusBadRequest || !strings.Contains(body, "Unknown persona") || !csrfRe.MatchString(body) {
+		t.Fatalf("unknown persona: %d %s", resp.StatusCode, body)
+	}
+	resp, body = post(t, client(t), e.srv.URL+"/console/signin", url.Values{"persona": {"approver"}, "csrf": {"stale"}})
+	if resp.StatusCode != http.StatusForbidden || !strings.Contains(body, `role="alert"`) || !strings.Contains(body, "expired") {
+		t.Fatalf("expired sign-in form: %d %s", resp.StatusCode, body)
+	}
+	resp, body = post(t, c, e.srv.URL+"/console/signout", url.Values{"csrf": {"forged"}})
+	if resp.StatusCode != http.StatusForbidden || !strings.Contains(body, `role="alert"`) || !strings.Contains(body, "<h1>") {
+		t.Fatalf("forged POST in a session: %d %s", resp.StatusCode, body)
+	}
 }
 
 func TestThemesAndStatic(t *testing.T) {
@@ -222,5 +248,53 @@ func TestThemesAndStatic(t *testing.T) {
 	}
 	if resp, _ := get(t, c, e.srv.URL+"/console/static/fonts/public-sans-latin-400-normal.woff2"); resp.StatusCode != 200 {
 		t.Fatal("self-hosted font missing")
+	}
+}
+
+// TestConsoleRequiresScope: pages need the scopes of the matching admin API routes, not only a
+// session; navigation lists only the pages the principal may open.
+func TestConsoleRequiresScope(t *testing.T) {
+	personas := append(devissuer.Personas(), devissuer.Persona{ID: "crm-agent", Title: "CRM agent", Tenant: "t_beta",
+		Subject: "agent-crm", Scopes: []string{"crm:read"}})
+	e := newEnvWith(t, envOpts{personas: personas})
+	c := client(t)
+	signIn(t, e, c, "crm-agent")
+	for _, path := range []string{"/console", "/console/audit", "/console/audit/1", "/console/approvals", "/console/policy", "/console/upstreams"} {
+		resp, body := get(t, c, e.srv.URL+path)
+		if resp.StatusCode != http.StatusForbidden || !strings.Contains(body, `role="alert"`) {
+			t.Fatalf("%s without scope: %d", path, resp.StatusCode)
+		}
+	}
+	approver := client(t)
+	signIn(t, e, approver, "approver")
+	_, body := get(t, approver, e.srv.URL+"/console/approvals")
+	if strings.Contains(body, `href="/console/upstreams"`) == false || !strings.Contains(body, `href="/console/approvals"`) {
+		t.Fatalf("approver navigation: %s", body)
+	}
+}
+
+func TestConsoleSessionExpires(t *testing.T) {
+	fake := clock.NewFake(time.Now())
+	e := newEnvWith(t, envOpts{clock: fake})
+	c := client(t)
+	signIn(t, e, c, "security-reviewer")
+	if resp, _ := get(t, c, e.srv.URL+"/console/audit"); resp.StatusCode != 200 {
+		t.Fatalf("fresh session: %d", resp.StatusCode)
+	}
+	fake.Advance(2 * time.Hour)
+	if resp, _ := get(t, c, e.srv.URL+"/console/audit"); resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/console/signin" {
+		t.Fatalf("expired session: %d %s", resp.StatusCode, resp.Header.Get("Location"))
+	}
+}
+
+func TestSigninDisabledWithoutIssuer(t *testing.T) {
+	e := newEnvWith(t, envOpts{noSignin: true})
+	c := client(t)
+	resp, body := get(t, c, e.srv.URL+"/console/signin")
+	if resp.StatusCode != 200 || !strings.Contains(body, "Sign-in is not configured") || strings.Contains(body, `name="persona"`) {
+		t.Fatalf("sign-in page: %d %s", resp.StatusCode, body)
+	}
+	if resp, _ := post(t, c, e.srv.URL+"/console/signin", url.Values{"persona": {"platform-engineer"}}); resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("sign-in POST: %d", resp.StatusCode)
 	}
 }

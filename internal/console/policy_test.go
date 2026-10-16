@@ -55,7 +55,7 @@ func TestUpstreamsPage(t *testing.T) {
 	signIn(t, e, c, "security-reviewer")
 	_, body := get(t, c, e.srv.URL+"/console/upstreams")
 	for _, want := range []string{"orders", "orders.refund_order", `class="status up"`, `class="status down"`, `class="status open"`,
-		"connection refused", "http://upstream-orders:8215/mcp"} {
+		"connection refused", "http://upstream-orders:8215/mcp", `<span class="chip">untrusted output</span> dial tcp`} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("upstreams page lacks %q: %s", want, body)
 		}

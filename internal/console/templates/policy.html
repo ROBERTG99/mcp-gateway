@@ -1,10 +1,20 @@
 {{define "content"}}
 <h1>Policy tester</h1>
 {{if .Data}}{{with .Data}}
-<p class="muted">Evaluate a policy input against the loaded bundle (<span class="mono">{{short .BundleHash}}</span>) without calling any upstream.</p>
+<p class="muted">Evaluate a policy input against the loaded bundle (hash <span class="mono">{{short .BundleHash}}</span>) without calling any upstream.</p>
+{{with .Result}}
+<section class="card result" aria-labelledby="result-h" role="status">
+  <h2 id="result-h" class="flush">Decision <span class="status {{$.Data.Label}}">{{$.Data.Label}}</span></h2>
+  <dl class="fields">
+    <dt>allow</dt><dd class="mono">{{.Allow}}</dd>
+    <dt>require_approval</dt><dd class="mono">{{.RequireApproval}}</dd>
+    <dt>Matched rules</dt><dd>{{if .Reasons}}<ul class="rules">{{range .Reasons}}<li class="mono">{{.}}</li>{{end}}</ul>{{else}}none{{end}}</dd>
+  </dl>
+</section>
+{{end}}
 <nav class="tabs" aria-label="Examples">
   <ul>{{$sel := .Selected}}{{range .Examples}}
-    <li><a href="/console/policy?example={{.ID}}"{{if eq .ID $sel}} aria-current="page"{{end}}>{{.Title}} <span class="muted">→ {{.Expect}}</span></a></li>{{end}}
+    <li><a href="/console/policy?example={{.ID}}"{{if eq .ID $sel}} aria-current="true"{{end}}>{{.Title}}<span class="muted">, expects {{.Expect}}</span></a></li>{{end}}
   </ul>
 </nav>
 <form method="post" action="/console/policy" class="card" aria-labelledby="input-h">
@@ -14,15 +24,5 @@
   <textarea id="input" name="input" class="mono code" spellcheck="false" required>{{.Input}}</textarea>
   <div class="actions"><button type="submit" class="primary">Evaluate</button></div>
 </form>
-{{with .Result}}
-<section class="card" aria-labelledby="result-h">
-  <h2 id="result-h" class="flush">Decision <span class="status {{$.Data.Label}}">{{$.Data.Label}}</span></h2>
-  <dl class="fields">
-    <dt>allow</dt><dd class="mono">{{.Allow}}</dd>
-    <dt>require_approval</dt><dd class="mono">{{.RequireApproval}}</dd>
-    <dt>matched rules</dt><dd><ul class="rules">{{range .Reasons}}<li class="mono">{{.}}</li>{{end}}</ul></dd>
-  </dl>
-</section>
-{{end}}
 {{end}}{{end}}
 {{end}}

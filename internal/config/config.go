@@ -74,7 +74,7 @@ type Config struct {
 
 	ConsoleSessionKey    string `env:"MCPGW_CONSOLE_SESSION_KEY" default:"" secret:"true" desc:"HMAC key for console session cookies (random per process when empty)"`
 	ConsoleSecureCookies bool   `env:"MCPGW_CONSOLE_SECURE_COOKIES" default:"false" desc:"Set the Secure flag on console cookies (enable behind TLS)"`
-	DevIssuerURL         string `env:"MCPGW_DEV_ISSUER_URL" default:"http://localhost:8212" desc:"Dev issuer used by the console sign-in personas (development only)"`
+	DevIssuerURL         string `env:"MCPGW_DEV_ISSUER_URL" default:"" desc:"Dev issuer for the console persona sign-in; empty disables sign-in (development only)"`
 
 	DevIssuerEnabled bool   `env:"MCPGW_DEV_ISSUER_ENABLED" default:"false" desc:"Allow the dev-issuer command to start (never in production)"`
 	DevIssuerAddr    string `env:"MCPGW_DEV_ISSUER_ADDR" default:":8212" desc:"Dev issuer listen address"`

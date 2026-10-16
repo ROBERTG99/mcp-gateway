@@ -74,6 +74,11 @@ func TestConsoleApprovalsRBAC(t *testing.T) {
 	if resp.StatusCode != http.StatusForbidden || status(t, e, held.ID) != approvals.StatusPending {
 		t.Fatalf("reviewer approve: %d, status %s", resp.StatusCode, status(t, e, held.ID))
 	}
+	// Permission is checked before the input, as in the admin API.
+	resp, _ = post(t, reviewer, e.srv.URL+"/console/approvals/"+held.ID+"/reject", url.Values{"csrf": {csrfOf(t, body)}, "reason": {strings.Repeat("x", 3000)}})
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("reviewer reject with a long reason: %d, want 403", resp.StatusCode)
+	}
 
 	approver := client(t)
 	signIn(t, e, approver, "approver")

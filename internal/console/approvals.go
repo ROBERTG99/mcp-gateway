@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"slices"
 	"time"
 
@@ -30,14 +31,20 @@ type approvalRow struct {
 
 type approvalView struct {
 	approvals.Approval
-	ExpiresIn string
-	CanDecide bool
-	Note      string // the submitted note or reason, kept when the form is shown again
+	ExpiresIn    string
+	CanDecide    bool
+	ApproveNote  string // what was typed in each form, kept when the page is shown again
+	RejectReason string
 }
 
-// canDecide mirrors approvals.Service.Decide: mcpgw:approve and the approval's own tenant.
+// mayDecide mirrors approvals.Service.Decide: mcpgw:approve and the approval's own tenant.
+func mayDecide(p authn.Principal, a approvals.Approval) bool {
+	return p.HasScope(admin.ScopeApprove) && p.Tenant != "*" && p.Tenant == a.Tenant
+}
+
+// canDecide reports whether the decision forms are shown.
 func canDecide(p authn.Principal, a approvals.Approval) bool {
-	return p.HasScope(admin.ScopeApprove) && p.Tenant != "*" && p.Tenant == a.Tenant && a.Status == approvals.StatusPending
+	return mayDecide(p, a) && a.Status == approvals.StatusPending
 }
 
 func (c *Console) expiresIn(a approvals.Approval) string {
@@ -80,6 +87,8 @@ func (c *Console) approvalsPage(w http.ResponseWriter, r *http.Request) {
 		c.render(w, r, http.StatusOK, "approvals", v)
 		return
 	}
+	// Soonest expiry first: that is the order an approver must work in.
+	slices.SortStableFunc(list, func(a, b approvals.Approval) int { return a.ExpiresAt.Compare(b.ExpiresAt) })
 	for _, a := range list {
 		// The store still reports a pending approval past its expiry as pending until the sweep;
 		// the service marks it expired, so it leaves the pending queue here.
@@ -93,34 +102,37 @@ func (c *Console) approvalsPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Console) approvalPage(w http.ResponseWriter, r *http.Request) {
-	v := view{Title: "Approval", Nav: "approvals"}
+	v := view{Nav: "approvals"}
 	switch r.URL.Query().Get("done") {
 	case "approved":
 		v.Flash = "Approved. The agent's retry with the same arguments and idempotency key now executes once."
 	case "rejected":
 		v.Flash = "Rejected. The agent's retry receives approval_rejected."
 	}
-	c.showApproval(w, r, http.StatusOK, v, "")
+	c.showApproval(w, r, http.StatusOK, v, approvalView{})
 }
 
 // showApproval renders the detail page for the {id} in the path, or a not-found page.
-func (c *Console) showApproval(w http.ResponseWriter, r *http.Request, status int, v view, note string) {
+func (c *Console) showApproval(w http.ResponseWriter, r *http.Request, status int, v view, typed approvalView) {
 	s := current(r)
 	id := chi.URLParam(r, "id")
+	v.Title = "Approval"
 	a, err := c.deps.Approvals.Get(r.Context(), id, s.principal)
 	if errors.Is(err, approvals.ErrNotFound) {
-		v.Error, v.RetryURL, v.Flash = "No such approval.", "/console/approvals", ""
+		v.Error, v.ErrorTitle, v.RetryURL, v.RetryLabel, v.Flash = "It does not exist or belongs to another tenant.", "No such approval.",
+			"/console/approvals", "Back to approvals", ""
 		c.render(w, r, http.StatusNotFound, "approval", v)
 		return
 	}
 	if err != nil {
 		c.opts.Logger.Error("console approval get", "error", err)
-		v.Error, v.RetryURL, v.Flash = "The approval store is unavailable.", r.URL.Path, ""
+		v.Error, v.RetryURL, v.Flash = "The approval store is unavailable.", "/console/approvals/"+url.PathEscape(id), ""
 		c.render(w, r, http.StatusOK, "approval", v)
 		return
 	}
 	v.Title = "Approval " + a.Server + "." + a.Tool
-	v.Data = approvalView{Approval: a, ExpiresIn: c.expiresIn(a), CanDecide: canDecide(s.principal, a), Note: note}
+	typed.Approval, typed.ExpiresIn, typed.CanDecide = a, c.expiresIn(a), canDecide(s.principal, a)
+	v.Data = typed
 	c.render(w, r, status, "approval", v)
 }
 
@@ -134,18 +146,28 @@ func (c *Console) decide(approve bool) http.HandlerFunc {
 			field = "reason"
 		}
 		note := r.PostForm.Get(field)
-		if _, err := c.deps.Approvals.Get(r.Context(), id, s.principal); errors.Is(err, approvals.ErrNotFound) {
-			c.showApproval(w, r, http.StatusNotFound, view{Nav: "approvals"}, "")
+		typed := approvalView{ApproveNote: note}
+		if !approve {
+			typed = approvalView{RejectReason: note}
+		}
+		cur, err := c.deps.Approvals.Get(r.Context(), id, s.principal)
+		if errors.Is(err, approvals.ErrNotFound) {
+			c.showApproval(w, r, http.StatusNotFound, view{Nav: "approvals"}, approvalView{})
+			return
+		}
+		// Permission first (as the admin API), then the input.
+		if err == nil && !mayDecide(s.principal, cur) {
+			c.showApproval(w, r, http.StatusForbidden, view{Nav: "approvals", Error: decisionMessage(approvals.ErrForbidden)}, approvalView{})
 			return
 		}
 		if len(note) > 2000 {
-			c.showApproval(w, r, http.StatusBadRequest, view{Nav: "approvals", Error: "The note or reason must be at most 2,000 characters."}, note)
+			c.showApproval(w, r, http.StatusBadRequest, view{Nav: "approvals", Error: "The note or reason must be at most 2,000 characters."}, typed)
 			return
 		}
 		a, err := c.deps.Approvals.Decide(r.Context(), id, s.principal, approve, note)
 		if err != nil {
 			code, _ := admin.DecisionStatus(err)
-			c.showApproval(w, r, code, view{Nav: "approvals", Error: decisionMessage(err), RetryURL: "/console/approvals/" + id}, note)
+			c.showApproval(w, r, code, view{Nav: "approvals", Error: decisionMessage(err)}, typed)
 			return
 		}
 		done := "approved"

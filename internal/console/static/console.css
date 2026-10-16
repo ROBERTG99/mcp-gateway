@@ -3,7 +3,7 @@
 html { font-size: 100%; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 400 0.9375rem/1.5 var(--font-sans); }
 a { color: var(--ink); text-decoration-color: var(--accent); text-underline-offset: 2px; }
-a:hover { color: var(--accent); }
+a:hover { text-decoration-thickness: 2px; }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .skip { position: absolute; left: -9999px; top: 0; background: var(--surface); padding: var(--space-2); }
 .skip:focus { left: var(--space-2); z-index: 10; }
@@ -29,7 +29,7 @@ th, td { text-align: left; padding: var(--space-2) var(--space-3); border-bottom
 th { background: var(--surface-2); font-weight: 600; white-space: nowrap; }
 tbody tr:hover { background: var(--surface-2); }
 .mono, code, pre { font-family: var(--font-mono); font-size: 0.8125rem; }
-pre { white-space: pre-wrap; word-break: break-all; background: var(--surface-2); padding: var(--space-3); border-radius: var(--radius); margin: 0; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--surface-2); padding: var(--space-3); border-radius: var(--radius); margin: 0; }
 .hash { word-break: break-all; }
 .status { display: inline-block; padding: 0 var(--space-2); border-radius: 999px; border: 1px solid; font-size: 0.8125rem; font-weight: 600; white-space: nowrap; color: var(--ink); }
 .status.allow, .status.ok, .status.approved, .status.consumed, .status.up { border-color: var(--allow); background: var(--allow-bg); }
@@ -80,3 +80,7 @@ caption { text-align: left; padding: var(--space-2) var(--space-3); }
 @media (min-width: 768px) { .decide { grid-template-columns: 1fr 1fr; } }
 ul.rules { list-style: none; padding: 0; margin: 0; }
 textarea.code { min-height: 280px; font-family: var(--font-mono); font-size: 0.8125rem; }
+::placeholder { color: var(--ink-muted); opacity: 1; }
+.loading { margin: 0 0 var(--space-3); font-weight: 600; }
+.status.replayed, .status.closed { border-color: var(--ink-muted); background: var(--surface-2); }
+.banner.warn { border-left-color: var(--hold); background: var(--hold-bg); }

@@ -1,15 +1,19 @@
 {{define "content"}}
 <h1>Sign in</h1>
+{{if .Data.Enabled}}
 <p class="muted">Development sign-in: choose a persona. Tokens come from the dev issuer and expire within an hour.</p>
 <form method="post" action="/console/signin">
   <input type="hidden" name="csrf" value="{{.CSRF}}">
   <fieldset class="personas bare">
     <legend class="muted">Personas</legend>
-    {{range .Data}}
+    {{range .Data.Personas}}
     <div class="persona">
-      <button type="submit" name="persona" value="{{.ID}}"><span>{{.Title}}</span><small>{{.Description}}</small><small class="mono">{{.Subject}} · tenant {{.Tenant}} · {{range $i, $s := .Scopes}}{{if $i}}, {{end}}{{$s}}{{end}}</small></button>
+      <button type="submit" name="persona" value="{{.ID}}"><span>{{.Title}}</span><small>{{.Description}} <span class="mono">{{.Subject}} · {{tenantLabel .Tenant}} · {{range $i, $s := .Scopes}}{{if $i}}, {{end}}{{$s}}{{end}}</span></small></button>
     </div>
     {{end}}
   </fieldset>
 </form>
+{{else}}
+<div class="empty"><p><strong>Sign-in is not configured.</strong></p><p>The console signs in with development personas from the dev issuer. Set <span class="mono">MCPGW_DEV_ISSUER_URL</span> on a development stack; production sign-in is out of scope (see docs/KNOWN_LIMITATIONS.md).</p></div>
+{{end}}
 {{end}}

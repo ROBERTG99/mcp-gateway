@@ -101,12 +101,16 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	a.approvalStore = approvals.NewPostgres(a.db)
 	a.approvals = approvals.NewService(a.approvalStore, approvals.Options{TTL: cfg.ApprovalTTL, Redactor: a.redactor,
 		Audit: a.audit, Logger: logger})
-	issuerClient := &http.Client{Timeout: 5 * time.Second}
-	a.console, err = console.New(console.Deps{Verifier: a.verifier, Audit: audit.NewPostgresReader(a.db), Approvals: a.approvals,
-		Policy: a.policy, Catalog: a.catalog, Flush: a.audit.Flush,
-		Tokens: func(ctx context.Context, p devissuer.Persona) (string, error) {
+	var tokens console.TokenSource // persona sign-in exists only with a dev issuer (development)
+	if cfg.DevIssuerURL != "" {
+		issuerClient := &http.Client{Timeout: 5 * time.Second}
+		tokens = func(ctx context.Context, p devissuer.Persona) (string, error) {
 			return devissuer.RequestToken(ctx, issuerClient, cfg.DevIssuerURL, p.Tenant, p.Subject, p.Scopes)
-		}}, console.Options{SecureCookies: cfg.ConsoleSecureCookies, Logger: logger})
+		}
+	}
+	a.console, err = console.New(console.Deps{Verifier: a.verifier, Audit: audit.NewPostgresReader(a.db), Approvals: a.approvals,
+		Policy: a.policy, Catalog: a.catalog, Flush: a.audit.Flush, Tokens: tokens},
+		console.Options{SecureCookies: cfg.ConsoleSecureCookies, Logger: logger})
 	if err != nil {
 		return nil, fmt.Errorf("console: %w", err)
 	}

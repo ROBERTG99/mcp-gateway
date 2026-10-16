@@ -2,11 +2,12 @@ import { mkdirSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import { expectAccessible, holdRefund, signIn, type Persona } from "./helpers.js";
 
-// §13: every console page passes axe (no serious or critical violations) at 375 and 1280 px in
-// both themes; the 1280 px renders are stored in docs/images/ for the README.
+// §13: every console page passes axe (no serious or critical violations) at 375, 768 and 1280 px
+// in both themes. With SCREENSHOTS=1 (make docs) the renders are stored in docs/images/.
 
 const images = new URL("../../docs/images/", import.meta.url).pathname;
-mkdirSync(images, { recursive: true });
+const screenshots = process.env.SCREENSHOTS === "1";
+if (screenshots) mkdirSync(images, { recursive: true });
 
 type Screen = { name: string; persona: Persona | null; open: (page: Page, approvalID: string) => Promise<void> };
 
@@ -50,7 +51,7 @@ test.beforeAll(async () => {
 });
 
 for (const theme of ["light", "dark"] as const) {
-  for (const width of [375, 1280]) {
+  for (const width of [375, 768, 1280]) {
     test.describe(`${theme} ${width}px`, () => {
       test.use({ colorScheme: theme, viewport: { width, height: 900 } });
       for (const s of screens) {
@@ -61,7 +62,7 @@ for (const theme of ["light", "dark"] as const) {
           const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
           expect(overflow, "no horizontal page scroll").toBeLessThanOrEqual(0);
           await expectAccessible(page);
-          if (width === 1280 || s.name === "approval") {
+          if (screenshots && (width === 1280 || theme === "light")) {
             await page.screenshot({ path: `${images}console-${s.name}-${theme}-${width}.png`, fullPage: true });
           }
         });
@@ -70,12 +71,12 @@ for (const theme of ["light", "dark"] as const) {
   }
 }
 
-test("error state shows a banner with retry", async ({ page }) => {
+test("error state shows a banner with a way out", async ({ page }) => {
   await signIn(page, "security-reviewer");
   await page.goto("/console/audit?limit=bogus");
   const alert = page.getByRole("alert");
   await expect(alert).toBeVisible();
-  await expect(alert.getByRole("link", { name: "Retry" })).toBeVisible();
+  await expect(alert.getByRole("link", { name: "Reset filters" })).toBeVisible();
   await expectAccessible(page);
 });
 

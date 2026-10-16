@@ -66,7 +66,7 @@ func BenchmarkAuditPage(b *testing.B) {
 	}
 	b.Cleanup(pool.Close)
 
-	e := newEnvWith(b, audit.NewPostgresReader(pool))
+	e := newEnvWith(b, envOpts{reader: audit.NewPostgresReader(pool)})
 	reviewer, approver := client(b), client(b)
 	signIn(b, e, reviewer, "security-reviewer")
 	signIn(b, e, approver, "approver")

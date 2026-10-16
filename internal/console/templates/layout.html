@@ -16,14 +16,14 @@
     {{if .Principal}}
     <nav class="main" aria-label="Main">
       <ul>
-        <li><a href="/console/audit"{{if eq .Nav "audit"}} aria-current="page"{{end}}>Audit log</a></li>
-        <li><a href="/console/approvals"{{if eq .Nav "approvals"}} aria-current="page"{{end}}>Approvals</a></li>
-        <li><a href="/console/policy"{{if eq .Nav "policy"}} aria-current="page"{{end}}>Policy tester</a></li>
-        <li><a href="/console/upstreams"{{if eq .Nav "upstreams"}} aria-current="page"{{end}}>Upstreams</a></li>
+        {{if .CanInspect}}<li><a href="/console/audit"{{if eq .Nav "audit"}} aria-current="page"{{end}}>Audit log</a></li>{{end}}
+        {{if .CanApprovals}}<li><a href="/console/approvals"{{if eq .Nav "approvals"}} aria-current="page"{{end}}>Approvals</a></li>{{end}}
+        {{if .CanInspect}}<li><a href="/console/policy"{{if eq .Nav "policy"}} aria-current="page"{{end}}>Policy tester</a></li>
+        <li><a href="/console/upstreams"{{if eq .Nav "upstreams"}} aria-current="page"{{end}}>Upstreams</a></li>{{end}}
       </ul>
     </nav>
     <div class="who">
-      <span>Signed in as <strong>{{.Principal.Agent}}</strong> ({{.PersonaTitle}}, tenant <span class="mono">{{.Principal.Tenant}}</span>)</span>
+      <span>Signed in as <strong>{{.Principal.Agent}}</strong> ({{.PersonaTitle}}, {{tenantLabel .Principal.Tenant}})</span>
       <button type="button" id="theme-toggle" aria-pressed="false" hidden>Toggle theme</button>
       <form method="post" action="/console/signout"><input type="hidden" name="csrf" value="{{.CSRF}}"><button type="submit">Sign out</button></form>
     </div>
@@ -31,8 +31,9 @@
   </div>
 </header>
 <main id="content" aria-busy="false">
-  {{if .Error}}<div class="banner" role="alert"><strong>Something went wrong.</strong> {{.Error}}{{if .RetryURL}} <a href="{{.RetryURL}}">Retry</a>{{end}}</div>{{end}}
-  {{if .Flash}}<div class="banner ok" role="status">{{.Flash}}</div>{{end}}
+  <p class="loading" id="loading" hidden>Loading…</p>
+  {{if .Error}}<div class="banner" role="alert"><strong>{{if .ErrorTitle}}{{.ErrorTitle}}{{else}}Something went wrong.{{end}}</strong> {{.Error}}{{if .RetryURL}} <a href="{{.RetryURL}}">{{if .RetryLabel}}{{.RetryLabel}}{{else}}Retry{{end}}</a>{{end}}</div>{{end}}
+  {{if .Flash}}<div class="banner ok" role="status" tabindex="-1" id="flash">{{.Flash}}</div>{{end}}
   {{template "content" .}}
 </main>
 <footer>mcp-gateway {{.Version}} · synthetic data only · development console</footer>

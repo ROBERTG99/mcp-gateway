@@ -1,31 +1,17 @@
 {{define "content"}}
 <p><a href="/console/approvals">← Approvals</a></p>
+{{if not .Data}}<h1>Approval</h1>{{end}}
 {{if .Data}}{{with .Data}}
 <h1>Approval for <span class="mono">{{.Server}}.{{.Tool}}</span> <span class="status {{.Status}}">{{.Status}}</span></h1>
 <section class="card" aria-labelledby="exec-h">
   <h2 id="exec-h" class="flush">What will execute</h2>
-  <p>If approved, agent <strong>{{.Agent}}</strong> of tenant <span class="mono">{{.Tenant}}</span> retries <span class="mono">{{.Server}}.{{.Tool}}</span>
-  with exactly the arguments below (args hash <span class="mono">{{short .ArgsSHA256}}</span>){{if .IdempotencyKey}} and idempotency key <span class="mono">{{.IdempotencyKey}}</span>{{end}}.
-  The approval authorises that single call once; any other arguments, agent or key are refused.</p>
-</section>
-<section class="card">
-<dl class="fields">
-  <dt>id</dt><dd class="mono">{{.ID}}</dd>
-  <dt>tenant</dt><dd class="mono">{{.Tenant}}</dd>
-  <dt>agent</dt><dd>{{.Agent}}</dd>
-  <dt>tool</dt><dd class="mono">{{.Server}}.{{.Tool}}</dd>
-  <dt>reasons</dt><dd>{{range $i, $r := .Reasons}}{{if $i}}, {{end}}<span class="mono">{{$r}}</span>{{end}}</dd>
-  <dt>idempotency_key</dt><dd class="mono">{{if .IdempotencyKey}}{{.IdempotencyKey}}{{else}}—{{end}}</dd>
-  <dt>args_sha256</dt><dd class="mono hash">{{.ArgsSHA256}}</dd>
-  <dt>created</dt><dd class="mono">{{ts .CreatedAt}}</dd>
-  <dt>expires</dt><dd class="mono">{{ts .ExpiresAt}} ({{.ExpiresIn}})</dd>
-  {{if .DecidedBy}}<dt>decided by</dt><dd>{{.DecidedBy}} at <span class="mono">{{tsp .DecidedAt}}</span></dd>
-  <dt>note</dt><dd>{{if .DecisionNote}}{{.DecisionNote}}{{else}}—{{end}}</dd>{{end}}
-</dl>
-</section>
-<section class="card">
-  <h2 class="flush">args_redacted <span class="chip">agent-supplied, redacted</span></h2>
-  <pre>{{printf "%s" .ArgsRedacted}}</pre>
+  <p>If approved, agent <strong>{{.Agent}}</strong> ({{tenantLabel .Tenant}}) may retry <span class="mono">{{.Server}}.{{.Tool}}</span> once,
+  with the arguments whose SHA-256 is <span class="mono hash">{{.ArgsSHA256}}</span>{{if .IdempotencyKey}} and idempotency key <span class="mono">{{.IdempotencyKey}}</span>{{end}}.
+  Any other arguments, agent or key are refused. Values shown below as <span class="mono">[REDACTED:…]</span> are hidden here but are part of that hash.</p>
+  <dl class="fields">
+    <dt>Reasons</dt><dd>{{range $i, $r := .Reasons}}{{if $i}}, {{end}}<span class="mono">{{$r}}</span>{{end}}</dd>
+    <dt>Expires</dt><dd><span class="mono">{{ts .ExpiresAt}}</span> ({{.ExpiresIn}})</dd>
+  </dl>
 </section>
 {{if .CanDecide}}
 <div class="decide">
@@ -33,20 +19,38 @@
   <h2 id="approve-h" class="flush">Approve</h2>
   <input type="hidden" name="csrf" value="{{$.CSRF}}">
   <label for="note">Note (optional)</label>
-  <textarea id="note" name="note" maxlength="2000"></textarea>
+  <textarea id="note" name="note" maxlength="2000">{{.ApproveNote}}</textarea>
   <div class="actions"><button type="submit" class="primary">Approve</button></div>
 </form>
 <form method="post" action="/console/approvals/{{.ID}}/reject" class="card" aria-labelledby="reject-h">
   <h2 id="reject-h" class="flush">Reject</h2>
   <input type="hidden" name="csrf" value="{{$.CSRF}}">
   <label for="reason">Reason (required)</label>
-  <textarea id="reason" name="reason" maxlength="2000" required aria-describedby="reason-hint">{{.Note}}</textarea>
+  <textarea id="reason" name="reason" maxlength="2000" required aria-describedby="reason-hint">{{.RejectReason}}</textarea>
   <p id="reason-hint" class="muted">The agent receives approval_rejected; the reason is kept in the audit log.</p>
   <div class="actions"><button type="submit" class="danger">Reject</button></div>
 </form>
 </div>
 {{else if eq .Status "pending"}}
-<p class="muted">Only an approver of tenant <span class="mono">{{.Tenant}}</span> can decide this approval.</p>
+<p class="muted">Only an approver of {{tenantLabel .Tenant}} can decide this approval.</p>
 {{end}}
+<section class="card">
+  <h2 class="flush">Arguments <span class="chip">agent-supplied, redacted</span></h2>
+  <pre>{{pretty .ArgsRedacted}}</pre>
+</section>
+<section class="card">
+<h2 class="flush">Details</h2>
+<dl class="fields">
+  <dt>Approval id</dt><dd class="mono">{{.ID}}</dd>
+  <dt>Tenant</dt><dd class="mono">{{.Tenant}}</dd>
+  <dt>Agent</dt><dd>{{.Agent}}</dd>
+  <dt>Tool</dt><dd class="mono">{{.Server}}.{{.Tool}}</dd>
+  <dt>Idempotency key</dt><dd class="mono">{{if .IdempotencyKey}}{{.IdempotencyKey}}{{else}}—{{end}}</dd>
+  <dt>Arguments hash (SHA-256)</dt><dd class="mono hash">{{.ArgsSHA256}}</dd>
+  <dt>Created (UTC)</dt><dd class="mono">{{ts .CreatedAt}}</dd>
+  {{if .DecidedBy}}<dt>Decided by</dt><dd>{{.DecidedBy}} at <span class="mono">{{tsp .DecidedAt}}</span></dd>
+  <dt>Note</dt><dd>{{if .DecisionNote}}{{.DecisionNote}}{{else}}—{{end}}</dd>{{end}}
+</dl>
+</section>
 {{end}}{{end}}
 {{end}}

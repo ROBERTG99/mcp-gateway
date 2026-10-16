@@ -9,3 +9,7 @@ What is not done, or done differently from the specification, and why. Each item
 - The 2026-07-28 stateless protocol has no `Mcp-Session-Id`; per-principal session binding (`TestSessionBoundToPrincipal`) applies to clients that negotiate the legacy session protocol.
 - A call rejected because the audit buffer is saturated (`-32048`) is not itself audited (there is no slot to write it); it is logged and will be counted by a metric (T-38).
 - Truncation of the newest audit rows by a superuser is not detectable by `audit verify` alone (no external anchor of the head hash); periodic export of the head hash is a runbook item.
+
+## Console sign-in is development-only
+
+The console signs in with the dev issuer's personas: there is no password and no external identity provider. Sign-in is mounted only when `MCPGW_DEV_ISSUER_URL` is set (compose sets it; the default is empty, which disables sign-in), and anyone who can reach port 8200 on such a stack can sign in as any persona. Cookies get the `Secure` flag only with `MCPGW_CONSOLE_SECURE_COOKIES=true` (default false for the local HTTP stack). Sessions live in memory (capped at 10,000), so they do not survive a restart and are not shared between replicas. A production deployment needs an OIDC login in front of the console; that is out of scope for v0.1.0.

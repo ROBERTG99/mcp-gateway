@@ -1,5 +1,6 @@
 {{define "content"}}
 <p><a href="/console/audit">← Audit log</a></p>
+{{if not .Data}}<h1>Audit event</h1>{{end}}
 {{if .Data}}{{with .Data}}
 <h1>Audit event {{.Seq}}</h1>
 <section class="card">
@@ -9,7 +10,7 @@
   <dt>tenant</dt><dd class="mono">{{.Tenant}}</dd>
   <dt>agent</dt><dd>{{.Agent}}</dd>
   <dt>tool</dt><dd class="mono">{{.Server}}.{{.Tool}}</dd>
-  <dt>decision</dt><dd><span class="status {{.Decision}}">{{.Decision}}</span></dd>
+  <dt>decision</dt><dd><span class="status {{.Decision}}">{{decisionLabel .Decision}}</span> <span class="muted mono">{{.Decision}}</span></dd>
   <dt>status</dt><dd><span class="status {{.Status}}">{{.Status}}</span></dd>
   <dt>approval_id</dt><dd class="mono">{{if .ApprovalID}}<a href="/console/approvals/{{deref .ApprovalID}}">{{deref .ApprovalID}}</a>{{else}}—{{end}}</dd>
   <dt>idempotency_key</dt><dd class="mono">{{if .IdempotencyKey}}{{deref .IdempotencyKey}}{{else}}—{{end}}</dd>
@@ -21,7 +22,7 @@
 </section>
 <section class="card">
   <h2 class="flush">args_redacted <span class="chip">agent-supplied, redacted</span></h2>
-  <pre>{{printf "%s" .ArgsRedacted}}</pre>
+  <pre>{{pretty .ArgsRedacted}}</pre>
 </section>
 {{end}}{{end}}
 {{end}}
