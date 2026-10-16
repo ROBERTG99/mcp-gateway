@@ -1,0 +1,18 @@
+[
+  {"name": "crm read allowed", "input": {"tenant": "t_alpha", "agent": "agent-support", "scopes": ["crm:read"], "server": "crm", "tool": "get_customer", "args": {"customer_id": "C-0001"}, "annotations": {"readOnlyHint": true}, "approval": null},
+   "want": {"allow": true, "require_approval": false, "reasons": ["scope_granted"]}},
+  {"name": "refund 5000 allowed", "input": {"tenant": "t_alpha", "agent": "agent-support", "scopes": ["orders:write"], "server": "orders", "tool": "refund_order", "args": {"order_id": "O-00001", "amount_cents": 5000, "reason": "r"}, "annotations": {"readOnlyHint": false}, "approval": null},
+   "want": {"allow": true, "require_approval": false, "reasons": ["scope_granted"]}},
+  {"name": "refund 50000 held", "input": {"tenant": "t_alpha", "agent": "agent-support", "scopes": ["orders:write"], "server": "orders", "tool": "refund_order", "args": {"order_id": "O-00001", "amount_cents": 50000, "reason": "r"}, "annotations": {"readOnlyHint": false}, "approval": null},
+   "want": {"allow": false, "require_approval": true, "reasons": ["refund_requires_approval"]}},
+  {"name": "refund 150000 denied", "input": {"tenant": "t_alpha", "agent": "agent-support", "scopes": ["orders:write"], "server": "orders", "tool": "refund_order", "args": {"order_id": "O-00001", "amount_cents": 150000, "reason": "r"}, "annotations": {"readOnlyHint": false}, "approval": null},
+   "want": {"allow": false, "require_approval": false, "reasons": ["refund_over_limit"]}},
+  {"name": "refund 50000 approved", "input": {"tenant": "t_alpha", "agent": "agent-support", "scopes": ["orders:write"], "server": "orders", "tool": "refund_order", "args": {"order_id": "O-00001", "amount_cents": 50000, "reason": "r"}, "annotations": {"readOnlyHint": false}, "approval": {"id": "6f1c2b9e-0000-4000-8000-000000000001", "status": "approved"}},
+   "want": {"allow": true, "require_approval": false, "reasons": ["approval_granted", "scope_granted"]}},
+  {"name": "credit note held", "input": {"tenant": "t_alpha", "agent": "agent-collections", "scopes": ["ledger:write"], "server": "ledger", "tool": "issue_credit_note", "args": {"customer_id": "C-0001", "amount_cents": 100, "reason": "x"}, "annotations": {"readOnlyHint": false}, "approval": null},
+   "want": {"allow": false, "require_approval": true, "reasons": ["credit_note_requires_approval"]}},
+  {"name": "hidden ledger for crm-only agent", "input": {"tenant": "t_alpha", "agent": "agent-readonly", "scopes": ["crm:read"], "server": "ledger", "tool": "get_balance", "args": null, "annotations": {"readOnlyHint": true}, "approval": null},
+   "want": {"allow": false, "require_approval": false, "reasons": ["missing_scope"]}},
+  {"name": "unknown tenant", "input": {"tenant": "t_zeta", "agent": "agent-support", "scopes": ["crm:read"], "server": "crm", "tool": "get_customer", "args": null, "annotations": {"readOnlyHint": true}, "approval": null},
+   "want": {"allow": false, "require_approval": false, "reasons": ["tenant_not_allowed"]}}
+]

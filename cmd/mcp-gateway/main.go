@@ -56,6 +56,7 @@ func commands() map[string]commandFunc {
 		"migrate":     cmdMigrate,
 		"dev-issuer":  cmdDevIssuer,
 		"dev-token":   cmdDevToken,
+		"policy":      cmdPolicy,
 		"healthcheck": cmdHealthcheck,
 		"version":     cmdVersion,
 		"--version":   cmdVersion,
