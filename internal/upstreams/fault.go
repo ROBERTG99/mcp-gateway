@@ -7,9 +7,10 @@ import (
 )
 
 // TimeoutFault returns a RefundHook that, for a deterministic fraction rate of idempotency keys,
-// stalls for stall before the refund transaction commits, so the gateway's upstream call times
-// out. Only the first attempt for a key stalls; the retry finds the key already recorded (the
-// transaction still commits after the stall) and replays the stored result.
+// stalls for stall inside the refund transaction (after the insert, before commit, holding the key
+// claim) so the gateway's upstream call times out. The transaction is detached from the caller
+// (pkg/mcpserver runs writes with context.WithoutCancel), so it still commits after the stall; the
+// client's same-key retry blocks on the claim and then replays the stored result.
 func TimeoutFault(rate float64, stall time.Duration) RefundHook {
 	if rate <= 0 {
 		return nil
@@ -22,11 +23,10 @@ func TimeoutFault(rate float64, stall time.Duration) RefundHook {
 		defer t.Stop()
 		select {
 		case <-t.C:
+			return nil
 		case <-ctx.Done():
-			// The client went away: keep committing anyway, like a real system that finishes
-			// work after its caller timed out. Returning nil lets the transaction commit.
+			return ctx.Err() // only the transaction's own timeout ends the stall early
 		}
-		return nil
 	}
 }
 

@@ -3,6 +3,7 @@ package mcpserver_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -97,13 +98,24 @@ func TestWriteToolConcurrentDedup(t *testing.T) {
 	var executions atomic.Int64
 	cs := connect(t, newNotesServer(&executions))
 	var wg sync.WaitGroup
-	for range 16 {
+	results := make([]any, 16)
+	errs := make([]error, 16)
+	for i := range results {
 		wg.Go(func() {
-			_, _ = cs.CallTool(context.Background(), &mcp.CallToolParams{Name: "add_note",
+			res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{Name: "add_note",
 				Arguments: addIn{CustomerID: "C-1", Text: "x"}, Meta: meta("t_alpha", "same-key-123")})
+			errs[i] = err
+			if err == nil {
+				results[i] = res.StructuredContent
+			}
 		})
 	}
 	wg.Wait()
+	for i := range results {
+		if errs[i] != nil || fmt.Sprint(results[i]) != fmt.Sprint(results[0]) {
+			t.Fatalf("call %d: err=%v result=%v, want %v", i, errs[i], results[i], results[0])
+		}
+	}
 	if executions.Load() != 1 {
 		t.Fatalf("handler executed %d times under concurrency, want 1", executions.Load())
 	}

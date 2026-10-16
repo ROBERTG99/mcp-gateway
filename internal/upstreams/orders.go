@@ -76,26 +76,8 @@ func RegisterOrders(s *mcpserver.Server, pool *pgxpool.Pool, opts OrdersOptions)
 			if in.AmountCents <= 0 {
 				return out, errors.New("amount_cents must be positive")
 			}
-			var amount, refunded int64
-			// Lock the order row so concurrent refunds of one order cannot exceed its amount.
-			err := w.Tx.QueryRow(ctx, `SELECT o.amount_cents, o.currency,
-				COALESCE((SELECT sum(r.amount_cents) FROM orders.refunds r WHERE r.tenant = o.tenant AND r.order_id = o.order_id), 0)
-				FROM orders.orders o WHERE o.tenant = $1 AND o.order_id = $2 FOR UPDATE`, w.Tenant, in.OrderID).
-				Scan(&amount, &out.Currency, &refunded)
-			if errors.Is(err, pgx.ErrNoRows) {
-				return out, notFound("order", in.OrderID)
-			}
-			if err != nil {
-				return out, fmt.Errorf("lookup order: %w", err)
-			}
-			if refunded+in.AmountCents > amount {
-				return out, fmt.Errorf("refund of %d exceeds the unrefunded amount %d", in.AmountCents, amount-refunded)
-			}
-			err = w.Tx.QueryRow(ctx, `INSERT INTO orders.refunds (tenant, order_id, amount_cents, currency, reason, idempotency_key)
-				VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`, w.Tenant, in.OrderID, in.AmountCents, out.Currency, in.Reason,
-				w.IdempotencyKey).Scan(&out.RefundID)
-			if err != nil {
-				return out, fmt.Errorf("insert refund: %w", err)
+			if err := InsertRefund(ctx, w.Tx, w.Tenant, w.IdempotencyKey, in.OrderID, in.AmountCents, in.Reason, &out); err != nil {
+				return out, err
 			}
 			if opts.AfterRefund != nil {
 				if err := opts.AfterRefund(ctx, w.Tenant, w.IdempotencyKey); err != nil {
@@ -104,4 +86,33 @@ func RegisterOrders(s *mcpserver.Server, pool *pgxpool.Pool, opts OrdersOptions)
 			}
 			return out, nil
 		})
+}
+
+// InsertRefund validates and inserts a refund inside tx. The order row is locked in its own
+// statement first, so the refunded sum (second statement) is read from a snapshot taken after the
+// lock was granted: concurrent refunds of one order serialise and can never exceed its amount.
+func InsertRefund(ctx context.Context, tx pgx.Tx, tenant, key, orderID string, amountCents int64, reason string, out *refundOut) error {
+	var amount int64
+	err := tx.QueryRow(ctx, `SELECT amount_cents, currency FROM orders.orders WHERE tenant = $1 AND order_id = $2 FOR UPDATE`,
+		tenant, orderID).Scan(&amount, &out.Currency)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return notFound("order", orderID)
+	}
+	if err != nil {
+		return fmt.Errorf("lock order: %w", err)
+	}
+	var refunded int64
+	if err := tx.QueryRow(ctx, `SELECT COALESCE(sum(amount_cents), 0) FROM orders.refunds WHERE tenant = $1 AND order_id = $2`,
+		tenant, orderID).Scan(&refunded); err != nil {
+		return fmt.Errorf("sum refunds: %w", err)
+	}
+	if refunded+amountCents > amount {
+		return fmt.Errorf("refund of %d exceeds the unrefunded amount %d", amountCents, amount-refunded)
+	}
+	err = tx.QueryRow(ctx, `INSERT INTO orders.refunds (tenant, order_id, amount_cents, currency, reason, idempotency_key)
+		VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`, tenant, orderID, amountCents, out.Currency, reason, key).Scan(&out.RefundID)
+	if err != nil {
+		return fmt.Errorf("insert refund: %w", err)
+	}
+	return nil
 }

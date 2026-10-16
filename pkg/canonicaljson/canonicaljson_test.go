@@ -22,10 +22,11 @@ func TestCanonicalizeRFC8785Vectors(t *testing.T) {
 		{`123.456e2`, `12345.6`},
 		{`"\u00e9\u2028<>&\u001f"`, "\"\u00e9\u2028<>&\\u001f\""},
 		{`"a\"b\\c\n\t\b\f\r"`, `"a\"b\\c\n\t\b\f\r"`},
-		// RFC 8785 sorts keys by UTF-16 code units: "\u20ac" (U+20AC) sorts after "\ud83d\ude00" surrogates? No:
-		// 0x20AC < 0xD83D, so the euro sign comes first.
+		// RFC 8785 sorts keys by UTF-16 code units: 0x000D < 0x20AC (euro) < 0xD83D (emoji high surrogate).
 		{`{"\ud83d\ude00":1,"\u20ac":2,"\r":3}`, "{\"\\r\":3,\"\u20ac\":2,\"\U0001F600\":1}"},
 		{`[1, 2.5, -3e-2, 333333333.33333329]`, `[1,2.5,-0.03,333333333.3333333]`},
+		{`9007199254740992`, `9007199254740992`},
+		{`"\ufffd"`, "\"\ufffd\""},
 	}
 	for _, c := range cases {
 		got, err := canonicaljson.Canonicalize([]byte(c.in))
@@ -39,7 +40,8 @@ func TestCanonicalizeRFC8785Vectors(t *testing.T) {
 }
 
 func TestCanonicalizeRejectsInvalid(t *testing.T) {
-	for _, in := range []string{``, `{`, `{"a":1}{`, `[1,]`, `{"a":1,"a":2}`, `NaN`} {
+	for _, in := range []string{``, `{`, `{"a":1}{`, `[1,]`, `{"a":1,"a":2}`, `NaN`,
+		`"\ud800"`, `{"\udc00":1}`, "\"\xff\"", `9007199254740993`, `-9007199254740993`} {
 		if _, err := canonicaljson.Canonicalize([]byte(in)); err == nil {
 			t.Errorf("Canonicalize(%q) accepted invalid input", in)
 		}

@@ -58,7 +58,8 @@ func TestPostgresDedupConcurrent(t *testing.T) {
 		t.Fatalf("refund rows = %d (err %v), want 1", rows, err)
 	}
 	for _, r := range results {
-		if r != results[0] {
+		var a, b map[string]any
+		if json.Unmarshal([]byte(r), &a) != nil || json.Unmarshal([]byte(results[0]), &b) != nil || a["refund_id"] != b["refund_id"] {
 			t.Fatalf("results differ: %v", results)
 		}
 	}

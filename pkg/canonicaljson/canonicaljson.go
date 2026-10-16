@@ -17,15 +17,26 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf16"
+	"unicode/utf8"
 )
 
-// Canonicalize parses raw JSON and returns its RFC 8785 canonical form. Duplicate object keys
-// and trailing data are rejected.
+// MaxSafeInteger is the largest integer an IEEE-754 double represents exactly (2^53).
+const MaxSafeInteger = 1 << 53
+
+// Canonicalize parses raw JSON and returns its RFC 8785 canonical form. Input must be I-JSON
+// (RFC 7493): duplicate object keys, trailing data, invalid UTF-8, unpaired surrogate escapes and
+// integers beyond ±2^53 are rejected, so two different inputs never canonicalise to the same bytes.
 func Canonicalize(raw []byte) ([]byte, error) {
+	if !utf8.Valid(raw) {
+		return nil, errors.New("canonicaljson: input is not valid UTF-8")
+	}
+	// encoding/json maps unpaired surrogate escapes to U+FFFD; only accept U+FFFD when the input
+	// spelled it (literally or as \ufffd).
+	allowReplacement := bytes.ContainsRune(raw, utf8.RuneError) || bytes.Contains(bytes.ToLower(raw), []byte(`\ufffd`))
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.UseNumber()
 	var buf bytes.Buffer
-	if err := writeValue(dec, &buf); err != nil {
+	if err := writeValue(dec, &buf, allowReplacement); err != nil {
 		return nil, fmt.Errorf("canonicaljson: %w", err)
 	}
 	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
@@ -53,7 +64,7 @@ func SHA256Hex(raw []byte) (string, error) {
 	return hex.EncodeToString(sum[:]), nil
 }
 
-func writeValue(dec *json.Decoder, buf *bytes.Buffer) error {
+func writeValue(dec *json.Decoder, buf *bytes.Buffer, allowFFFD bool) error {
 	tok, err := dec.Token()
 	if err != nil {
 		if errors.Is(err, io.EOF) {
@@ -61,26 +72,35 @@ func writeValue(dec *json.Decoder, buf *bytes.Buffer) error {
 		}
 		return err
 	}
-	return writeToken(dec, buf, tok)
+	return writeToken(dec, buf, tok, allowFFFD)
 }
 
-func writeToken(dec *json.Decoder, buf *bytes.Buffer, tok json.Token) error {
+func writeToken(dec *json.Decoder, buf *bytes.Buffer, tok json.Token, allowFFFD bool) error {
 	switch v := tok.(type) {
 	case json.Delim:
 		switch v {
 		case '{':
-			return writeObject(dec, buf)
+			return writeObject(dec, buf, allowFFFD)
 		case '[':
-			return writeArray(dec, buf)
+			return writeArray(dec, buf, allowFFFD)
 		default:
 			return fmt.Errorf("unexpected delimiter %q", v)
 		}
 	case string:
+		if !allowFFFD && strings.ContainsRune(v, utf8.RuneError) {
+			return errors.New("string contains an unpaired surrogate escape")
+		}
 		writeString(buf, v)
 	case json.Number:
 		f, err := strconv.ParseFloat(string(v), 64)
 		if err != nil || math.IsInf(f, 0) || math.IsNaN(f) {
 			return fmt.Errorf("number %s is not representable as an IEEE-754 double", v)
+		}
+		if !strings.ContainsAny(string(v), ".eE") {
+			n, err := strconv.ParseInt(string(v), 10, 64)
+			if err != nil || n > MaxSafeInteger || n < -MaxSafeInteger {
+				return fmt.Errorf("integer %s is outside the exactly representable range ±2^53", v)
+			}
 		}
 		buf.WriteString(FormatNumber(f))
 	case bool:
@@ -103,7 +123,7 @@ type member struct {
 	value []byte
 }
 
-func writeObject(dec *json.Decoder, buf *bytes.Buffer) error {
+func writeObject(dec *json.Decoder, buf *bytes.Buffer, allowFFFD bool) error {
 	var members []member
 	seen := map[string]bool{}
 	for dec.More() {
@@ -115,12 +135,15 @@ func writeObject(dec *json.Decoder, buf *bytes.Buffer) error {
 		if !ok {
 			return fmt.Errorf("object key is %T, want string", tok)
 		}
+		if !allowFFFD && strings.ContainsRune(key, utf8.RuneError) {
+			return errors.New("object key contains an unpaired surrogate escape")
+		}
 		if seen[key] {
 			return fmt.Errorf("duplicate object key %q", key)
 		}
 		seen[key] = true
 		var vb bytes.Buffer
-		if err := writeValue(dec, &vb); err != nil {
+		if err := writeValue(dec, &vb, allowFFFD); err != nil {
 			return err
 		}
 		members = append(members, member{key: key, units: utf16.Encode([]rune(key)), value: vb.Bytes()})
@@ -142,7 +165,7 @@ func writeObject(dec *json.Decoder, buf *bytes.Buffer) error {
 	return nil
 }
 
-func writeArray(dec *json.Decoder, buf *bytes.Buffer) error {
+func writeArray(dec *json.Decoder, buf *bytes.Buffer, allowFFFD bool) error {
 	buf.WriteByte('[')
 	first := true
 	for dec.More() {
@@ -150,7 +173,7 @@ func writeArray(dec *json.Decoder, buf *bytes.Buffer) error {
 			buf.WriteByte(',')
 		}
 		first = false
-		if err := writeValue(dec, buf); err != nil {
+		if err := writeValue(dec, buf, allowFFFD); err != nil {
 			return err
 		}
 	}

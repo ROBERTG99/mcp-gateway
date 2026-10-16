@@ -124,7 +124,7 @@ services:
     build: { <<: *build, target: gateway }
     image: mcp-gateway:dev
     environment:
-      <<: *db-env
+      MCPGW_DATABASE_URL: postgres://mcpgw_app:${MCPGW_APP_DB_PASSWORD:-mcpgw_app}@postgres:5432/mcpgw?sslmode=disable
       MCPGW_UPSTREAMS_FILE: /config/upstreams.yaml
       MCPGW_JWKS_URL: http://dev-issuer:8212/.well-known/jwks.json
     ports: ["127.0.0.1:8200:8200", "127.0.0.1:8210:8210", "127.0.0.1:8211:8211"]

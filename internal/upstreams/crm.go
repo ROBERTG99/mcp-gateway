@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -72,7 +73,7 @@ func registerCRM(s *mcpserver.Server, pool *pgxpool.Pool) {
 		func(ctx context.Context, w mcpserver.WriteContext, in addNoteIn) (addNoteOut, error) {
 			out := addNoteOut{CustomerID: in.CustomerID}
 			text := strings.TrimSpace(in.Text)
-			if text == "" || len(text) > 4000 {
+			if text == "" || utf8.RuneCountInString(text) > 4000 {
 				return out, errors.New("text must be 1-4000 characters")
 			}
 			var exists bool

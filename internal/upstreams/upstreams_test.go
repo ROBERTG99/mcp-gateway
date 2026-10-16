@@ -3,8 +3,11 @@
 package upstreams_test
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"io"
+	"sync"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -160,5 +163,51 @@ func TestRefundValidation(t *testing.T) {
 		Meta:      mcp.Meta{"idempotency_key": "refund-key-over", "mcpgw": map[string]any{"tenant": "t_alpha"}}})
 	if err != nil || !res.IsError {
 		t.Fatalf("over-refund: err=%v res=%+v, want tool error", err, res)
+	}
+}
+
+// Concurrent refunds of one order under distinct keys never exceed the order amount.
+func TestConcurrentRefundsNeverExceedOrder(t *testing.T) {
+	pool := seeded(t)
+	orders := session(t, pool, "orders")
+	o := call(t, orders, "get_order", "t_alpha", "", map[string]any{"order_id": "O-00003"})
+	amount := int64(o["amount_cents"].(float64))
+	part := amount/3 + 1 // three parts fit, the fourth would not; eight requests race
+	var wg sync.WaitGroup
+	for i := range 8 {
+		wg.Go(func() {
+			_, _ = orders.CallTool(context.Background(), &mcp.CallToolParams{Name: "refund_order",
+				Arguments: map[string]any{"order_id": "O-00003", "amount_cents": part, "reason": "race"},
+				Meta: mcp.Meta{"idempotency_key": fmt.Sprintf("race-key-%04d", i),
+					"mcpgw": map[string]any{"tenant": "t_alpha"}}})
+		})
+	}
+	wg.Wait()
+	var total int64
+	if err := pool.QueryRow(t.Context(), `SELECT COALESCE(sum(amount_cents), 0) FROM orders.refunds
+		WHERE tenant = 't_alpha' AND order_id = 'O-00003'`).Scan(&total); err != nil {
+		t.Fatal(err)
+	}
+	if total > amount || total != 2*part {
+		t.Fatalf("refunded %d of %d with parts of %d, want exactly %d", total, amount, part, 2*part)
+	}
+}
+
+// Writes in one tenant cannot reach another tenant's records, and rejected refunds leave no row.
+func TestUpstreamWriteTenantIsolation(t *testing.T) {
+	pool := seeded(t)
+	if _, err := pool.Exec(t.Context(), `INSERT INTO orders.orders VALUES ('t_alpha', 'O-ALPHA-ONLY', 'C-0001', 1000, 'USD', 'paid', now())`); err != nil {
+		t.Fatal(err)
+	}
+	orders := session(t, pool, "orders")
+	res, err := orders.CallTool(t.Context(), &mcp.CallToolParams{Name: "refund_order",
+		Arguments: map[string]any{"order_id": "O-ALPHA-ONLY", "amount_cents": 10, "reason": "x"},
+		Meta:      mcp.Meta{"idempotency_key": "cross-tenant-1", "mcpgw": map[string]any{"tenant": "t_beta"}}})
+	if err != nil || !res.IsError {
+		t.Fatalf("cross-tenant refund: err=%v res=%+v, want not-found tool error", err, res)
+	}
+	var rows int
+	if err := pool.QueryRow(t.Context(), `SELECT count(*) FROM orders.refunds WHERE order_id = 'O-ALPHA-ONLY'`).Scan(&rows); err != nil || rows != 0 {
+		t.Fatalf("refund rows = %d (%v), want 0", rows, err)
 	}
 }

@@ -12,7 +12,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
@@ -31,8 +30,21 @@ const (
 // CodeIdempotencyConflict is returned when a key is reused with different arguments.
 const CodeIdempotencyConflict int64 = -32040
 
-// KeyPattern is the idempotency key contract: 8-128 characters of [A-Za-z0-9._:-].
-var KeyPattern = regexp.MustCompile(`^[A-Za-z0-9._:-]{8,128}$`)
+// ValidKey reports whether key satisfies the idempotency key contract: 8-128 characters of
+// [A-Za-z0-9._:-].
+func ValidKey(key string) bool {
+	if len(key) < 8 || len(key) > 128 {
+		return false
+	}
+	for i := range len(key) {
+		switch c := key[i]; {
+		case c >= 'A' && c <= 'Z', c >= 'a' && c <= 'z', c >= '0' && c <= '9', c == '.', c == '_', c == ':', c == '-':
+		default:
+			return false
+		}
+	}
+	return true
+}
 
 // ErrKeyReused means an idempotency key was reused with different arguments or another tool.
 var ErrKeyReused = errors.New("idempotency key reused with different arguments")
@@ -125,7 +137,7 @@ func WriteTool[In, Out any](s *Server, tool *mcp.Tool, h func(ctx context.Contex
 		if info.Tenant == "" {
 			return nil, zero, invalidParams("missing _meta.mcpgw.tenant")
 		}
-		if !KeyPattern.MatchString(info.IdempotencyKey) {
+		if !ValidKey(info.IdempotencyKey) {
 			return nil, zero, invalidParams("write tools require _meta.idempotency_key (8-128 chars of [A-Za-z0-9._:-])")
 		}
 		argsHash, err := argsSHA256(req)

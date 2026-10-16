@@ -17,7 +17,7 @@ import (
 )
 
 // Names lists the example upstreams.
-var Names = []string{"ledger", "crm", "orders"}
+func Names() []string { return []string{"ledger", "crm", "orders"} }
 
 // ErrNotFound is returned (as a tool error) for unknown customers or orders in the tenant.
 var ErrNotFound = errors.New("not found")

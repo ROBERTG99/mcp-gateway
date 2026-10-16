@@ -12,12 +12,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/ROBERTG99/mcp-gateway/pkg/canonicaljson"
 )
 
-// NewMemoryDedup returns an in-process DedupStore (tests and examples). Concurrent calls with
-// the same (tenant, key) are serialised so the write runs once.
+// NewMemoryDedup returns an in-process DedupStore for tests and examples only: entries are never
+// evicted and waiters cannot be cancelled. Concurrent calls with the same (tenant, key) are
+// serialised so the write runs once.
 func NewMemoryDedup() DedupStore { return &memoryDedup{entries: map[string]*memEntry{}} }
 
 type memoryDedup struct {
@@ -108,20 +107,13 @@ func (p *pgDedup) Once(ctx context.Context, tenant, key, tool, argsSHA256 string
 		if storedTool != tool || strings.TrimSpace(storedHash) != argsSHA256 {
 			return nil, false, ErrKeyReused
 		}
-		// jsonb normalises formatting; canonical form keeps replays byte-identical.
-		canonical, err := canonicaljson.Canonicalize(result)
-		if err != nil {
-			return nil, false, fmt.Errorf("dedup: stored result: %w", err)
-		}
-		return canonical, true, nil
+		// jsonb keeps numeric precision; formatting may differ from the first response, which is
+		// harmless because the result is decoded into the tool's output type before it is sent.
+		return result, true, nil
 	}
-	raw, err := fn(ctx, tx)
+	res, err := fn(ctx, tx)
 	if err != nil {
 		return nil, false, err
-	}
-	res, err := canonicaljson.Canonicalize(raw)
-	if err != nil {
-		return nil, false, fmt.Errorf("dedup: result is not JSON: %w", err)
 	}
 	if _, err := tx.Exec(ctx, "UPDATE "+p.table+" SET result = $3 WHERE tenant = $1 AND key = $2", tenant, key, res); err != nil {
 		return nil, false, fmt.Errorf("dedup: store result: %w", err)

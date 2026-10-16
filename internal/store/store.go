@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib" // database/sql driver for goose
 	"github.com/pressly/goose/v3"
+	"github.com/pressly/goose/v3/lock"
 
 	"github.com/ROBERTG99/mcp-gateway/migrations"
 )
@@ -36,8 +37,13 @@ func Migrate(ctx context.Context, url, command string, out io.Writer) error {
 		return fmt.Errorf("open postgres: %w", err)
 	}
 	defer func() { _ = db.Close() }()
+	// A Postgres advisory lock serialises concurrent migrators (Helm job, compose, replicas).
+	locker, err := lock.NewPostgresSessionLocker()
+	if err != nil {
+		return fmt.Errorf("migration locker: %w", err)
+	}
 	provider, err := goose.NewProvider(goose.DialectPostgres, db, migrations.FS,
-		goose.WithLogger(log.New(out, "migrate: ", 0)))
+		goose.WithLogger(log.New(out, "migrate: ", 0)), goose.WithSessionLocker(locker))
 	if err != nil {
 		return fmt.Errorf("goose provider: %w", err)
 	}
@@ -73,12 +79,25 @@ func Migrate(ctx context.Context, url, command string, out io.Writer) error {
 }
 
 // SetRolePasswords sets the login passwords of the application roles; empty values are skipped.
+// ALTER ROLE cannot take bind parameters, so the literal is quoted, which is only safe with
+// standard_conforming_strings=on (checked). The statement is run with log_statement disabled
+// for this session so the password does not reach the server log.
 func SetRolePasswords(ctx context.Context, url string, passwords map[string]string) error {
 	conn, err := pgx.Connect(ctx, url)
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
 	defer func() { _ = conn.Close(ctx) }()
+	var scs string
+	if err := conn.QueryRow(ctx, "SHOW standard_conforming_strings").Scan(&scs); err != nil {
+		return fmt.Errorf("read standard_conforming_strings: %w", err)
+	}
+	if scs != "on" {
+		return fmt.Errorf("standard_conforming_strings must be on to set passwords (got %q)", scs)
+	}
+	if _, err := conn.Exec(ctx, "SET log_statement = 'none'"); err != nil {
+		return fmt.Errorf("disable statement logging: %w", err)
+	}
 	for role, pw := range passwords {
 		if pw == "" {
 			continue
