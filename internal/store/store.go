@@ -81,13 +81,20 @@ func Migrate(ctx context.Context, url, command string, out io.Writer) error {
 // SetRolePasswords sets the login passwords of the application roles; empty values are skipped.
 // ALTER ROLE cannot take bind parameters, so the literal is quoted, which is only safe with
 // standard_conforming_strings=on (checked). The statement is run with log_statement disabled
-// for this session so the password does not reach the server log.
+// for this session when permitted (superuser) so the password does not reach the server log.
 func SetRolePasswords(ctx context.Context, url string, passwords map[string]string) error {
 	conn, err := pgx.Connect(ctx, url)
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
 	defer func() { _ = conn.Close(ctx) }()
+	pending := false
+	for _, pw := range passwords {
+		pending = pending || pw != ""
+	}
+	if !pending {
+		return nil
+	}
 	var scs string
 	if err := conn.QueryRow(ctx, "SHOW standard_conforming_strings").Scan(&scs); err != nil {
 		return fmt.Errorf("read standard_conforming_strings: %w", err)
@@ -95,9 +102,8 @@ func SetRolePasswords(ctx context.Context, url string, passwords map[string]stri
 	if scs != "on" {
 		return fmt.Errorf("standard_conforming_strings must be on to set passwords (got %q)", scs)
 	}
-	if _, err := conn.Exec(ctx, "SET log_statement = 'none'"); err != nil {
-		return fmt.Errorf("disable statement logging: %w", err)
-	}
+	// Needs superuser; without it the statement may be logged when log_statement=all.
+	_, _ = conn.Exec(ctx, "SET log_statement = 'none'")
 	for role, pw := range passwords {
 		if pw == "" {
 			continue

@@ -27,6 +27,8 @@ func TestCanonicalizeRFC8785Vectors(t *testing.T) {
 		{`[1, 2.5, -3e-2, 333333333.33333329]`, `[1,2.5,-0.03,333333333.3333333]`},
 		{`9007199254740992`, `9007199254740992`},
 		{`"\ufffd"`, "\"\ufffd\""},
+		{`"\\ud800"`, `"\\ud800"`},
+		{`"\ud83d\ude00"`, "\"\U0001F600\""},
 	}
 	for _, c := range cases {
 		got, err := canonicaljson.Canonicalize([]byte(c.in))
@@ -41,7 +43,8 @@ func TestCanonicalizeRFC8785Vectors(t *testing.T) {
 
 func TestCanonicalizeRejectsInvalid(t *testing.T) {
 	for _, in := range []string{``, `{`, `{"a":1}{`, `[1,]`, `{"a":1,"a":2}`, `NaN`,
-		`"\ud800"`, `{"\udc00":1}`, "\"\xff\"", `9007199254740993`, `-9007199254740993`} {
+		`"\ud800"`, `{"\udc00":1}`, "\"\xff\"", `9007199254740993`, `-9007199254740993`,
+		`["\ufffd", "\ud800"]`, `"\ud83d\u0041"`} {
 		if _, err := canonicaljson.Canonicalize([]byte(in)); err == nil {
 			t.Errorf("Canonicalize(%q) accepted invalid input", in)
 		}

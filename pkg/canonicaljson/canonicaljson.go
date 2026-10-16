@@ -30,13 +30,14 @@ func Canonicalize(raw []byte) ([]byte, error) {
 	if !utf8.Valid(raw) {
 		return nil, errors.New("canonicaljson: input is not valid UTF-8")
 	}
-	// encoding/json maps unpaired surrogate escapes to U+FFFD; only accept U+FFFD when the input
-	// spelled it (literally or as \ufffd).
-	allowReplacement := bytes.ContainsRune(raw, utf8.RuneError) || bytes.Contains(bytes.ToLower(raw), []byte(`\ufffd`))
+	// encoding/json silently maps unpaired surrogate escapes to U+FFFD; reject them up front.
+	if err := checkSurrogates(raw); err != nil {
+		return nil, fmt.Errorf("canonicaljson: %w", err)
+	}
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.UseNumber()
 	var buf bytes.Buffer
-	if err := writeValue(dec, &buf, allowReplacement); err != nil {
+	if err := writeValue(dec, &buf); err != nil {
 		return nil, fmt.Errorf("canonicaljson: %w", err)
 	}
 	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
@@ -64,7 +65,7 @@ func SHA256Hex(raw []byte) (string, error) {
 	return hex.EncodeToString(sum[:]), nil
 }
 
-func writeValue(dec *json.Decoder, buf *bytes.Buffer, allowFFFD bool) error {
+func writeValue(dec *json.Decoder, buf *bytes.Buffer) error {
 	tok, err := dec.Token()
 	if err != nil {
 		if errors.Is(err, io.EOF) {
@@ -72,24 +73,21 @@ func writeValue(dec *json.Decoder, buf *bytes.Buffer, allowFFFD bool) error {
 		}
 		return err
 	}
-	return writeToken(dec, buf, tok, allowFFFD)
+	return writeToken(dec, buf, tok)
 }
 
-func writeToken(dec *json.Decoder, buf *bytes.Buffer, tok json.Token, allowFFFD bool) error {
+func writeToken(dec *json.Decoder, buf *bytes.Buffer, tok json.Token) error {
 	switch v := tok.(type) {
 	case json.Delim:
 		switch v {
 		case '{':
-			return writeObject(dec, buf, allowFFFD)
+			return writeObject(dec, buf)
 		case '[':
-			return writeArray(dec, buf, allowFFFD)
+			return writeArray(dec, buf)
 		default:
 			return fmt.Errorf("unexpected delimiter %q", v)
 		}
 	case string:
-		if !allowFFFD && strings.ContainsRune(v, utf8.RuneError) {
-			return errors.New("string contains an unpaired surrogate escape")
-		}
 		writeString(buf, v)
 	case json.Number:
 		f, err := strconv.ParseFloat(string(v), 64)
@@ -123,7 +121,7 @@ type member struct {
 	value []byte
 }
 
-func writeObject(dec *json.Decoder, buf *bytes.Buffer, allowFFFD bool) error {
+func writeObject(dec *json.Decoder, buf *bytes.Buffer) error {
 	var members []member
 	seen := map[string]bool{}
 	for dec.More() {
@@ -135,15 +133,12 @@ func writeObject(dec *json.Decoder, buf *bytes.Buffer, allowFFFD bool) error {
 		if !ok {
 			return fmt.Errorf("object key is %T, want string", tok)
 		}
-		if !allowFFFD && strings.ContainsRune(key, utf8.RuneError) {
-			return errors.New("object key contains an unpaired surrogate escape")
-		}
 		if seen[key] {
 			return fmt.Errorf("duplicate object key %q", key)
 		}
 		seen[key] = true
 		var vb bytes.Buffer
-		if err := writeValue(dec, &vb, allowFFFD); err != nil {
+		if err := writeValue(dec, &vb); err != nil {
 			return err
 		}
 		members = append(members, member{key: key, units: utf16.Encode([]rune(key)), value: vb.Bytes()})
@@ -165,7 +160,7 @@ func writeObject(dec *json.Decoder, buf *bytes.Buffer, allowFFFD bool) error {
 	return nil
 }
 
-func writeArray(dec *json.Decoder, buf *bytes.Buffer, allowFFFD bool) error {
+func writeArray(dec *json.Decoder, buf *bytes.Buffer) error {
 	buf.WriteByte('[')
 	first := true
 	for dec.More() {
@@ -173,7 +168,7 @@ func writeArray(dec *json.Decoder, buf *bytes.Buffer, allowFFFD bool) error {
 			buf.WriteByte(',')
 		}
 		first = false
-		if err := writeValue(dec, buf, allowFFFD); err != nil {
+		if err := writeValue(dec, buf); err != nil {
 			return err
 		}
 	}
@@ -248,4 +243,69 @@ func FormatNumber(f float64) string {
 		return sign + digits + "e" + es + strconv.Itoa(e)
 	}
 	return sign + digits[:1] + "." + digits[1:] + "e" + es + strconv.Itoa(e)
+}
+
+// checkSurrogates scans the JSON text for \\uXXXX escapes inside strings and rejects a high
+// surrogate not followed by a low one, or a low surrogate without a preceding high one.
+func checkSurrogates(raw []byte) error {
+	inString := false
+	for i := 0; i < len(raw); i++ {
+		c := raw[i]
+		if !inString {
+			if c == '"' {
+				inString = true
+			}
+			continue
+		}
+		switch c {
+		case '"':
+			inString = false
+		case '\\':
+			if i+1 >= len(raw) {
+				return nil // the decoder reports the syntax error
+			}
+			if raw[i+1] != 'u' {
+				i++
+				continue
+			}
+			u, ok := hex4(raw, i+2)
+			if !ok {
+				return nil
+			}
+			switch {
+			case u >= 0xD800 && u <= 0xDBFF:
+				low, ok := hex4(raw, i+8)
+				if i+7 >= len(raw) || raw[i+6] != '\\' || raw[i+7] != 'u' || !ok || low < 0xDC00 || low > 0xDFFF {
+					return errors.New("unpaired high surrogate escape")
+				}
+				i += 11
+			case u >= 0xDC00 && u <= 0xDFFF:
+				return errors.New("unpaired low surrogate escape")
+			default:
+				i += 5
+			}
+		}
+	}
+	return nil
+}
+
+func hex4(raw []byte, at int) (rune, bool) {
+	if at+4 > len(raw) {
+		return 0, false
+	}
+	var r rune
+	for _, c := range raw[at : at+4] {
+		r <<= 4
+		switch {
+		case c >= '0' && c <= '9':
+			r |= rune(c - '0')
+		case c >= 'a' && c <= 'f':
+			r |= rune(c-'a') + 10
+		case c >= 'A' && c <= 'F':
+			r |= rune(c-'A') + 10
+		default:
+			return 0, false
+		}
+	}
+	return r, true
 }

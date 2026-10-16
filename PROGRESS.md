@@ -22,6 +22,7 @@ chore: configure commit attribution
 
 | Milestone | Reviewer verdict | Notes |
 |---|---|---|
+| M1 | ship (second pass) | First pass "fix first": concurrent refunds could exceed the order amount (snapshot taken before the row lock). Fixed by locking first and summing in a second statement; deterministic `TestInsertRefundSerialisesOnOrderLock` fails on the old SQL, passes now. Suggestions applied: I-JSON checks in canonicaljson, raw dedup results, goose advisory lock, password guards, narrower gateway env. |
 | M0 | ship (second pass) | First pass "fix first": 2 blockers in `pre_tool_guard.py` (env-read and force-push/identity bypasses) fixed in "fix: close guard-hook bypasses..." with 18 regression cases; proxy/catalog races and fail-open session binding fixed; `TestSessionBoundToPrincipal` added. |
 
 ## Tasks
