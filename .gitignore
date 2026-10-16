@@ -29,3 +29,16 @@ test-results/
 .DS_Store
 .idea/
 .vscode/
+# build outputs
+bin/
+dist/
+coverage*.out
+coverage.html
+# environment files (only the example is tracked)
+.env
+.env.*
+!.env.example
+# e2e
+e2e/node_modules/
+e2e/test-results/
+e2e/playwright-report/
