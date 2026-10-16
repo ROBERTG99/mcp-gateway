@@ -3,11 +3,14 @@
 package audit
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/ROBERTG99/mcp-gateway/pkg/canonicaljson"
@@ -40,16 +43,106 @@ type Event struct {
 	Hash           string          `json:"hash"`
 }
 
-// Normalize makes the event survive a Postgres round trip unchanged: UTC microsecond timestamps,
-// latency rounded to microseconds, and canonical args JSON.
+// MarshalJSON serves ts in the same fixed microsecond layout the hash covers, so any consumer can
+// re-hash an event from its JSON (time.Time's default drops trailing zeros).
+func (e Event) MarshalJSON() ([]byte, error) {
+	type plain Event
+	return json.Marshal(struct {
+		plain
+		TS string `json:"ts"`
+	}{plain: plain(e), TS: e.TS.UTC().Format(tsLayout)})
+}
+
+// ErrUnstorable marks a sink error caused by the events themselves (a value the store rejects), as
+// opposed to a transient failure: retrying the same batch can never succeed.
+var ErrUnstorable = errors.New("audit event unstorable")
+
+// Markers replace values that cannot be stored or hashed.
+const (
+	nulMarker        = "[REDACTED:NUL]"
+	numberMarker     = "[REDACTED:NUMBER]"
+	invalidMarker    = `"[REDACTED:INVALID_JSON]"`
+	unstorableMarker = `"[REDACTED:UNSTORABLE]"`
+)
+
+// Normalize makes the event survive a Postgres round trip unchanged and always storable: UTC
+// microsecond timestamps, finite latency rounded to microseconds, strings without NUL or invalid
+// UTF-8, and canonical I-JSON args (unrepresentable numbers and NULs replaced by markers).
 func (e *Event) Normalize() {
 	e.TS = e.TS.UTC().Truncate(time.Microsecond)
-	e.LatencyMS = math.Round(e.LatencyMS*1000) / 1000
-	if len(e.ArgsRedacted) == 0 {
-		e.ArgsRedacted = json.RawMessage("null")
+	if math.IsNaN(e.LatencyMS) || math.IsInf(e.LatencyMS, 0) {
+		e.LatencyMS = 0
 	}
-	if c, err := canonicaljson.Canonicalize(e.ArgsRedacted); err == nil {
-		e.ArgsRedacted = c
+	e.LatencyMS = math.Round(e.LatencyMS*1000) / 1000
+	for _, s := range []*string{&e.Tenant, &e.Agent, &e.Server, &e.Tool, &e.ArgsSHA256, &e.Decision, &e.Status} {
+		*s = cleanString(*s)
+	}
+	for _, s := range []*string{e.ApprovalID, e.IdempotencyKey} {
+		if s != nil {
+			*s = cleanString(*s)
+		}
+	}
+	e.ArgsRedacted = storableArgs(e.ArgsRedacted)
+}
+
+// placeholder stands in for an event the sink refused: same identity and outcome, no args.
+func (e Event) placeholder() Event {
+	e.ArgsRedacted = json.RawMessage(unstorableMarker)
+	return e
+}
+
+func cleanString(s string) string {
+	return strings.ReplaceAll(strings.ToValidUTF8(s, "\uFFFD"), "\x00", nulMarker)
+}
+
+// storableArgs returns the canonical form of raw, sanitising it first when it is not I-JSON or
+// holds a NUL (Postgres jsonb rejects \u0000).
+func storableArgs(raw json.RawMessage) json.RawMessage {
+	if len(raw) == 0 {
+		return json.RawMessage("null")
+	}
+	if c, err := canonicaljson.Canonicalize(raw); err == nil && !bytes.Contains(c, []byte(`\u0000`)) {
+		return c
+	}
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	var v any
+	if err := dec.Decode(&v); err != nil || dec.More() {
+		return json.RawMessage(invalidMarker)
+	}
+	b, err := json.Marshal(sanitize(v))
+	if err != nil {
+		return json.RawMessage(invalidMarker)
+	}
+	c, err := canonicaljson.Canonicalize(b)
+	if err != nil {
+		return json.RawMessage(invalidMarker)
+	}
+	return c
+}
+
+func sanitize(v any) any {
+	switch t := v.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(t))
+		for k, x := range t {
+			out[cleanString(k)] = sanitize(x)
+		}
+		return out
+	case []any:
+		for i := range t {
+			t[i] = sanitize(t[i])
+		}
+		return t
+	case string:
+		return cleanString(t)
+	case json.Number:
+		if _, err := canonicaljson.Canonicalize([]byte(t)); err != nil {
+			return numberMarker
+		}
+		return t
+	default:
+		return v
 	}
 }
 
@@ -63,7 +156,7 @@ func (e Event) body() ([]byte, error) {
 	}
 	b, err := canonicaljson.Marshal(m)
 	if err != nil {
-		return nil, fmt.Errorf("canonicalize audit event %d: %w", e.Seq, err)
+		return nil, fmt.Errorf("%w: canonicalize audit event %d: %w", ErrUnstorable, e.Seq, err)
 	}
 	return b, nil
 }

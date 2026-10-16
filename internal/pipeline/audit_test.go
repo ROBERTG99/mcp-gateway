@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/ROBERTG99/mcp-gateway/internal/audit"
@@ -149,4 +150,37 @@ type stallSink struct{}
 
 func (stallSink) Append(context.Context, []audit.Event) ([]audit.Event, error) {
 	return nil, errors.New("database unavailable")
+}
+
+// TestHostileArgsDoNotStopAudit: arguments that are not I-JSON (rejected with -32602) or hold a NUL
+// (accepted, but unstorable in Postgres as-is) are audited with markers, and later calls are still
+// audited: one hostile call must not saturate the audit buffer for everyone.
+func TestHostileArgsDoNotStopAudit(t *testing.T) {
+	up := &fakeUpstream{}
+	p, sink, w := auditedPipeline(t, up)
+	if _, err := call(p, refundTool, json.RawMessage(`{"order_id":"O-1","amount_cents":9007199254740993,"reason":"x"}`),
+		mcp.Meta{"idempotency_key": "hostile-key-0001"}); code(t, err) != jsonrpc.CodeInvalidParams {
+		t.Fatalf("integer beyond 2^53: %v, want -32602", err)
+	}
+	if _, err := call(p, refundTool, json.RawMessage(`{"order_id":"O-1","amount_cents":500,"reason":"a\u0000b"}`),
+		mcp.Meta{"idempotency_key": "hostile-key-0002"}); err != nil {
+		t.Fatalf("NUL in a string: %v", err)
+	}
+	if _, err := call(p, refundTool, map[string]any{"order_id": "O-2", "amount_cents": 700, "reason": "x"},
+		mcp.Meta{"idempotency_key": "hostile-key-0003"}); err != nil {
+		t.Fatalf("valid call after hostile ones: %v", err)
+	}
+	if err := w.Flush(t.Context()); err != nil {
+		t.Fatalf("flush: %v", err)
+	}
+	events := sink.Events()
+	if len(events) != 3 || w.Depth() != 0 {
+		t.Fatalf("audit events = %d (depth %d), want 3", len(events), w.Depth())
+	}
+	if !strings.Contains(string(events[0].ArgsRedacted), "[REDACTED:NUMBER]") || !strings.Contains(string(events[1].ArgsRedacted), "[REDACTED:NUL]") {
+		t.Fatalf("args = %s / %s", events[0].ArgsRedacted, events[1].ArgsRedacted)
+	}
+	if res := audit.VerifyChain(events, audit.GenesisHash); !res.OK {
+		t.Fatalf("chain: %+v", res)
+	}
 }

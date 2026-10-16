@@ -159,6 +159,25 @@ func TestApprovalBoundToArgsHash(t *testing.T) {
 	if f.up.calls.Load() != 0 {
 		t.Fatal("a mismatched retry executed")
 	}
+	// Once consumed by its own call, any other reuse is approval_consumed; the same-key retry replays.
+	if _, err := call(f.p, refundTool, heldArgs, mcp.Meta{"idempotency_key": "refund-held-0002", "approval_id": id}); err != nil {
+		t.Fatalf("approved retry: %v", err)
+	}
+	_, err = call(f.p, refundTool, other, mcp.Meta{"idempotency_key": "refund-held-0002", "approval_id": id})
+	if r := approvalReason(t, err); r != approvals.ReasonConsumed {
+		t.Fatalf("consumed, other args: %s", r)
+	}
+	_, err = call(f.p, refundTool, heldArgs, mcp.Meta{"idempotency_key": "refund-held-0005", "approval_id": id})
+	if r := approvalReason(t, err); r != approvals.ReasonConsumed {
+		t.Fatalf("consumed, other key: %s", r)
+	}
+	res, err := call(f.p, refundTool, heldArgs, mcp.Meta{"idempotency_key": "refund-held-0002", "approval_id": id})
+	if err != nil || gwMeta(res)["idempotent_replay"] != true {
+		t.Fatalf("same-key retry after consumption: %v", err)
+	}
+	if f.up.calls.Load() != 1 {
+		t.Fatalf("upstream calls = %d, want 1", f.up.calls.Load())
+	}
 	// Rejected and expired approvals.
 	rid, _ := held(t, f.p, heldArgs, mcp.Meta{"idempotency_key": "refund-held-0003"})
 	if _, err := f.svc.Decide(t.Context(), rid, approver, false, "no"); err != nil {

@@ -56,11 +56,25 @@ func (p *Postgres) Create(ctx context.Context, a Approval, webhook json.RawMessa
 	if a.IdempotencyKey != "" {
 		key = a.IdempotencyKey
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO approvals (id, tenant, agent, server, tool, args_sha256, args_redacted, reasons,
-		idempotency_key, status, expires_at, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12)`,
+	// At most one pending approval per call (unique index approvals_one_pending): a stale pending
+	// row past its expiry is expired first, then a concurrent identical hold loses the insert.
+	_, err = tx.Exec(ctx, `UPDATE approvals SET status = 'expired', updated_at = $7 WHERE status = 'pending'
+		AND tenant = $1 AND agent = $2 AND server = $3 AND tool = $4 AND args_sha256 = $5
+		AND COALESCE(idempotency_key, '') = $6 AND expires_at <= $7`,
+		a.Tenant, a.Agent, a.Server, a.Tool, a.ArgsSHA256, a.IdempotencyKey, a.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("expire stale approval: %w", err)
+	}
+	tag, err := tx.Exec(ctx, `INSERT INTO approvals (id, tenant, agent, server, tool, args_sha256, args_redacted, reasons,
+		idempotency_key, status, expires_at, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12)
+		ON CONFLICT (tenant, agent, server, tool, args_sha256, COALESCE(idempotency_key, '')) WHERE status = 'pending'
+		DO NOTHING`,
 		a.ID, a.Tenant, a.Agent, a.Server, a.Tool, a.ArgsSHA256, string(a.ArgsRedacted), a.Reasons, key, a.Status, a.ExpiresAt, a.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("insert approval: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrDuplicatePending
 	}
 	_, err = tx.Exec(ctx, `INSERT INTO webhook_outbox (approval_id, payload, next_attempt_at, created_at) VALUES ($1, $2, $3, $3)`,
 		a.ID, string(webhook), a.CreatedAt)
@@ -75,7 +89,10 @@ func (p *Postgres) Create(ctx context.Context, a Approval, webhook json.RawMessa
 
 // Get implements Store.
 func (p *Postgres) Get(ctx context.Context, id string) (Approval, error) {
-	return scanApproval(p.pool.QueryRow(ctx, `SELECT `+approvalColumns+` FROM approvals WHERE id::text = $1`, id))
+	if !ValidID(id) {
+		return Approval{}, ErrNotFound
+	}
+	return scanApproval(p.pool.QueryRow(ctx, `SELECT `+approvalColumns+` FROM approvals WHERE id = $1::uuid`, id))
 }
 
 // FindPending implements Store.
@@ -114,12 +131,15 @@ func (p *Postgres) List(ctx context.Context, f ListFilter) ([]Approval, error) {
 
 // Decide implements Store.
 func (p *Postgres) Decide(ctx context.Context, id, tenant, status, by, note string, now time.Time) (Approval, error) {
+	if !ValidID(id) {
+		return Approval{}, ErrNotFound
+	}
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return Approval{}, fmt.Errorf("decide: begin: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	a, err := scanApproval(tx.QueryRow(ctx, `SELECT `+approvalColumns+` FROM approvals WHERE id::text = $1 FOR UPDATE`, id))
+	a, err := scanApproval(tx.QueryRow(ctx, `SELECT `+approvalColumns+` FROM approvals WHERE id = $1::uuid FOR UPDATE`, id))
 	if err != nil {
 		return Approval{}, err
 	}
@@ -154,12 +174,15 @@ func (p *Postgres) Decide(ctx context.Context, id, tenant, status, by, note stri
 // Consume implements Store: the row is locked, checked and marked consumed in one transaction,
 // so two concurrent retries cannot both execute.
 func (p *Postgres) Consume(ctx context.Context, id string, b Binding, now time.Time) (Approval, string, error) {
+	if !ValidID(id) {
+		return Approval{}, ReasonNotFound, nil
+	}
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return Approval{}, "", fmt.Errorf("consume: begin: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	a, err := scanApproval(tx.QueryRow(ctx, `SELECT `+approvalColumns+` FROM approvals WHERE id::text = $1 FOR UPDATE`, id))
+	a, err := scanApproval(tx.QueryRow(ctx, `SELECT `+approvalColumns+` FROM approvals WHERE id = $1::uuid FOR UPDATE`, id))
 	if errors.Is(err, ErrNotFound) {
 		return Approval{}, ReasonNotFound, nil
 	}
@@ -206,8 +229,10 @@ func (p *Postgres) CountPending(ctx context.Context, now time.Time) (int64, erro
 
 // DueOutbox implements Store.
 func (p *Postgres) DueOutbox(ctx context.Context, now time.Time, limit int) ([]OutboxItem, error) {
-	rows, err := p.pool.Query(ctx, `SELECT id, approval_id::text, payload::text, attempts FROM webhook_outbox
-		WHERE delivered_at IS NULL AND next_attempt_at <= $1 ORDER BY next_attempt_at LIMIT $2`, now, limit)
+	rows, err := p.pool.Query(ctx, `WITH due AS (SELECT id FROM webhook_outbox
+		WHERE delivered_at IS NULL AND next_attempt_at <= $1 ORDER BY next_attempt_at LIMIT $2 FOR UPDATE SKIP LOCKED)
+		UPDATE webhook_outbox o SET next_attempt_at = $3 FROM due WHERE o.id = due.id
+		RETURNING o.id, o.approval_id::text, o.payload::text, o.attempts`, now, limit, now.Add(OutboxLease))
 	if err != nil {
 		return nil, fmt.Errorf("due outbox: %w", err)
 	}

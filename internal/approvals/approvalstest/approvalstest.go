@@ -123,6 +123,98 @@ func Run(t *testing.T, newStore func(t *testing.T) approvals.Store) {
 		if _, reason, _ := s.Consume(ctx, a.ID, b, now.Add(time.Hour)); reason != approvals.ReasonExpired {
 			t.Fatalf("approved but past expiry: %q", reason)
 		}
+		// Once consumed, any reuse in the tenant is approval_consumed; other tenants still see nothing.
+		if _, reason, err := s.Consume(ctx, a.ID, b, now); err != nil || reason != "" {
+			t.Fatalf("consume: %q %v", reason, err)
+		}
+		other = b
+		other.ArgsSHA256 = strings.Repeat("b", 64)
+		if _, reason, _ := s.Consume(ctx, a.ID, other, now); reason != approvals.ReasonConsumed {
+			t.Fatalf("consumed, other args: %q", reason)
+		}
+		other.Tenant = "t_beta"
+		if _, reason, _ := s.Consume(ctx, a.ID, other, now); reason != approvals.ReasonNotFound {
+			t.Fatalf("consumed, other tenant: %q", reason)
+		}
+	})
+
+	t.Run("one pending approval per call", func(t *testing.T) {
+		s := newStore(t)
+		a := newApproval("t_alpha")
+		create(t, s, a)
+		dup := newApproval("t_alpha") // same binding, new id
+		if err := s.Create(ctx, dup, json.RawMessage(`{}`)); !errors.Is(err, approvals.ErrDuplicatePending) {
+			t.Fatalf("second pending approval for one call: %v, want ErrDuplicatePending", err)
+		}
+		// Concurrent identical holds: exactly one is created (one approval, one webhook).
+		var created atomic.Int64
+		var wg sync.WaitGroup
+		other := newApproval("t_beta")
+		for range 8 {
+			wg.Go(func() {
+				c := other
+				c.ID = newApproval("t_beta").ID
+				if err := s.Create(ctx, c, json.RawMessage(`{}`)); err == nil {
+					created.Add(1)
+				} else if !errors.Is(err, approvals.ErrDuplicatePending) {
+					t.Errorf("create: %v", err)
+				}
+			})
+		}
+		wg.Wait()
+		if created.Load() != 1 {
+			t.Fatalf("created %d pending approvals for one call", created.Load())
+		}
+		// A pending approval past its expiry does not block a new one for the same call.
+		later := newApproval("t_alpha")
+		later.CreatedAt, later.UpdatedAt, later.ExpiresAt = now.Add(20*time.Minute), now.Add(20*time.Minute), now.Add(35*time.Minute)
+		if err := s.Create(ctx, later, json.RawMessage(`{}`)); err != nil {
+			t.Fatalf("create after the old one expired: %v", err)
+		}
+		if got, ok, err := s.FindPending(ctx, binding(later), now.Add(21*time.Minute)); err != nil || !ok || got.ID != later.ID {
+			t.Fatalf("find pending = %+v %v %v", got, ok, err)
+		}
+		// Malformed ids never match.
+		if _, err := s.Get(ctx, "not-a-uuid"); !errors.Is(err, approvals.ErrNotFound) {
+			t.Fatalf("get malformed id: %v", err)
+		}
+		if _, reason, err := s.Consume(ctx, "'; DROP TABLE approvals; --", binding(a), now); err != nil || reason != approvals.ReasonNotFound {
+			t.Fatalf("consume malformed id: %q %v", reason, err)
+		}
+	})
+
+	t.Run("outbox items are claimed once", func(t *testing.T) {
+		s := newStore(t)
+		for _, tenant := range []string{"t_alpha", "t_beta", "t_gamma"} {
+			create(t, s, newApproval(tenant))
+		}
+		var claimed sync.Map
+		var wg sync.WaitGroup
+		for range 4 {
+			wg.Go(func() {
+				due, err := s.DueOutbox(ctx, now, 10)
+				if err != nil {
+					t.Errorf("due: %v", err)
+				}
+				for _, it := range due {
+					if _, dup := claimed.LoadOrStore(it.ID, true); dup {
+						t.Errorf("item %d claimed twice", it.ID)
+					}
+				}
+			})
+		}
+		wg.Wait()
+		n := 0
+		claimed.Range(func(any, any) bool { n++; return true })
+		if n != 3 {
+			t.Fatalf("claimed %d items, want 3", n)
+		}
+		if due, _ := s.DueOutbox(ctx, now.Add(time.Minute), 10); len(due) != 0 {
+			t.Fatalf("claimed items due again inside the lease: %+v", due)
+		}
+		if due, _ := s.DueOutbox(ctx, now.Add(approvals.OutboxLease), 10); len(due) != 3 {
+			t.Fatalf("items of a dead claimant after the lease: %d, want 3", len(due))
+		}
 	})
 
 	t.Run("concurrent consume executes once", func(t *testing.T) {

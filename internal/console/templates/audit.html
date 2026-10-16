@@ -14,7 +14,7 @@
     <div class="actions" style="margin:0"><button type="submit" class="primary">Apply</button><a class="button" href="/console/audit">Reset</a></div>
   </form>
 </section>
-<p class="actions"><a class="button pagelink" href="/console/audit?verify=1">Verify chain</a></p>
+{{if .Data.CanVerify}}<p class="actions"><a class="button pagelink" href="/console/audit?verify=1">Verify chain</a></p>{{end}}
 {{if .Error}}{{else if .Data.Page.Events}}
 <div class="table-wrap">
 <table>

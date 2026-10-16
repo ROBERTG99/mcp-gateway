@@ -244,6 +244,10 @@ func (a *API) getAudit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) verifyAudit(w http.ResponseWriter, r *http.Request) {
+	if p, _ := authn.FromContext(r.Context()); !CanVerify(p) {
+		Problem(w, http.StatusForbidden, "chain verification covers every tenant: it needs a cross-tenant viewer or mcpgw:admin")
+		return
+	}
 	var from int64
 	if s := r.URL.Query().Get("from_seq"); s != "" {
 		n, err := strconv.ParseInt(s, 10, 64)
@@ -264,6 +268,10 @@ func (a *API) verifyAudit(w http.ResponseWriter, r *http.Request) {
 	}
 	JSON(w, http.StatusOK, res)
 }
+
+// CanVerify reports whether p may verify the audit chain, which spans every tenant (its result
+// names other tenants' sequence numbers and the head hash, and each run forces a flush).
+func CanVerify(p authn.Principal) bool { return p.Tenant == "*" || p.HasScope(ScopeAdmin) }
 
 // Verify flushes buffered events and verifies the chain.
 func (a *API) Verify(ctx context.Context, from int64) (audit.VerifyResult, error) {

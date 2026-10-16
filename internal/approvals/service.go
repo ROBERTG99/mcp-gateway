@@ -98,7 +98,13 @@ func (s *Service) Hold(ctx context.Context, r HoldRequest) (Approval, error) {
 	if err != nil {
 		return Approval{}, fmt.Errorf("encode webhook: %w", err)
 	}
-	if err := s.store.Create(ctx, a, payload); err != nil {
+	if err := s.store.Create(ctx, a, payload); errors.Is(err, ErrDuplicatePending) {
+		// A concurrent identical call created it first: return that one (one approval, one webhook).
+		if p, ok, ferr := s.store.FindPending(ctx, r.Binding, now); ferr != nil || ok {
+			return p, ferr
+		}
+		return Approval{}, fmt.Errorf("hold: %w", err)
+	} else if err != nil {
 		return Approval{}, err
 	}
 	return a, nil

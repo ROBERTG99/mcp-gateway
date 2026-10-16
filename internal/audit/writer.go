@@ -49,6 +49,7 @@ type Writer struct {
 	flush chan chan error
 
 	pending atomic.Int64
+	closed  atomic.Bool // set when Run starts draining; later reservations fail
 }
 
 // NewWriter returns a writer; call Run to start flushing.
@@ -103,6 +104,12 @@ func (w *Writer) Reserve(ctx context.Context) (*Ticket, error) {
 		case <-ctx.Done():
 			return nil, ErrBackpressure
 		}
+	}
+	// Checked after taking the slot: the drain sets closed before it waits for the slots to empty,
+	// so a reservation either sees closed or is waited for.
+	if w.closed.Load() {
+		<-w.slots
+		return nil, fmt.Errorf("%w: audit writer stopped", ErrBackpressure)
 	}
 	sctx, cancel := context.WithTimeout(ctx, w.opts.EnqueueTimeout+5*time.Millisecond)
 	defer cancel()
@@ -168,6 +175,15 @@ func (w *Writer) Run(ctx context.Context) error {
 			n := min(len(batch), w.opts.Batch)
 			start := w.opts.Clock.Now()
 			stored, err := w.sink.Append(pctx, batch[:n])
+			// An unstorable batch is never retried as is: halve it until the clean prefix is
+			// stored, so the offending event ends up alone at the head of the batch.
+			for errors.Is(err, ErrUnstorable) && n > 1 {
+				n /= 2
+				stored, err = w.sink.Append(pctx, batch[:n])
+			}
+			if errors.Is(err, ErrUnstorable) {
+				stored, err = w.storePlaceholder(pctx, batch[0], err)
+			}
 			if err != nil {
 				return err
 			}
@@ -206,6 +222,7 @@ func (w *Writer) Run(ctx context.Context) error {
 			drainQueue()
 			reply <- persist(ctx)
 		case <-ctx.Done():
+			w.closed.Store(true)
 			sctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), w.opts.ShutdownTimeout)
 			defer cancel()
 			for {
@@ -229,6 +246,19 @@ func (w *Writer) Run(ctx context.Context) error {
 			}
 		}
 	}
+}
+
+// storePlaceholder replaces an event the sink refused by a placeholder with the same seq, identity
+// and status but no args. If the sink refuses even that, the event is dropped and logged: one
+// event must never stop the audit log (and with it every call) for good.
+func (w *Writer) storePlaceholder(ctx context.Context, e Event, cause error) ([]Event, error) {
+	w.opts.Logger.Error("audit event unstorable; storing a placeholder", "seq", e.Seq, "error", cause)
+	stored, err := w.sink.Append(ctx, []Event{e.placeholder()})
+	if errors.Is(err, ErrUnstorable) {
+		w.opts.Logger.Error("audit placeholder unstorable; event dropped", "seq", e.Seq, "error", err)
+		return nil, nil
+	}
+	return stored, err
 }
 
 func (w *Writer) logErr(err error) {

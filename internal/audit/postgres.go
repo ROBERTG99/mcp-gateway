@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -52,6 +54,11 @@ func (p *PostgresSink) Append(ctx context.Context, events []Event) ([]Event, err
 		"tool", "args_redacted", "args_sha256", "decision", "approval_id", "idempotency_key", "status", "latency_ms",
 		"prev_hash", "hash"}, pgx.CopyFromRows(rows))
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && (strings.HasPrefix(pgErr.Code, "22") || strings.HasPrefix(pgErr.Code, "23")) {
+			// Data exception or constraint violation: the rows themselves are rejected.
+			return nil, fmt.Errorf("%w: audit append: copy: %w", ErrUnstorable, err)
+		}
 		return nil, fmt.Errorf("audit append: copy: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {

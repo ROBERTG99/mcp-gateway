@@ -4,9 +4,12 @@ package audit_test
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -152,5 +155,70 @@ func TestAuditQueryPostgres(t *testing.T) {
 	}
 	if p, _ := pg.List(ctx, audit.Filter{ApprovalID: approval}); len(p.Events) != 6 {
 		t.Fatalf("approval filter matched %d events, want 6", len(p.Events))
+	}
+}
+
+// TestAuditUnstorableArgsPostgres: the poison payloads that once stopped the audit log (an integer
+// beyond 2^53, a NUL that Postgres jsonb rejects) are stored with markers, the chain verifies, and
+// a raw NUL reaching the sink is reported as ErrUnstorable rather than a transient failure.
+func TestAuditUnstorableArgsPostgres(t *testing.T) {
+	ctx := t.Context()
+	db := pgtest.New(t)
+	if err := store.Migrate(ctx, db.URL, "up", io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SetRolePasswords(ctx, db.URL, map[string]string{"mcpgw_app": "pw"}); err != nil {
+		t.Fatal(err)
+	}
+	pool, err := store.Open(ctx, db.RoleURL("mcpgw_app", "pw"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	sink := audit.NewPostgresSink(pool)
+
+	raw := event("t_alpha")
+	raw.Seq, raw.ArgsRedacted = 1_000_000, json.RawMessage(`{"note":"a\u0000b"}`)
+	if _, err := sink.Append(ctx, []audit.Event{raw}); !errors.Is(err, audit.ErrUnstorable) {
+		t.Fatalf("raw NUL append: %v, want ErrUnstorable", err)
+	}
+
+	seq := audit.NewPostgresSeq(pool, 16)
+	if err := seq.Warm(ctx); err != nil {
+		t.Fatal(err)
+	}
+	w := audit.NewWriter(sink, seq, audit.Options{FlushInterval: time.Hour, EnqueueTimeout: time.Second})
+	rctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- w.Run(rctx) }()
+	defer func() {
+		cancel()
+		if err := <-done; err != nil {
+			t.Errorf("run: %v", err)
+		}
+	}()
+	for _, args := range []string{`{"amount_cents":9007199254740993}`, `{"note":"a\u0000b"}`, `{"order_id":"O-1"}`} {
+		tk, err := w.Reserve(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		e := event("t_alpha")
+		e.ArgsRedacted = json.RawMessage(args)
+		tk.Commit(e)
+	}
+	if err := w.Flush(ctx); err != nil {
+		t.Fatalf("flush: %v", err)
+	}
+	res, err := audit.VerifyPostgres(ctx, pool, 0)
+	if err != nil || !res.OK || res.Checked != 3 {
+		t.Fatalf("verify = %+v, %v", res, err)
+	}
+	page, err := audit.NewPostgresReader(pool).List(ctx, audit.Filter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := fmt.Sprint(string(page.Events[2].ArgsRedacted), string(page.Events[1].ArgsRedacted))
+	if !strings.Contains(got, "[REDACTED:NUMBER]") || !strings.Contains(got, "[REDACTED:NUL]") {
+		t.Fatalf("stored args = %s", got)
 	}
 }

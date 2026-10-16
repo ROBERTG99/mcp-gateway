@@ -91,6 +91,17 @@ func TestEnvValidation(t *testing.T) {
 			t.Errorf("%s=%s: err = %v, want error naming the variable", k, v, err)
 		}
 	}
+	// A webhook URL needs a real HMAC key: an empty or short secret would sign with a guessable key.
+	for _, secret := range []string{"", "short"} {
+		_, err := config.Load(env(map[string]string{"MCPGW_APPROVAL_WEBHOOK_URL": "http://sink/approvals", "MCPGW_APPROVAL_WEBHOOK_SECRET": secret}))
+		if err == nil || !strings.Contains(err.Error(), "MCPGW_APPROVAL_WEBHOOK_SECRET") {
+			t.Errorf("webhook secret %q: err = %v", secret, err)
+		}
+	}
+	if _, err := config.Load(env(map[string]string{"MCPGW_APPROVAL_WEBHOOK_URL": "http://sink/approvals",
+		"MCPGW_APPROVAL_WEBHOOK_SECRET": "a-long-enough-secret"})); err != nil {
+		t.Errorf("valid webhook config: %v", err)
+	}
 }
 
 func TestTenantsFile(t *testing.T) {

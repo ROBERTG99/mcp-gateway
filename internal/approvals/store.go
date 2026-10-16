@@ -26,6 +26,9 @@ var (
 	ErrForbidden  = errors.New("approval belongs to another tenant")
 	ErrNotPending = errors.New("approval is not pending")
 	ErrExpired    = errors.New("approval expired")
+	// ErrDuplicatePending is returned by Create when an unexpired pending approval for the same
+	// call (binding) already exists.
+	ErrDuplicatePending = errors.New("a pending approval already exists for this call")
 )
 
 // Approval is one held call.
@@ -95,6 +98,9 @@ type Store interface {
 	// CountPending returns the number of pending, unexpired approvals.
 	CountPending(ctx context.Context, now time.Time) (int64, error)
 
+	// DueOutbox claims up to limit due, undelivered items for OutboxLease: a claimed item is not
+	// due again until the lease ends (or MarkFailed reschedules it), so replicas sharing the store
+	// never deliver the same item concurrently, and a replica that dies mid-batch only delays it.
 	DueOutbox(ctx context.Context, now time.Time, limit int) ([]OutboxItem, error)
 	MarkDelivered(ctx context.Context, id int64, now time.Time) error
 	// MarkFailed records a failed attempt; a zero next means "abandoned, never retry".
@@ -102,6 +108,29 @@ type Store interface {
 	// Retention: delete decided approvals and findings older than before, delivered outbox rows
 	// older than outboxBefore.
 	Purge(ctx context.Context, before, outboxBefore time.Time) (int64, error)
+}
+
+// OutboxLease is how long DueOutbox claims an item: longer than a worst-case batch (50 items at the
+// 10 s webhook timeout).
+const OutboxLease = 15 * time.Minute
+
+// ValidID reports whether id has the canonical 8-4-4-4-12 hex UUID shape; anything else can never
+// name an approval.
+func ValidID(id string) bool {
+	if len(id) != 36 {
+		return false
+	}
+	for i, c := range id {
+		switch {
+		case i == 8 || i == 13 || i == 18 || i == 23:
+			if c != '-' {
+				return false
+			}
+		case (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F'):
+			return false
+		}
+	}
+	return true
 }
 
 // Consume reasons (-32045 data.reason).
@@ -119,10 +148,12 @@ func consumeDecision(a Approval, b Binding, now time.Time) string {
 	switch {
 	case a.Tenant != b.Tenant:
 		return ReasonNotFound // other tenants' approvals are invisible
+	case a.Status == StatusConsumed:
+		// Checked before the binding: any reuse of a spent approval is approval_consumed. The
+		// pipeline lets the matching same-key retry through to the idempotency stage (replay).
+		return ReasonConsumed
 	case !a.Matches(b):
 		return ReasonMismatch
-	case a.Status == StatusConsumed:
-		return ReasonConsumed
 	case a.Status == StatusRejected:
 		return ReasonRejected
 	case a.Status == StatusExpired, !now.Before(a.ExpiresAt):

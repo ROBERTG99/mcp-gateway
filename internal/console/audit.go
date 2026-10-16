@@ -21,6 +21,7 @@ type auditView struct {
 	OlderURL  string
 	Statuses  []string
 	Verified  *audit.VerifyResult
+	CanVerify bool
 	Truncated bool
 }
 
@@ -90,7 +91,9 @@ func (c *Console) auditPage(w http.ResponseWriter, r *http.Request) {
 		older.Set("cursor", data.Page.NextCursor)
 		data.OlderURL = "/console/audit?" + older.Encode()
 	}
-	if r.URL.Query().Get("verify") == "1" {
+	// The chain spans every tenant, so only cross-tenant viewers get the button and the check.
+	data.CanVerify = admin.CanVerify(s.principal)
+	if r.URL.Query().Get("verify") == "1" && data.CanVerify {
 		res, err := c.api.Verify(r.Context(), 0)
 		switch {
 		case err != nil:

@@ -99,6 +99,9 @@ func Vars() []Var {
 	return out
 }
 
+// MinWebhookSecret is the shortest accepted approval webhook HMAC key, in bytes.
+const MinWebhookSecret = 16
+
 // Load builds a Config from defaults overridden by getenv (use os.Getenv in production).
 func Load(getenv func(string) string) (Config, error) {
 	var cfg Config
@@ -122,6 +125,9 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 	if cfg.JWTIssuer == "" || cfg.JWTAudience == "" {
 		errs = append(errs, errors.New("MCPGW_JWT_ISSUER and MCPGW_JWT_AUDIENCE must not be empty (an empty value would skip the check)"))
+	}
+	if cfg.ApprovalWebhookURL != "" && len(cfg.ApprovalWebhookSecret) < MinWebhookSecret {
+		errs = append(errs, fmt.Errorf("MCPGW_APPROVAL_WEBHOOK_SECRET: must be at least %d bytes when MCPGW_APPROVAL_WEBHOOK_URL is set", MinWebhookSecret))
 	}
 	if cfg.InjectionThreshold < 0 || cfg.InjectionThreshold > 1 {
 		errs = append(errs, fmt.Errorf("MCPGW_INJECTION_THRESHOLD=%v: must be within [0, 1]", cfg.InjectionThreshold))

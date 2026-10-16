@@ -30,6 +30,16 @@ func NewMemory() *Memory { return &Memory{approvals: map[string]Approval{}} }
 func (m *Memory) Create(_ context.Context, a Approval, webhook json.RawMessage) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	b := Binding{Tenant: a.Tenant, Agent: a.Agent, Server: a.Server, Tool: a.Tool, ArgsSHA256: a.ArgsSHA256, IdempotencyKey: a.IdempotencyKey}
+	for id, x := range m.approvals {
+		if x.Status == StatusPending && x.Matches(b) {
+			if a.CreatedAt.Before(x.ExpiresAt) {
+				return ErrDuplicatePending
+			}
+			x.Status, x.UpdatedAt = StatusExpired, a.CreatedAt
+			m.approvals[id] = x
+		}
+	}
 	m.approvals[a.ID] = a
 	m.outbox = append(m.outbox, memOutbox{item: OutboxItem{ID: int64(len(m.outbox) + 1), ApprovalID: a.ID, Payload: webhook},
 		next: a.CreatedAt, created: a.CreatedAt})
@@ -155,9 +165,10 @@ func (m *Memory) DueOutbox(_ context.Context, now time.Time, limit int) ([]Outbo
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var out []OutboxItem
-	for _, o := range m.outbox {
+	for i, o := range m.outbox {
 		if o.delivered == nil && !o.next.IsZero() && !o.next.After(now) && len(out) < limit {
 			out = append(out, o.item)
+			m.outbox[i].next = now.Add(OutboxLease)
 		}
 	}
 	return out, nil

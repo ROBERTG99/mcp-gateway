@@ -3,6 +3,8 @@ package admin_test
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -17,6 +19,7 @@ import (
 	"github.com/ROBERTG99/mcp-gateway/internal/catalog"
 	"github.com/ROBERTG99/mcp-gateway/internal/devissuer"
 	"github.com/ROBERTG99/mcp-gateway/internal/policy"
+	"github.com/ROBERTG99/mcp-gateway/pkg/canonicaljson"
 )
 
 type fixture struct {
@@ -105,6 +108,7 @@ func TestAdminRBAC(t *testing.T) {
 	approver := f.token(t, "t_alpha", "jo.approver", "mcpgw:approve")
 	betaApprover := f.token(t, "t_beta", "kim.approver", "mcpgw:approve")
 	agent := f.token(t, "t_alpha", "agent-support", "orders:write")
+	alphaReader := f.token(t, "t_alpha", "kim.reader", "mcpgw:audit:read")
 	approve := "/admin/approvals/" + f.held.ID + ":approve"
 
 	cases := []struct {
@@ -131,6 +135,9 @@ func TestAdminRBAC(t *testing.T) {
 		{"approver approves", http.MethodPost, approve, approver, map[string]any{"note": "ok"}, 200},
 		{"second decision", http.MethodPost, approve, approver, map[string]any{"note": "ok"}, 409},
 		{"verify chain", http.MethodGet, "/admin/audit/verify", reviewer, nil, 200},
+		// The chain spans every tenant: a tenant-scoped reader may not see its facts or force flushes.
+		{"tenant reader verifies chain", http.MethodGet, "/admin/audit/verify", alphaReader, nil, 403},
+		{"tenant reader reads audit", http.MethodGet, "/admin/audit", alphaReader, nil, 200},
 	}
 	for _, c := range cases {
 		rec := f.do(t, c.method, c.path, c.token, c.body)
@@ -179,5 +186,50 @@ func TestAdminTenantScoping(t *testing.T) {
 	}
 	if rec := f.do(t, http.MethodGet, "/admin/audit?cursor=!!", reviewer, nil); rec.Code != 400 {
 		t.Fatalf("bad cursor: %d, want 400", rec.Code)
+	}
+}
+
+// TestAuditAPIEventsRehashable is the audit contract for consumers: every event served by
+// GET /admin/audit re-hashes from its own JSON as sha256(prev_hash + canonical_json(event without
+// hash)), including timestamps whose microseconds end in zero.
+func TestAuditAPIEventsRehashable(t *testing.T) {
+	f := newFixture(t)
+	ctx := t.Context()
+	for _, ns := range []int{120_000_000, 0, 500_000, 123_456_000} {
+		tk, err := f.writer.Reserve(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tk.Commit(audit.Event{TS: time.Date(2026, 10, 16, 12, 0, 0, ns, time.UTC), Tenant: "t_alpha", Agent: "agent-support",
+			Server: "crm", Tool: "get_customer", ArgsRedacted: json.RawMessage(`{"customer_id":"C-0042"}`),
+			ArgsSHA256: strings.Repeat("c", 64), Decision: "allow", Status: "ok", LatencyMS: 1.5})
+	}
+	if err := f.writer.Flush(ctx); err != nil {
+		t.Fatal(err)
+	}
+	rec := f.do(t, http.MethodGet, "/admin/audit", f.token(t, "*", "sam.security", "mcpgw:audit:read"), nil)
+	var page struct {
+		Events []map[string]json.RawMessage `json:"events"`
+	}
+	if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &page) != nil || len(page.Events) != 6 {
+		t.Fatalf("list: %d %s", rec.Code, rec.Body)
+	}
+	for _, ev := range page.Events {
+		var hash, prev, ts string
+		_ = json.Unmarshal(ev["hash"], &hash)
+		_ = json.Unmarshal(ev["prev_hash"], &prev)
+		_ = json.Unmarshal(ev["ts"], &ts)
+		if len(ts) != len("2026-10-16T12:00:00.000000Z") {
+			t.Errorf("ts %q is not in the fixed microsecond layout", ts)
+		}
+		delete(ev, "hash")
+		body, err := canonicaljson.Marshal(ev)
+		if err != nil {
+			t.Fatal(err)
+		}
+		sum := sha256.Sum256(append([]byte(prev), body...))
+		if got := hex.EncodeToString(sum[:]); got != hash {
+			t.Errorf("event %s (ts %s): re-hash %s, served hash %s", ev["seq"], ts, got, hash)
+		}
 	}
 }

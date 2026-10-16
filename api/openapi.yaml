@@ -67,7 +67,7 @@ paths:
   /admin/audit/verify:
     get:
       summary: Verify the audit hash chain
-      description: "Scope: mcpgw:audit:read or mcpgw:admin."
+      description: "Scope: mcpgw:audit:read or mcpgw:admin. The chain spans every tenant, so a tenant-scoped reader without mcpgw:admin gets 403."
       parameters:
         - { name: from_seq, in: query, schema: { type: integer, minimum: 1, maximum: 9007199254740991 } }
       responses:

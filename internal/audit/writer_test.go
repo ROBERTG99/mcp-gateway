@@ -177,3 +177,28 @@ func (b *blockingSink) Append(ctx context.Context, events []audit.Event) ([]audi
 		return nil, errors.New("sink stalled")
 	}
 }
+
+// TestAuditReserveAfterShutdown: once Run has drained, a late reservation fails with backpressure
+// instead of committing an event nobody will persist.
+func TestAuditReserveAfterShutdown(t *testing.T) {
+	sink := audit.NewMemorySink()
+	w := audit.NewWriter(sink, audit.NewMemorySeq(), audit.Options{FlushInterval: time.Millisecond})
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- w.Run(ctx) }()
+	tk, err := w.Reserve(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	tk.Commit(event("t_alpha"))
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if _, err := w.Reserve(t.Context()); !errors.Is(err, audit.ErrBackpressure) {
+		t.Fatalf("reserve after shutdown: %v, want ErrBackpressure", err)
+	}
+	if len(sink.Events()) != 1 || w.Depth() != 0 {
+		t.Fatalf("events = %d, depth = %d", len(sink.Events()), w.Depth())
+	}
+}

@@ -73,6 +73,11 @@ func TestAuditPageFiltersAndEmptyState(t *testing.T) {
 	if strings.Count(body, `class="row"`) != 2 || strings.Contains(body, "t_beta") {
 		t.Fatalf("tenant scoping: %s", body)
 	}
+	// Chain verification spans every tenant: no button and no result for a tenant-scoped viewer.
+	_, body = get(t, approver, e.srv.URL+"/console/audit?verify=1")
+	if strings.Contains(body, "Verify chain") || strings.Contains(body, "Chain verified") {
+		t.Fatalf("tenant-scoped verify: %s", body)
+	}
 	// Event detail: all fields, monospace hashes, redacted args, other tenants hidden.
 	resp, body := get(t, reviewer, e.srv.URL+"/console/audit/1")
 	if resp.StatusCode != 200 || !strings.Contains(body, `class="mono hash"`) || !strings.Contains(body, "[REDACTED:CARD]") ||
