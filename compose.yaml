@@ -41,6 +41,17 @@ services:
       timeout: 3s
       retries: 30
 
+  dynamodb:
+    profiles: ["dynamodb"]
+    image: amazon/dynamodb-local:latest
+    command: ["-jar", "DynamoDBLocal.jar", "-inMemory", "-sharedDb"]
+    ports: ["127.0.0.1:8240:8000"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -o /dev/null http://localhost:8000 || exit 1"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
   migrate:
     build: { <<: *build, target: gateway }
     image: mcp-gateway:dev
