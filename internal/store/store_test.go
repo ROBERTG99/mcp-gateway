@@ -76,3 +76,39 @@ func TestMigrateUpDown(t *testing.T) {
 		t.Fatal("unknown command accepted")
 	}
 }
+
+// TestMigrateOnePendingDedups: migration 00005 adds the one-pending-approval-per-call index on a
+// database that already holds duplicate pending rows, keeping the newest and expiring the rest.
+func TestMigrateOnePendingDedups(t *testing.T) {
+	ctx := t.Context()
+	db := pgtest.New(t)
+	for _, cmd := range []string{"up", "down"} { // down rolls back 00005 only
+		if err := store.Migrate(ctx, db.URL, cmd, io.Discard); err != nil {
+			t.Fatal(err)
+		}
+	}
+	conn, err := pgx.Connect(ctx, db.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = conn.Close(ctx) }()
+	for i, created := range []string{"2026-10-16 12:00:00+00", "2026-10-16 12:01:00+00", "2026-10-16 12:02:00+00"} {
+		if _, err := conn.Exec(ctx, `INSERT INTO approvals (id, tenant, agent, server, tool, args_sha256, args_redacted,
+			idempotency_key, status, expires_at, created_at, updated_at)
+			VALUES ($1, 't_alpha', 'agent-support', 'orders', 'refund_order', repeat('a', 64), '{}', 'k-1', 'pending',
+			$2::timestamptz + interval '15 minutes', $2::timestamptz, $2::timestamptz)`,
+			"00000000-0000-4000-8000-00000000000"+string(rune('1'+i)), created); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := store.Migrate(ctx, db.URL, "up", io.Discard); err != nil {
+		t.Fatalf("migrate up over duplicates: %v", err)
+	}
+	var pending string
+	if err := conn.QueryRow(ctx, `SELECT string_agg(id::text, ',') FROM approvals WHERE status = 'pending'`).Scan(&pending); err != nil {
+		t.Fatal(err)
+	}
+	if pending != "00000000-0000-4000-8000-000000000003" {
+		t.Fatalf("pending after migration = %q, want only the newest", pending)
+	}
+}

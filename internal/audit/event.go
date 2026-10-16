@@ -65,10 +65,11 @@ const (
 	unstorableMarker = `"[REDACTED:UNSTORABLE]"`
 )
 
-// Normalize makes the event survive a Postgres round trip unchanged and always storable: UTC
-// microsecond timestamps, finite latency rounded to microseconds, strings without NUL or invalid
-// UTF-8, and canonical I-JSON args (unrepresentable numbers and NULs replaced by markers).
-func (e *Event) Normalize() {
+// Sanitize prepares an event for writing (Ticket.Commit): UTC microsecond timestamps, finite
+// latency rounded to microseconds, strings without NUL or invalid UTF-8, and canonical I-JSON args
+// (unrepresentable numbers and NULs replaced by markers), so every event is storable and hashable.
+// It is lossy by design and must never run on stored rows: verification hashes what is stored.
+func (e *Event) Sanitize() {
 	e.TS = e.TS.UTC().Truncate(time.Microsecond)
 	if math.IsNaN(e.LatencyMS) || math.IsInf(e.LatencyMS, 0) {
 		e.LatencyMS = 0
@@ -83,6 +84,19 @@ func (e *Event) Normalize() {
 		}
 	}
 	e.ArgsRedacted = storableArgs(e.ArgsRedacted)
+}
+
+// Normalize undoes only the representation changes of a Postgres round trip, losslessly: the UTC
+// zone and jsonb's key order and spacing (args are canonicalised when they are valid I-JSON and
+// kept byte for byte otherwise, so a tampered value fails hashing instead of being cleaned up).
+func (e *Event) Normalize() {
+	e.TS = e.TS.UTC()
+	if len(e.ArgsRedacted) == 0 {
+		e.ArgsRedacted = json.RawMessage("null")
+	}
+	if c, err := canonicaljson.Canonicalize(e.ArgsRedacted); err == nil {
+		e.ArgsRedacted = c
+	}
 }
 
 // placeholder stands in for an event the sink refused: same identity and outcome, no args.

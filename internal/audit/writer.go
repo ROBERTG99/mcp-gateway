@@ -127,7 +127,7 @@ func (t *Ticket) Commit(e Event) {
 		return
 	}
 	e.Seq = t.seq
-	e.Normalize()
+	e.Sanitize()
 	t.w.pending.Add(1)
 	t.w.queue <- e
 }

@@ -222,3 +222,49 @@ func TestAuditUnstorableArgsPostgres(t *testing.T) {
 		t.Fatalf("stored args = %s", got)
 	}
 }
+
+// TestAuditVerifyDetectsValueTampers: verification hashes the stored row as it is. Values the
+// writer would have sanitised (an unrepresentable number in place of a marker, a NaN latency) or
+// rounded must fail verification, not be cleaned up on read and pass.
+func TestAuditVerifyDetectsValueTampers(t *testing.T) {
+	for name, update := range map[string]string{
+		"marker replaced by big number": `UPDATE audit_events SET args_redacted = '{"amount_cents": 99999999999999999999}' WHERE chain_pos = 3`,
+		"NaN latency":                   `UPDATE audit_events SET latency_ms = 'NaN' WHERE chain_pos = 3`,
+		"sub-microsecond latency":       `UPDATE audit_events SET latency_ms = latency_ms + 0.0004 WHERE chain_pos = 3`,
+		"args value":                    `UPDATE audit_events SET args_redacted = '{"amount_cents": "[REDACTED:NUMBER]", "x": 1}' WHERE chain_pos = 3`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			ctx := t.Context()
+			db := pgtest.New(t)
+			if err := store.Migrate(ctx, db.URL, "up", io.Discard); err != nil {
+				t.Fatal(err)
+			}
+			pool, err := store.Open(ctx, db.URL)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(pool.Close)
+			var events []audit.Event
+			for i := range 5 {
+				e := event("t_alpha")
+				e.Seq = int64(i + 1)
+				e.ArgsRedacted = json.RawMessage(`{"amount_cents":9007199254740993}`)
+				e.Sanitize()
+				events = append(events, e)
+			}
+			if _, err := audit.NewPostgresSink(pool).Append(ctx, events); err != nil {
+				t.Fatal(err)
+			}
+			if res, err := audit.VerifyPostgres(ctx, pool, 0); err != nil || !res.OK {
+				t.Fatalf("clean chain: %+v %v", res, err)
+			}
+			if _, err := pool.Exec(ctx, `SET session_replication_role = replica; `+update); err != nil {
+				t.Fatal(err)
+			}
+			res, err := audit.VerifyPostgres(ctx, pool, 0)
+			if err != nil || res.OK || res.FirstBadSeq != 3 {
+				t.Fatalf("tampered chain verified: %+v %v", res, err)
+			}
+		})
+	}
+}

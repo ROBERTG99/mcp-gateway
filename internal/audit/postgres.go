@@ -55,8 +55,11 @@ func (p *PostgresSink) Append(ctx context.Context, events []Event) ([]Event, err
 		"prev_hash", "hash"}, pgx.CopyFromRows(rows))
 	if err != nil {
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && (strings.HasPrefix(pgErr.Code, "22") || strings.HasPrefix(pgErr.Code, "23")) {
-			// Data exception or constraint violation: the rows themselves are rejected.
+		// Data exceptions and check or not-null violations reject the rows themselves. A unique
+		// violation (23505 on seq, chain_pos or hash) is not the event's fault, e.g. a sequence
+		// reset after a restore: it stays transient so the writer fails closed (-32048) and the
+		// operator sees it, instead of every event being replaced by a placeholder and dropped.
+		if errors.As(err, &pgErr) && pgErr.Code != "23505" && (strings.HasPrefix(pgErr.Code, "22") || strings.HasPrefix(pgErr.Code, "23")) {
 			return nil, fmt.Errorf("%w: audit append: copy: %w", ErrUnstorable, err)
 		}
 		return nil, fmt.Errorf("audit append: copy: %w", err)
