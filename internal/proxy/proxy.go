@@ -192,11 +192,17 @@ func (p *Proxy) serverFor(r *http.Request) *mcp.Server {
 	e.lastUsed = now
 	p.mu.Unlock()
 	if !ok {
-		p.sync(r.Context(), e)
-		close(e.ready)
+		func() {
+			defer close(e.ready) // even if sync panics, waiters must not hang
+			p.sync(r.Context(), e)
+		}()
 	}
-	<-e.ready
-	return e.server
+	select {
+	case <-e.ready:
+		return e.server
+	case <-r.Context().Done():
+		return nil // the SDK answers 400; the client has gone anyway
+	}
 }
 
 // evictLocked drops idle entries without live sessions. Callers hold p.mu.

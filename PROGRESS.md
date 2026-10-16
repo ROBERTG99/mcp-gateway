@@ -18,6 +18,12 @@ ROBERTG99 <54124633+ROBERTG99@users.noreply.github.com> | ROBERTG99 <54124633+RO
 chore: configure commit attribution
 ```
 
+## Milestone reviews
+
+| Milestone | Reviewer verdict | Notes |
+|---|---|---|
+| M0 | ship (second pass) | First pass "fix first": 2 blockers in `pre_tool_guard.py` (env-read and force-push/identity bypasses) fixed in "fix: close guard-hook bypasses..." with 18 regression cases; proxy/catalog races and fail-open session binding fixed; `TestSessionBoundToPrincipal` added. |
+
 ## Tasks
 
 | ID | Title | Milestone | Status | Evidence |

@@ -143,7 +143,8 @@ func New(cfgs []UpstreamConfig, opts Options) *Catalog {
 	return c
 }
 
-// OnChange registers fn to be called (synchronously) after the tool set changes.
+// OnChange registers fn to be called (synchronously) after the tool set changes. Listeners run
+// while the rebuild lock is held, so they must not call Refresh (that would deadlock).
 func (c *Catalog) OnChange(fn func()) {
 	c.mu.Lock()
 	c.listeners = append(c.listeners, fn)
