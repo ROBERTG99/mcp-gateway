@@ -49,6 +49,14 @@ def test_bookkeeping_files_exist() -> None:
 
 def test_gitignore_has_required_entries() -> None:
     lines = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
-    for entry in ("bin/", "dist/", "coverage*.out", ".env", ".env.*", "!.env.example",
-                  "e2e/node_modules/", "e2e/test-results/"):
+    for entry in (
+        "bin/",
+        "dist/",
+        "coverage*.out",
+        ".env",
+        ".env.*",
+        "!.env.example",
+        "e2e/node_modules/",
+        "e2e/test-results/",
+    ):
         assert any(line.strip().lstrip("/") == entry.lstrip("/") for line in lines), entry

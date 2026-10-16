@@ -48,12 +48,15 @@ help: ## List targets
 
 ##@ Setup
 .PHONY: bootstrap
-bootstrap: ## Install toolchains and dependencies into ./bin, create .env
-	./scripts/install_tools.sh
+bootstrap: tools ## Install toolchains and dependencies into ./bin, create .env
 	$(GO) mod download
 	$(UV) sync --frozen
 	cd e2e && $(PNPM) install --frozen-lockfile
 	@test -f .env || cp .env.example .env
+
+.PHONY: tools
+tools: ## Install pinned developer tools into ./bin (idempotent)
+	./scripts/install_tools.sh
 
 .PHONY: build
 build: ## Build all binaries into ./bin

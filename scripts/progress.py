@@ -21,7 +21,7 @@ def main(argv: list[str]) -> int:
         print(f"{task} not found", file=sys.stderr)
         return 1
     row = f"| {task} | {match.group(1)} | {match.group(2)} | {status} | {evidence.replace('|', '/')} |"
-    path.write_text(text[: match.start()] + row + text[match.end():], encoding="utf-8")
+    path.write_text(text[: match.start()] + row + text[match.end() :], encoding="utf-8")
     return 0
 
 

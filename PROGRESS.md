@@ -25,7 +25,7 @@ chore: configure commit attribution
 | T-01 | Bootstrap and progress files | M0 | done | `uv run pytest tests/harness/test_repo_files.py` → 3 passed; identity evidence above |
 | T-02 | Go module, Makefile, lint config | M0 | done | `make check-fast` → gofmt, vet, golangci-lint 0 issues, unit ok in 20 s; `TestVersionFlag` passes; all §16 targets resolve with `make -n` |
 | T-03 | Instructions, settings, rules, subagents, skills | M0 | done | `uv run pytest tests/harness/test_harness_files.py` → 3 passed (settings template at docs/harness/settings.json, see Needs the maintainer) |
-| T-04 | Hooks | M0 | todo | |
+| T-04 | Hooks | M0 | done | `make hooks-test` → 46 passed (guard, formatter, stop check, session start); ruff and mypy --strict clean |
 | T-05 | Walking skeleton in Docker | M0 | todo | |
 | T-06 | Configuration | M1 | todo | |
 | T-07 | Migrations and append-only trigger | M1 | todo | |

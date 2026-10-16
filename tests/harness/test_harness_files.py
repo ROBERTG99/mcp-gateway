@@ -11,19 +11,72 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 CLAUDE = ROOT / ".claude"
 
-RULES_WITH_PATHS = ["go", "rego", "helm", "python", "frontend", "testing", "evals", "docker",
-                    "security", "docs", "llm-code"]
-AGENTS = ["reviewer", "security-auditor", "test-designer", "eval-analyst", "ux-reviewer",
-          "docs-editor", "policy-reviewer"]
-SKILLS = ["tdd", "quality-gate", "eval-report", "new-adr", "add-migration", "add-endpoint",
-          "add-agent-tool", "add-eval-case", "demo-capture", "release", "add-policy",
-          "add-upstream-server", "audit-forensics"]
-ALLOW = ["Bash(make *)", "Bash(go test *)", "Bash(go build *)", "Bash(go run *)", "Bash(go mod *)",
-         "Bash(docker compose *)", "Bash(docker build *)", "Bash(pnpm *)", "Bash(uv run *)",
-         "Bash(uvx *)", "Bash(helm *)", "Bash(git add *)", "Bash(git commit *)", "Bash(git status)",
-         "Bash(git diff *)", "Bash(git log *)", "Bash(git push -u origin *)"]
-DENY = ["Read(./.env)", "Read(./.env.local)", "Bash(terraform apply *)", "Bash(terraform destroy *)",
-        "Bash(git push --force *)", "Bash(git push -f *)", "Bash(rm -rf /*)", "Bash(rm -rf ~*)"]
+RULES_WITH_PATHS = [
+    "go",
+    "rego",
+    "helm",
+    "python",
+    "frontend",
+    "testing",
+    "evals",
+    "docker",
+    "security",
+    "docs",
+    "llm-code",
+]
+AGENTS = [
+    "reviewer",
+    "security-auditor",
+    "test-designer",
+    "eval-analyst",
+    "ux-reviewer",
+    "docs-editor",
+    "policy-reviewer",
+]
+SKILLS = [
+    "tdd",
+    "quality-gate",
+    "eval-report",
+    "new-adr",
+    "add-migration",
+    "add-endpoint",
+    "add-agent-tool",
+    "add-eval-case",
+    "demo-capture",
+    "release",
+    "add-policy",
+    "add-upstream-server",
+    "audit-forensics",
+]
+ALLOW = [
+    "Bash(make *)",
+    "Bash(go test *)",
+    "Bash(go build *)",
+    "Bash(go run *)",
+    "Bash(go mod *)",
+    "Bash(docker compose *)",
+    "Bash(docker build *)",
+    "Bash(pnpm *)",
+    "Bash(uv run *)",
+    "Bash(uvx *)",
+    "Bash(helm *)",
+    "Bash(git add *)",
+    "Bash(git commit *)",
+    "Bash(git status)",
+    "Bash(git diff *)",
+    "Bash(git log *)",
+    "Bash(git push -u origin *)",
+]
+DENY = [
+    "Read(./.env)",
+    "Read(./.env.local)",
+    "Bash(terraform apply *)",
+    "Bash(terraform destroy *)",
+    "Bash(git push --force *)",
+    "Bash(git push -f *)",
+    "Bash(rm -rf /*)",
+    "Bash(rm -rf ~*)",
+]
 
 
 def frontmatter(path: Path) -> dict[str, Any] | None:
@@ -87,8 +140,15 @@ def test_frontmatter_and_attribution() -> None:
 def test_instructions_files() -> None:
     claude_md = (ROOT / "CLAUDE.md").read_text(encoding="utf-8")
     assert len(claude_md.splitlines()) < 200
-    for needle in ("make check-fast", "PROGRESS.md", "docs/DECISIONS.md", "docs/adr/", "Co-Authored-By",
-                   "terraform apply", "test first"):
+    for needle in (
+        "make check-fast",
+        "PROGRESS.md",
+        "docs/DECISIONS.md",
+        "docs/adr/",
+        "Co-Authored-By",
+        "terraform apply",
+        "test first",
+    ):
         assert needle.lower() in claude_md.lower(), needle
     agents_md = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
     assert "make check-fast" in agents_md and "Co-Authored-By" in agents_md
