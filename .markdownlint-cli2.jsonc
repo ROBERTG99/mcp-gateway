@@ -1,0 +1,11 @@
+// markdownlint-cli2 configuration for every Markdown file in the repository (make lint).
+{
+  "config": {
+    "default": true,
+    // Prose is written one paragraph per line; tables are compact.
+    "MD013": false,
+    "MD060": false
+  },
+  "globs": ["**/*.md"],
+  "ignores": ["**/node_modules/**", "e2e/test-results/**", "e2e/playwright-report/**", "BUILD.md", "docs/specs/**"]
+}

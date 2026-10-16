@@ -1,7 +1,7 @@
 {{define "content"}}
 <h1>Upstreams</h1>
 {{if .Error}}{{else if .Data}}
-<div class="table-wrap">
+<div class="table-wrap" tabindex="0" role="region" aria-label="Upstreams table">
 <table>
   <caption class="muted">Health comes from the last catalog refresh; an open breaker stops calls until a probe succeeds.</caption>
   <thead><tr><th scope="col">Name</th><th scope="col">Health</th><th scope="col">Breaker</th><th scope="col">Tools</th><th scope="col" class="hide-sm">URL</th><th scope="col" class="hide-sm">Last refresh (UTC)</th></tr></thead>

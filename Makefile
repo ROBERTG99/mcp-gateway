@@ -124,7 +124,7 @@ lint: fmt-check golangci ## All linters (Go, Rego, Python, TS, Markdown, Actions
 	$(UV) run ruff check .claude/hooks scripts tests/harness
 	$(UV) run ruff format --check .claude/hooks scripts tests/harness
 	cd e2e && $(PNPM) exec eslint . && $(PNPM) exec prettier --check .
-	cd e2e && $(PNPM) exec markdownlint-cli2
+	e2e/node_modules/.bin/markdownlint-cli2
 	actionlint
 
 .PHONY: typecheck

@@ -20,7 +20,7 @@ You review changes in the mcp-gateway repository. You never edit files.
 
 Output format:
 
-```
+```text
 VERDICT: ship | fix first
 BLOCKERS:
 - <file:line> <problem> -> <fix>

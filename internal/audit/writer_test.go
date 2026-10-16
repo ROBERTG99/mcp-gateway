@@ -127,6 +127,11 @@ func TestAuditEnqueueLatency(t *testing.T) {
 	if p99(cpu) > time.Millisecond {
 		t.Fatalf("enqueue p99 = %s CPU time, want <= 1ms", p99(cpu))
 	}
+	// CPU time does not count blocking: the median wall-clock latency catches an enqueue path that
+	// starts waiting (on a slot, a seq refill or a lock) even on a loaded runner.
+	if p50 := wall[len(wall)/2]; p50 > time.Millisecond {
+		t.Fatalf("enqueue p50 = %s wall-clock, want <= 1ms", p50)
+	}
 }
 
 // A stalled sink fills the buffer; further reservations fail fast with ErrBackpressure.

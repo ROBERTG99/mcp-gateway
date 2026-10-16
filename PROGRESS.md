@@ -20,36 +20,43 @@ chore: configure commit attribution
 
 ## Resume here (handoff, 2026-10-16)
 
-**State:** T-01..T-26 done and pushed on `claude/build-md-execution-blkq3q` (milestones M0, M1, M2 reviewed "ship"; M3 is T-22..T-27, with T-27 next). `make check-fast` is green; integration tests pass with Docker (testcontainers).
+**State:** T-01..T-32 done and pushed on `claude/build-md-execution-blkq3q`. Milestones M0-M3 reviewed "ship"; M4 (T-28..T-32) is complete and awaits its `reviewer` run. `make check-fast` is green; integration tests pass with Docker (testcontainers); `make e2e` passes on the compose stack (33 Playwright tests, axe clean).
 
-**Next task: T-27 (scripted demo agent, `cmd/demo-agent`, `TestDemoScenarioSteps`)**, then run the `reviewer` subagent on M3 (`git diff c2bee71~1..HEAD`, M3 = T-22..T-27) and fix its blockers before M4.
+**Next:** run the `reviewer` subagent (and `ux-reviewer`) on M4 (`git diff 0daa987..HEAD -- internal/console e2e docs/images`), fix blockers, then M5 starting with T-33 (eval datasets).
 
 **Start of a new session (Claude Code on the web):**
+
 1. Start Docker (Appendix A) if `docker info` fails: write `/etc/docker/daemon.json` with the `mirror.gcr.io` mirror, `nohup dockerd &`, wait. (The SessionStart hook does this once `.claude/settings.json` is installed, see "Needs the maintainer".)
-2. `make tools` (idempotent; tools in `./bin`, built with the go.mod toolchain), `uv sync`.
+2. `make tools` (idempotent; tools in `./bin`, built with the go.mod toolchain), `uv sync`, `cd e2e && pnpm install --frozen-lockfile`.
 3. Re-read `docs/specs/000-build-spec.md`, this file, `docs/DECISIONS.md`, `git log --oneline -30`.
 
 **What exists (for orientation):**
-- Gateway assembly: `internal/server/server.go` (App: verifier, catalog, policy engine, Redis, Postgres pool, audit writer + Postgres sink/seq, approvals service + outbox worker + maintenance loop, pipeline, proxy, admin API on chi). `cmd/mcp-gateway`: serve, migrate, dev-issuer, dev-token, policy test/fmt, audit verify, healthcheck.
-- Pipeline (`internal/pipeline`): audit reserve -> args parse (I-JSON, object) -> rate limit -> key validation (writes) -> policy -> approval -> idempotency acquire -> upstream -> idempotency complete/release -> output marking -> audit commit. Not yet built: NFR-9 limits stage (`limits.go`, T-39: body/result/stored-result size and args depth), telemetry spans/metrics (T-37/T-38).
-- Example upstreams on Postgres (`internal/upstreams`, `cmd/upstream-*`), seed via `datagen seed` (compose profile `tools`). `cmd/upstream-echo` remains for tests/benchmarks (not in compose).
-- Compose (`compose.yaml`): postgres 8220, redis 8230, migrate (one-shot), dev-issuer 8212, upstream-ledger/crm/orders 8213-8215, gateway 8200/8210/8211, profile `dynamodb` (8240), profile `tools` (seed). Missing so far: `approval-sink` WireMock 8241 (needed for T-27 demo step 3 webhook), observability profile (T-38), chaos profile (T-35), `compose.test.yaml` (T-41). `make up`, `make seed`, `make dev-token` work; `make demo` (`scripts/demo.sh`) does not exist yet (T-44).
-- `demo-agent` already supports `--list` and `--call TOOL --args JSON --key K --approval-id ID`; T-27 adds the scripted scenario.
-- Admin API is mounted on :8200 (bearer only). The console (T-28..T-31) will add cookie sessions on the same router.
-- Not started: console (M4), evals (M5: `internal/datagen/evals.go` is a stub that returns an error), observability (M6), Helm/CI (M7), docs (M8: README is still the placeholder; ADR 0002 exists), release (M9).
+
+- Gateway assembly: `internal/server/server.go` (App: verifier, catalog, policy engine, Redis, Postgres pool, audit writer + Postgres sink/seq, approvals service + outbox worker + maintenance loop, pipeline, proxy, admin API and console on chi). `cmd/mcp-gateway`: serve, migrate, dev-issuer, dev-token, policy test/fmt, audit verify, healthcheck.
+- Pipeline (`internal/pipeline`): audit reserve -> args parse (I-JSON, object) -> rate limit -> key validation (writes) -> policy -> approval -> idempotency acquire -> upstream -> idempotency complete/release -> output marking -> audit commit. Not yet built: NFR-9 limits stage (`limits.go`, T-39), telemetry spans/metrics (T-37/T-38).
+- Audit: `Event.Sanitize` (write path only, markers for unstorable values) vs lossless `Event.Normalize` (read path); the writer bisects unstorable batches and stores a placeholder. Verify hashes stored rows as they are.
+- Console (`internal/console`): sign-in personas, audit list/event with verify (cross-tenant viewers only), approvals queue/detail with approve/reject, policy tester with six examples, upstreams. No inline styles or scripts (CSP; `TestTemplatesHaveNoInlineCode`).
+- E2E (`e2e/`, pnpm): `tests/approvals.spec.ts` (keyboard-only approve, reject, reviewer 403), `tests/console.spec.ts` (axe at 375/1280 px, light/dark, screenshots to `docs/images/`). MCP calls use the session protocol (initialize, initialized, tools/call) against :8210.
+- Compose (`compose.yaml`): postgres 8220, redis 8230, approval-sink (WireMock) 8241, migrate, dev-issuer 8212, upstream-ledger/crm/orders 8213-8215, gateway 8200/8210/8211, profiles `dynamodb` and `tools`. Missing: observability profile (T-38), chaos profile (T-35), `compose.test.yaml` (T-41), `scripts/demo.sh` (T-44), `scripts/docs.sh` (video for `make docs`, T-46).
+- Not started: evals (M5: `internal/datagen/evals.go` is a stub that returns an error), observability (M6), Helm/CI (M7), docs (M8: README is still the placeholder; ADR 0002 exists), release (M9).
 
 **Gotchas learned:**
-- Pipe exit codes: gate commits on `make check-fast >/tmp/cf.log 2>&1 && ...`, never through `| tail`.
+
+- Pipe exit codes: gate commits on `make check-fast >/tmp/cf.log 2>&1 && ...`, never through `| tail`. `fmt-check` only sees tracked files: run `gofmt -l` on new files before committing.
+- Disk: Docker build cache and the Go build cache fill the allowance ("no space left on device" in `docker compose build`); `docker builder prune -af` and `go clean -cache` free ~20 GB.
+- Rebuild the gateway image (`docker compose build gateway && docker compose up -d --wait gateway`) before Schemathesis or e2e, or they test the old image.
 - When writing Go test strings with `\u200b`, check that the file holds the escape, not the literal character (staticcheck ST1018).
 - `docker compose build -q` with `network: host` fails silently ("additional privileges requested"); build without `-q`.
-- Schemathesis: `./scripts/schemathesis.sh` (uvx schemathesis 4.31.1) needs the stack up (`docker compose up -d --build --wait`).
-- `/usr/local/bin/golangci-lint` is an old system binary; the Makefile puts `./bin` first in PATH.
+- Schemathesis: `./scripts/schemathesis.sh` (uvx schemathesis 4.31.1) needs the stack up; its cache `.schemathesis/` is ignored.
+- `/usr/local/bin/golangci-lint` is an old system binary; the Makefile puts `./bin` first in PATH. A concurrent golangci-lint (e.g. from a subagent) makes `make check-fast` fail with "parallel golangci-lint is running": retry.
+- Playwright 1.64 runs against the preinstalled `/opt/pw-browsers/chromium-1194` (`e2e/playwright.config.ts`); never `playwright install` in the cloud.
 
 ## Milestone reviews
 
 | Milestone | Reviewer verdict | Notes |
 |---|---|---|
-| M3 | pending | Run after T-27. |
+| M4 | pending | Run after T-32. |
+| M3 | ship (third pass) | First pass "fix first": one hostile argument (integer beyond 2^53 or NUL) stalled the audit writer forever (now sanitised on write, unstorable batches bisected with a placeholder; TestAuditArgsAlwaysStorable, TestAuditWriterIsolatesUnstorableEvent, TestHostileArgsDoNotStopAudit, TestAuditUnstorableArgsPostgres); served `ts` not re-hashable (Event.MarshalJSON, TestAuditAPIEventsRehashable); approval_consumed never returned. Second pass: read-side sanitising hid tampering (lossless Normalize, TestAuditVerifyDetectsValueTampers). Suggestions applied: uuid lookups, outbox SKIP LOCKED lease, one pending approval per call (migration 00005), webhook secret length, verify limited to cross-tenant viewers, writer closed flag, dynamic audit WHERE, enqueue latency on thread CPU time plus wall p50. |
 | M2 | ship (third pass) | Blockers fixed with regression tests: `arguments: null` bypassed argument rules (TestNullArgumentsDoNotBypassArgumentRules), JWKS refresh blocked under a mutex (TestJWKSHungIssuerDoesNotBlock), cards followed by digits escaped redaction, reload failure undocumented (ADR 0002 + stale readiness), docs citing not-yet-built metrics reworded. |
 | M1 | ship (second pass) | First pass "fix first": concurrent refunds could exceed the order amount (snapshot taken before the row lock). Fixed by locking first and summing in a second statement; deterministic `TestInsertRefundSerialisesOnOrderLock` fails on the old SQL, passes now. Suggestions applied: I-JSON checks in canonicaljson, raw dedup results, goose advisory lock, password guards, narrower gateway env. |
 | M0 | ship (second pass) | First pass "fix first": 2 blockers in `pre_tool_guard.py` (env-read and force-push/identity bypasses) fixed in "fix: close guard-hook bypasses..." with 18 regression cases; proxy/catalog races and fail-open session binding fixed; `TestSessionBoundToPrincipal` added. |
@@ -89,7 +96,7 @@ chore: configure commit attribution
 | T-29 | Audit pages | M4 | done | audit list/detail pages with filters, keyset paging, verify; TestAuditPageFiltersAndEmptyState, TestAuditQueryPostgres; BenchmarkAuditPage p95 11.31 ms over 100,000 rows (go test -tags=integration -bench BenchmarkAuditPage -benchtime 300x ./internal/console) |
 | T-30 | Approvals pages | M4 | done | approvals queue (status tabs) and detail with what-will-execute, approve with note, reject with reason; TestConsoleApprovalsRBAC (reviewer: no buttons, POST 403; approver: approve/reject audited; other tenant 404); TestTemplatesHaveNoInlineCode |
 | T-31 | Policy tester and upstreams pages | M4 | done | policy tester with six examples (allow, hold, deny, approval_granted) showing matched rules; upstreams page with health, breaker, tools; TestPolicyTesterShowsMatchedRules, TestUpstreamsPage |
-| T-32 | Playwright, axe, screenshots | M4 | todo | |
+| T-32 | Playwright, axe, screenshots | M4 | done | make e2e (cd e2e && pnpm exec playwright test) on the compose stack: 33 passed (approvals.spec.ts keyboard-only approve + audit, reject with reason, reviewer no buttons and API 403; console.spec.ts axe 0 serious/critical on 7 screens at 375 and 1280 px in light and dark, no horizontal scroll, error and empty states); screenshots in docs/images/ |
 | T-33 | Eval datasets | M5 | todo | |
 | T-34 | Eval runner and reports | M5 | todo | |
 | T-35 | Chaos eval | M5 | todo | |

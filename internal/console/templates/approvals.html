@@ -6,7 +6,7 @@
   </ul>
 </nav>
 {{if .Error}}{{else if .Data.Approvals}}
-<div class="table-wrap">
+<div class="table-wrap" tabindex="0" role="region" aria-label="Approvals table">
 <table>
   <caption class="muted">Held tool calls wait here until an approver of their tenant decides or they expire. Arguments are redacted.</caption>
   <thead><tr><th scope="col">Tool</th><th scope="col">Tenant</th><th scope="col" class="hide-sm">Agent</th><th scope="col" class="hide-sm">Reasons</th><th scope="col">Expires</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Open</span></th></tr></thead>

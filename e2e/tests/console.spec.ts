@@ -1,0 +1,87 @@
+import { mkdirSync } from "node:fs";
+import { expect, test, type Page } from "@playwright/test";
+import { expectAccessible, holdRefund, signIn, type Persona } from "./helpers.js";
+
+// §13: every console page passes axe (no serious or critical violations) at 375 and 1280 px in
+// both themes; the 1280 px renders are stored in docs/images/ for the README.
+
+const images = new URL("../../docs/images/", import.meta.url).pathname;
+mkdirSync(images, { recursive: true });
+
+type Screen = { name: string; persona: Persona | null; open: (page: Page, approvalID: string) => Promise<void> };
+
+const screens: Screen[] = [
+  { name: "signin", persona: null, open: async (page) => void (await page.goto("/console/signin")) },
+  { name: "audit", persona: "security-reviewer", open: async (page) => void (await page.goto("/console/audit")) },
+  {
+    name: "audit-event",
+    persona: "security-reviewer",
+    open: async (page) => {
+      await page.goto("/console/audit");
+      await page.locator("tr.row a").first().click();
+      await expect(page.locator(".hash").first()).toBeVisible();
+    },
+  },
+  { name: "approvals", persona: "approver", open: async (page) => void (await page.goto("/console/approvals")) },
+  {
+    name: "approval",
+    persona: "approver",
+    open: async (page, id) => void (await page.goto(`/console/approvals/${id}`)),
+  },
+  {
+    name: "policy",
+    persona: "platform-engineer",
+    open: async (page) => {
+      await page.goto("/console/policy?example=refund-large");
+      await page.getByRole("button", { name: "Evaluate" }).click();
+      await expect(page.locator("#result-h .status")).toHaveText("hold");
+    },
+  },
+  {
+    name: "upstreams",
+    persona: "platform-engineer",
+    open: async (page) => void (await page.goto("/console/upstreams")),
+  },
+];
+
+let approvalID = "";
+test.beforeAll(async () => {
+  approvalID = await holdRefund();
+});
+
+for (const theme of ["light", "dark"] as const) {
+  for (const width of [375, 1280]) {
+    test.describe(`${theme} ${width}px`, () => {
+      test.use({ colorScheme: theme, viewport: { width, height: 900 } });
+      for (const s of screens) {
+        test(`${s.name} is accessible`, async ({ page }) => {
+          if (s.persona) await signIn(page, s.persona);
+          await s.open(page, approvalID);
+          await expect(page.locator("main")).toHaveAttribute("aria-busy", "false");
+          const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+          expect(overflow, "no horizontal page scroll").toBeLessThanOrEqual(0);
+          await expectAccessible(page);
+          if (width === 1280 || s.name === "approval") {
+            await page.screenshot({ path: `${images}console-${s.name}-${theme}-${width}.png`, fullPage: true });
+          }
+        });
+      }
+    });
+  }
+}
+
+test("error state shows a banner with retry", async ({ page }) => {
+  await signIn(page, "security-reviewer");
+  await page.goto("/console/audit?limit=bogus");
+  const alert = page.getByRole("alert");
+  await expect(alert).toBeVisible();
+  await expect(alert.getByRole("link", { name: "Retry" })).toBeVisible();
+  await expectAccessible(page);
+});
+
+test("empty state explains what to do", async ({ page }) => {
+  await signIn(page, "security-reviewer");
+  await page.goto("/console/audit?tool=nope.nothing");
+  await expect(page.getByText("No audit events match these filters.")).toBeVisible();
+  await expectAccessible(page);
+});

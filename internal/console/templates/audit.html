@@ -16,7 +16,7 @@
 </section>
 {{if .Data.CanVerify}}<p class="actions"><a class="button pagelink" href="/console/audit?verify=1">Verify chain</a></p>{{end}}
 {{if .Error}}{{else if .Data.Page.Events}}
-<div class="table-wrap">
+<div class="table-wrap" tabindex="0" role="region" aria-label="Audit events table">
 <table>
   <caption class="muted">Newest first. Arguments are redacted before they are stored.</caption>
   <thead><tr><th scope="col">Seq</th><th scope="col">Time (UTC)</th><th scope="col">Tenant</th><th scope="col" class="hide-sm">Agent</th><th scope="col">Tool</th><th scope="col">Decision</th><th scope="col">Status</th><th scope="col" class="hide-sm">Latency</th></tr></thead>
