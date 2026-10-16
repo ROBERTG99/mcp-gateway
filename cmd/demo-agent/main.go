@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -27,11 +28,18 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	gateway := fs.String("gateway", envOr("MCPGW_GATEWAY_URL", "http://localhost:8210/mcp"), "gateway MCP endpoint")
 	token := fs.String("token", os.Getenv("MCPGW_DEV_TOKEN"), "bearer token")
 	list := fs.Bool("list", false, "list the tools visible to the token and exit")
+	tool := fs.String("call", "", "call this tool once and print the result as JSON")
+	argsJSON := fs.String("args", "{}", "tool arguments (JSON object) for --call")
+	key := fs.String("key", "", "idempotency key for --call")
+	approvalID := fs.String("approval-id", "", "approval id for --call (retry of a held call)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
+	if *tool != "" {
+		return callOnce(ctx, *gateway, *token, *tool, *argsJSON, *key, *approvalID, stdout, stderr)
+	}
 	if !*list {
-		_, _ = fmt.Fprintln(stderr, "nothing to do (use --list)")
+		_, _ = fmt.Fprintln(stderr, "nothing to do (use --list or --call)")
 		return 2
 	}
 	session, err := connect(ctx, *gateway, *token)
@@ -79,4 +87,34 @@ func envOr(key, def string) string {
 		return v
 	}
 	return def
+}
+
+func callOnce(ctx context.Context, gateway, token, tool, argsJSON, key, approvalID string, stdout, stderr io.Writer) int {
+	var args map[string]any
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		_, _ = fmt.Fprintf(stderr, "--args: %v\n", err)
+		return 2
+	}
+	session, err := connect(ctx, gateway, token)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "connect: %v\n", err)
+		return 1
+	}
+	defer func() { _ = session.Close() }()
+	meta := mcp.Meta{}
+	if key != "" {
+		meta["idempotency_key"] = key
+	}
+	if approvalID != "" {
+		meta["approval_id"] = approvalID
+	}
+	res, err := session.CallTool(ctx, &mcp.CallToolParams{Name: tool, Arguments: args, Meta: meta})
+	if err != nil {
+		out, _ := json.Marshal(map[string]any{"error": err.Error()})
+		_, _ = fmt.Fprintln(stdout, string(out))
+		return 1
+	}
+	out, _ := json.Marshal(res)
+	_, _ = fmt.Fprintln(stdout, string(out))
+	return 0
 }

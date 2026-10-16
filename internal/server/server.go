@@ -12,11 +12,14 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ROBERTG99/mcp-gateway/internal/authn"
 	"github.com/ROBERTG99/mcp-gateway/internal/catalog"
 	"github.com/ROBERTG99/mcp-gateway/internal/config"
+	"github.com/ROBERTG99/mcp-gateway/internal/idempotency"
+	"github.com/ROBERTG99/mcp-gateway/internal/pipeline"
 	"github.com/ROBERTG99/mcp-gateway/internal/policy"
 	"github.com/ROBERTG99/mcp-gateway/internal/proxy"
 )
@@ -29,6 +32,8 @@ type App struct {
 	catalog  *catalog.Catalog
 	policy   *policy.Engine
 	proxy    *proxy.Proxy
+	pipeline *pipeline.Pipeline
+	redis    *redis.Client
 }
 
 // New wires the gateway components. A policy bundle that fails to compile does not stop the
@@ -51,7 +56,20 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	if err != nil {
 		logger.Error("policy bundle failed to load; denying all calls", "error", err)
 	}
-	a.proxy = proxy.New(proxy.Options{Catalog: a.catalog, Caller: proxy.PassThrough(a.catalog), Logger: logger,
+	redisOpts, err := redis.ParseURL(cfg.RedisURL)
+	if err != nil {
+		return nil, fmt.Errorf("MCPGW_REDIS_URL: %w", err)
+	}
+	a.redis = redis.NewClient(redisOpts)
+	idem, err := idempotency.Open(ctx, idempotency.OpenOptions{Backend: cfg.IdempotencyStore, Redis: a.redis,
+		DynamoDBEndpoint: cfg.DynamoDBEndpoint, DynamoDBTable: cfg.DynamoDBTable, DynamoDBRegion: cfg.DynamoDBRegion})
+	if err != nil {
+		return nil, fmt.Errorf("idempotency store: %w", err)
+	}
+	a.pipeline = pipeline.New(pipeline.Deps{Upstream: a.catalog, Policy: a.policy, Idempotency: idem, Logger: logger},
+		pipeline.Options{IdempotencyTTL: cfg.IdempotencyTTL, IdempotencyLockTTL: cfg.IdempotencyLockTTL,
+			MaxStoredResult: int(cfg.MaxStoredResultBytes)})
+	a.proxy = proxy.New(proxy.Options{Catalog: a.catalog, Caller: a.pipeline, Logger: logger,
 		Visible:  proxy.PolicyVisibility(a.policy),
 		CacheTTL: cfg.PrincipalCacheTTL, MaxBodyBytes: cfg.MaxBodyBytes})
 	a.policy.OnReload(a.proxy.Invalidate)
@@ -91,6 +109,7 @@ func (a *App) readyz(w http.ResponseWriter, _ *http.Request) {
 // Run serves until ctx is cancelled.
 func (a *App) Run(ctx context.Context) error {
 	defer a.catalog.Close()
+	defer func() { _ = a.redis.Close() }()
 	if err := a.catalog.Refresh(ctx); err != nil {
 		a.logger.Warn("initial catalog refresh failed", "error", err)
 	}

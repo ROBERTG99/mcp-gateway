@@ -38,8 +38,11 @@ COPY --from=build /out/mcp-gateway /mcp-gateway
 COPY policies /policies
 COPY config /config
 COPY migrations /migrations
+ENV MCPGW_POLICY_DIR=/policies \
+    MCPGW_UPSTREAMS_FILE=/config/upstreams.yaml \
+    MCPGW_TENANTS_FILE=/config/tenants.yaml
 USER nonroot:nonroot
 EXPOSE 8200 8210 8211
-HEALTHCHECK --interval=5s --timeout=3s --start-period=5s --retries=10 CMD ["/mcp-gateway", "healthcheck", "http://127.0.0.1:8200/healthz"]
+HEALTHCHECK --interval=5s --timeout=3s --start-period=5s --retries=10 CMD ["/mcp-gateway", "healthcheck", "http://127.0.0.1:8200/readyz"]
 ENTRYPOINT ["/mcp-gateway"]
 CMD ["serve"]
