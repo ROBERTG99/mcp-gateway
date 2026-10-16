@@ -17,6 +17,7 @@ x-upstream-env: &upstream-env
   MCPGW_UPSTREAM_DATABASE_URL: postgres://mcpgw_upstream:${MCPGW_UPSTREAM_DB_PASSWORD:-mcpgw_upstream}@postgres:5432/mcpgw?sslmode=disable
   MCPGW_FAULT_TIMEOUT_RATE: ${MCPGW_FAULT_TIMEOUT_RATE:-0}
   MCPGW_FAULT_STALL: ${MCPGW_FAULT_STALL:-12s}
+  MCPGW_FAULT_STALL_KEY_PREFIX: ${MCPGW_FAULT_STALL_KEY_PREFIX:-demo-stall-}
 
 services:
   postgres:
@@ -48,6 +49,17 @@ services:
     ports: ["127.0.0.1:8240:8000"]
     healthcheck:
       test: ["CMD-SHELL", "curl -s -o /dev/null http://localhost:8000 || exit 1"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  approval-sink:
+    image: wiremock/wiremock:3.9.1
+    command: ["--port", "8080", "--disable-banner"]
+    volumes: ["./deploy/wiremock:/home/wiremock:ro"]
+    ports: ["127.0.0.1:8241:8080"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/__admin/health || curl -fs http://localhost:8080/__admin/health"]
       interval: 2s
       timeout: 3s
       retries: 30
@@ -139,11 +151,14 @@ services:
       MCPGW_UPSTREAMS_FILE: /config/upstreams.yaml
       MCPGW_JWKS_URL: http://dev-issuer:8212/.well-known/jwks.json
       MCPGW_REDIS_URL: redis://redis:6379/0
+      MCPGW_APPROVAL_WEBHOOK_URL: http://approval-sink:8080/approvals
+      MCPGW_APPROVAL_WEBHOOK_SECRET: ${MCPGW_APPROVAL_WEBHOOK_SECRET:-dev-webhook-secret-change-me}
     ports: ["127.0.0.1:8200:8200", "127.0.0.1:8210:8210", "127.0.0.1:8211:8211"]
     depends_on:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
       dev-issuer: { condition: service_healthy }
+      approval-sink: { condition: service_healthy }
       upstream-ledger: { condition: service_healthy }
       upstream-crm: { condition: service_healthy }
       upstream-orders: { condition: service_healthy }

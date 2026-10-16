@@ -9,10 +9,15 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/ROBERTG99/mcp-gateway/internal/demo"
 )
 
 func main() {
@@ -32,8 +37,36 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	argsJSON := fs.String("args", "{}", "tool arguments (JSON object) for --call")
 	key := fs.String("key", "", "idempotency key for --call")
 	approvalID := fs.String("approval-id", "", "approval id for --call (retry of a held call)")
+	scenario := fs.Bool("scenario", false, "run the scripted demo scenario (PASS/FAIL per step)")
+	admin := fs.String("admin", envOr("MCPGW_ADMIN_URL", "http://localhost:8200"), "admin API base URL (--scenario)")
+	issuer := fs.String("issuer", envOr("MCPGW_DEV_ISSUER_URL", "http://localhost:8212"), "dev issuer URL (--scenario)")
+	webhook := fs.String("webhook-admin", "", "WireMock base URL to check the approval webhook (--scenario)")
+	stall := fs.String("stall-prefix", "demo-stall-", "idempotency key prefix the orders upstream stalls on (--scenario)")
+	onTimeout := fs.String("on-timeout-cmd", "", "shell command run after step 4's first call fails (--scenario)")
+	tamperCmd := fs.String("tamper-cmd", "", "shell command that tampers with one audit row and prints its seq (--scenario step 7)")
 	if err := fs.Parse(args); err != nil {
 		return 2
+	}
+	if *scenario {
+		cfg := demo.Config{GatewayURL: *gateway, AdminURL: *admin, IssuerURL: *issuer, WebhookAdminURL: *webhook,
+			StallPrefix: *stall, Out: stdout}
+		if *onTimeout != "" {
+			cfg.OnTimeout = func(ctx context.Context) error { _, err := shell(ctx, *onTimeout, stderr); return err }
+		}
+		if *tamperCmd != "" {
+			cfg.Tamper = func(ctx context.Context) (int64, error) {
+				out, err := shell(ctx, *tamperCmd, stderr)
+				if err != nil {
+					return 0, err
+				}
+				return strconv.ParseInt(strings.TrimSpace(out), 10, 64)
+			}
+		}
+		if _, err := demo.Run(ctx, cfg); err != nil {
+			_, _ = fmt.Fprintln(stderr, err)
+			return 1
+		}
+		return 0
 	}
 	if *tool != "" {
 		return callOnce(ctx, *gateway, *token, *tool, *argsJSON, *key, *approvalID, stdout, stderr)
@@ -57,6 +90,17 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		_, _ = fmt.Fprintln(stdout, t.Name)
 	}
 	return 0
+}
+
+// shell runs an operator-supplied command line (demo hooks) and returns its stdout.
+func shell(ctx context.Context, cmdline string, stderr io.Writer) (string, error) {
+	cmd := exec.CommandContext(ctx, "sh", "-c", cmdline) //nolint:gosec // G204: the operator's own demo hook
+	cmd.Stderr = stderr
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", cmdline, err)
+	}
+	return string(out), nil
 }
 
 func connect(ctx context.Context, url, token string) (*mcp.ClientSession, error) {

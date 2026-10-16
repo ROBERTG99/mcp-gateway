@@ -1,0 +1,4 @@
+{
+  "request": { "method": "POST", "urlPath": "/approvals" },
+  "response": { "status": 200, "jsonBody": { "received": true }, "headers": { "Content-Type": "application/json" } }
+}

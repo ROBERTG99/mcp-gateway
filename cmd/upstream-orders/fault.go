@@ -8,7 +8,8 @@ import (
 	"github.com/ROBERTG99/mcp-gateway/internal/upstreams"
 )
 
-// faultHook returns the chaos fault injector, or nil when MCPGW_FAULT_TIMEOUT_RATE is 0 (default).
+// faultHook returns the fault injector, or nil when MCPGW_FAULT_TIMEOUT_RATE is 0 and
+// MCPGW_FAULT_STALL_KEY_PREFIX is empty (the defaults).
 // The decision is a deterministic function of the idempotency key, so a given key always
 // behaves the same and the chaos eval is reproducible.
 func faultHook() upstreams.RefundHook {
@@ -17,5 +18,5 @@ func faultHook() upstreams.RefundHook {
 	if err != nil {
 		stall = 12 * time.Second
 	}
-	return upstreams.TimeoutFault(rate, stall)
+	return upstreams.StallFault(rate, os.Getenv("MCPGW_FAULT_STALL_KEY_PREFIX"), stall)
 }

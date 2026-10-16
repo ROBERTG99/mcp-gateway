@@ -166,9 +166,21 @@ func (a *App) readyz(w http.ResponseWriter, r *http.Request) {
 
 // Run serves until ctx is cancelled.
 func (a *App) Run(ctx context.Context) error {
-	defer a.catalog.Close()
-	defer func() { _ = a.redis.Close() }()
-	defer a.db.Close()
+	defer a.Close()
+	g, gctx := errgroup.WithContext(ctx)
+	a.serve(g, gctx, a.cfg.MCPAddr, a.MCPHandler())
+	a.serve(g, gctx, a.cfg.AdminAddr, a.AdminHandler())
+	g.Go(func() error { return a.RunBackground(gctx) })
+	if err := g.Wait(); err != nil {
+		return fmt.Errorf("gateway: %w", err)
+	}
+	return nil
+}
+
+// RunBackground performs the startup work (catalog refresh, audit sequence warm-up) and runs the
+// background workers until ctx is cancelled: audit writer, catalog refresh, webhook outbox,
+// approval maintenance and policy watch. Tests use it with MCPHandler and AdminHandler.
+func (a *App) RunBackground(ctx context.Context) error {
 	if err := a.catalog.Refresh(ctx); err != nil {
 		a.logger.Warn("initial catalog refresh failed", "error", err)
 	}
@@ -177,8 +189,6 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	g, gctx := errgroup.WithContext(ctx)
 	g.Go(func() error { return a.audit.Run(gctx) })
-	a.serve(g, gctx, a.cfg.MCPAddr, a.MCPHandler())
-	a.serve(g, gctx, a.cfg.AdminAddr, a.AdminHandler())
 	g.Go(func() error { return a.catalog.Run(gctx, a.cfg.CatalogRefresh) })
 	if a.cfg.ApprovalWebhookURL != "" {
 		ow := approvals.NewOutboxWorker(a.approvalStore,
@@ -193,9 +203,19 @@ func (a *App) Run(ctx context.Context) error {
 		})
 	})
 	if err := g.Wait(); err != nil {
-		return fmt.Errorf("gateway: %w", err)
+		return fmt.Errorf("gateway background: %w", err)
 	}
 	return nil
+}
+
+// Upstreams reports upstream health (used by tests to wait for the catalog).
+func (a *App) Upstreams() []catalog.UpstreamStatus { return a.catalog.Status() }
+
+// Close releases the connection pools and upstream sessions.
+func (a *App) Close() {
+	a.catalog.Close()
+	_ = a.redis.Close()
+	a.db.Close()
 }
 
 // maintain expires overdue approvals every minute and applies retention every RetentionInterval.
