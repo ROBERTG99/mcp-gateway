@@ -57,8 +57,10 @@ type Deps struct {
 	Audit Auditor
 	// Redactor redacts arguments before they reach the audit log.
 	Redactor *redact.Redactor
-	Clock    clock.Clock
-	Logger   *slog.Logger
+	// Approvals holds calls that need a human decision (nil: such calls are denied).
+	Approvals Approvals
+	Clock     clock.Clock
+	Logger    *slog.Logger
 }
 
 // Auditor reserves audit slots (audit.Writer).
@@ -169,8 +171,16 @@ func (p *Pipeline) run(ctx context.Context, c *call) (*mcp.CallToolResult, error
 	if err := p.rateLimit(ctx, c); err != nil {
 		return nil, err
 	}
-	if err := p.authorize(ctx, c); err != nil {
-		return nil, err
+	if !c.tool.ReadOnly() {
+		key, err := c.idempotencyKey()
+		if err != nil {
+			c.status = "rejected"
+			return nil, err
+		}
+		c.idemKey = key
+	}
+	if res, done, err := p.authorize(ctx, c); done || err != nil {
+		return res, err
 	}
 	if !c.tool.ReadOnly() {
 		res, done, err := p.acquire(ctx, c)
@@ -286,27 +296,31 @@ func (p *Pipeline) rateLimit(ctx context.Context, c *call) error {
 	}
 }
 
-// authorize is the policy stage: deny -> -32044 with the reasons.
-func (p *Pipeline) authorize(ctx context.Context, c *call) error {
+// authorize is the policy and approval stage: deny -> -32044 with the reasons; require_approval
+// -> the approval stage (held result, consumed approval, or -32045).
+func (p *Pipeline) authorize(ctx context.Context, c *call) (*mcp.CallToolResult, bool, error) {
 	scopes := c.principal.Scopes
 	if scopes == nil {
 		scopes = []string{}
 	}
-	d, err := p.deps.Policy.Evaluate(ctx, policy.Input{
+	in := policy.Input{
 		Tenant: c.principal.Tenant, Agent: c.principal.Agent, Scopes: scopes,
 		Server: c.tool.Server, Tool: c.tool.Name, Args: c.argsVal, Annotations: c.tool.Annotations(),
 		Now: p.deps.Clock.Now().UTC(),
-	})
+	}
+	d, err := p.deps.Policy.Evaluate(ctx, in)
 	if err != nil {
 		p.deps.Logger.Error("policy evaluation failed; denying", "request_id", c.requestID, "error", err)
 	}
 	switch {
 	case err == nil && d.Allow:
 		c.decision = "allow"
-		return nil
+		return nil, false, nil
+	case err == nil && d.RequireApproval:
+		return p.approve(ctx, c, in, d)
 	default:
 		c.decision, c.status = "deny", "denied"
-		return mcperr.New(mcperr.CodePolicyDenied, map[string]any{"reasons": d.Reasons})
+		return nil, true, mcperr.New(mcperr.CodePolicyDenied, map[string]any{"reasons": d.Reasons})
 	}
 }
 

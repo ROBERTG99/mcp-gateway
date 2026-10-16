@@ -29,9 +29,9 @@ func hold(t *testing.T, s *approvals.Service) approvals.Approval {
 	t.Helper()
 	a, err := s.Hold(t.Context(), approvals.HoldRequest{
 		Binding: approvals.Binding{Tenant: "t_alpha", Agent: "agent-support", Server: "orders", Tool: "refund_order",
-			ArgsSHA256: strings.Repeat("a", 64)},
+			ArgsSHA256: strings.Repeat("a", 64), IdempotencyKey: "refund-key-0001"},
 		Args:    json.RawMessage(`{"order_id":"O-00001","amount_cents":50000,"reason":"card 4111 1111 1111 1111"}`),
-		Reasons: []string{"refund_requires_approval"}, IdempotencyKey: "refund-key-0001",
+		Reasons: []string{"refund_requires_approval"},
 	})
 	if err != nil {
 		t.Fatal(err)

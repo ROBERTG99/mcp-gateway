@@ -49,14 +49,17 @@ type Approval struct {
 	UpdatedAt      time.Time       `json:"updated_at"`
 }
 
-// Binding identifies the exact call an approval authorises.
+// Binding identifies the exact call an approval authorises: tenant, agent, tool, the hash of the
+// arguments and the idempotency key of the held call.
 type Binding struct {
 	Tenant, Agent, Server, Tool, ArgsSHA256 string
+	IdempotencyKey                          string
 }
 
 // Matches reports whether the approval is bound to b.
 func (a Approval) Matches(b Binding) bool {
-	return a.Tenant == b.Tenant && a.Agent == b.Agent && a.Server == b.Server && a.Tool == b.Tool && a.ArgsSHA256 == b.ArgsSHA256
+	return a.Tenant == b.Tenant && a.Agent == b.Agent && a.Server == b.Server && a.Tool == b.Tool &&
+		a.ArgsSHA256 == b.ArgsSHA256 && a.IdempotencyKey == b.IdempotencyKey
 }
 
 // ListFilter selects approvals (newest first).

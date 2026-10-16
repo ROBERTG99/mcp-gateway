@@ -63,7 +63,7 @@ func TestEveryOutcomeAuditedOnce(t *testing.T) {
 		{card, "audit-key-0001", "replayed", "allow", 0},
 		{map[string]any{"order_id": "O-1", "amount_cents": 6000, "reason": "x"}, "audit-key-0001", "rejected", "allow", mcperr.CodeIdempotencyConflict},
 		{map[string]any{"order_id": "O-1", "amount_cents": 500000, "reason": "x"}, "audit-key-0002", "denied", "deny", mcperr.CodePolicyDenied},
-		{card, "", "rejected", "allow", mcperr.CodeIdempotencyKeyRequired},
+		{card, "", "rejected", "none", mcperr.CodeIdempotencyKeyRequired}, // validated before the policy stage
 		{card, "audit-key-0003", "ok", "allow", 0},
 		{card, "audit-key-0004", "rejected", "none", mcperr.CodeRateLimited}, // 7th call: burst 6 exhausted
 	}
@@ -109,7 +109,7 @@ func TestEveryOutcomeAuditedOnce(t *testing.T) {
 	for _, e := range events {
 		statuses[e.Status+"/"+e.Decision]++
 	}
-	want := map[string]int{"ok/allow": 2, "replayed/allow": 1, "rejected/allow": 2, "denied/deny": 1, "rejected/none": 1}
+	want := map[string]int{"ok/allow": 2, "replayed/allow": 1, "rejected/allow": 1, "denied/deny": 1, "rejected/none": 2}
 	for k, v := range want {
 		if statuses[k] != v {
 			t.Fatalf("status/decision counts = %v, want %v", statuses, want)

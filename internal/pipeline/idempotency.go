@@ -48,12 +48,7 @@ type storedResult struct {
 
 // acquire claims the key. done=true means the call is finished (replayed) without the upstream.
 func (p *Pipeline) acquire(ctx context.Context, c *call) (*mcp.CallToolResult, bool, error) {
-	key, err := c.idempotencyKey()
-	if err != nil {
-		c.status = "rejected"
-		return nil, true, err
-	}
-	c.idemKey = key
+	key := c.idemKey // validated before the policy stage
 	if p.deps.Idempotency == nil {
 		return nil, false, nil
 	}

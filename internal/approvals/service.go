@@ -66,9 +66,8 @@ func NewService(store Store, opts Options) *Service {
 // redacted before being stored or sent.
 type HoldRequest struct {
 	Binding
-	Args           json.RawMessage
-	Reasons        []string
-	IdempotencyKey string
+	Args    json.RawMessage
+	Reasons []string
 }
 
 // WebhookPayload is the approval webhook body (contract v0.1.0).

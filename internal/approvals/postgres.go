@@ -82,7 +82,8 @@ func (p *Postgres) Get(ctx context.Context, id string) (Approval, error) {
 func (p *Postgres) FindPending(ctx context.Context, b Binding, now time.Time) (Approval, bool, error) {
 	a, err := scanApproval(p.pool.QueryRow(ctx, `SELECT `+approvalColumns+` FROM approvals WHERE status = 'pending'
 		AND tenant = $1 AND agent = $2 AND server = $3 AND tool = $4 AND args_sha256 = $5 AND expires_at > $6
-		ORDER BY created_at DESC LIMIT 1`, b.Tenant, b.Agent, b.Server, b.Tool, b.ArgsSHA256, now))
+		AND COALESCE(idempotency_key, '') = $7 ORDER BY created_at DESC LIMIT 1`,
+		b.Tenant, b.Agent, b.Server, b.Tool, b.ArgsSHA256, now, b.IdempotencyKey))
 	if errors.Is(err, ErrNotFound) {
 		return Approval{}, false, nil
 	}

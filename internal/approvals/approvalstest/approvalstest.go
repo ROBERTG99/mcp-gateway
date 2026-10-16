@@ -30,7 +30,8 @@ func newApproval(tenant string) approvals.Approval {
 }
 
 func binding(a approvals.Approval) approvals.Binding {
-	return approvals.Binding{Tenant: a.Tenant, Agent: a.Agent, Server: a.Server, Tool: a.Tool, ArgsSHA256: a.ArgsSHA256}
+	return approvals.Binding{Tenant: a.Tenant, Agent: a.Agent, Server: a.Server, Tool: a.Tool, ArgsSHA256: a.ArgsSHA256,
+		IdempotencyKey: a.IdempotencyKey}
 }
 
 // Run executes the suite; newStore returns an empty store per subtest.
