@@ -18,6 +18,7 @@ const usage = `usage: mcp-gateway <command> [flags]
 commands:
   serve                 run the gateway (MCP :8210, admin :8200, metrics :8211)
   dev-issuer            run the development JWT issuer (:8212)
+  dev-token [flags]     mint a token from a running dev issuer
   migrate [up|down|status]  apply database migrations
   audit verify [--from-seq N]  verify the audit hash chain
   policy test <dir>     run Rego unit tests
@@ -53,6 +54,8 @@ func commands() map[string]commandFunc {
 	return map[string]commandFunc{
 		"serve":       cmdServe,
 		"migrate":     cmdMigrate,
+		"dev-issuer":  cmdDevIssuer,
+		"dev-token":   cmdDevToken,
 		"healthcheck": cmdHealthcheck,
 		"version":     cmdVersion,
 		"--version":   cmdVersion,

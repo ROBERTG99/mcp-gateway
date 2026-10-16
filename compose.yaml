@@ -106,16 +106,32 @@ services:
     depends_on:
       migrate: { condition: service_completed_successfully }
 
+  dev-issuer:
+    build: { <<: *build, target: gateway }
+    image: mcp-gateway:dev
+    command: ["dev-issuer"]
+    environment:
+      MCPGW_DEV_ISSUER_ENABLED: "true"
+      MCPGW_DEV_ISSUER_ADDR: ":8212"
+    ports: ["127.0.0.1:8212:8212"]
+    healthcheck:
+      test: ["CMD", "/mcp-gateway", "healthcheck", "http://127.0.0.1:8212/healthz"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
   gateway:
     build: { <<: *build, target: gateway }
     image: mcp-gateway:dev
     environment:
       <<: *db-env
       MCPGW_UPSTREAMS_FILE: /config/upstreams.yaml
+      MCPGW_JWKS_URL: http://dev-issuer:8212/.well-known/jwks.json
     ports: ["127.0.0.1:8200:8200", "127.0.0.1:8210:8210", "127.0.0.1:8211:8211"]
     depends_on:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
+      dev-issuer: { condition: service_healthy }
       upstream-ledger: { condition: service_healthy }
       upstream-crm: { condition: service_healthy }
       upstream-orders: { condition: service_healthy }

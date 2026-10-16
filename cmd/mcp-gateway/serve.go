@@ -18,15 +18,7 @@ func cmdServe(ctx context.Context, _ []string, _, stderr io.Writer) int {
 		return 2
 	}
 	logger := newLogger(stderr, cfg.LogLevel)
-	upstreams, err := config.LoadUpstreams(cfg.UpstreamsFile)
-	if err != nil {
-		_, _ = fmt.Fprintln(stderr, err)
-		return 2
-	}
-	if err := server.Run(ctx, server.Config{
-		MCPAddr: cfg.MCPAddr, AdminAddr: cfg.AdminAddr, Upstreams: upstreams,
-		CatalogRefresh: cfg.CatalogRefresh, ShutdownTimeout: cfg.ShutdownTimeout,
-	}, logger); err != nil {
+	if err := server.Run(ctx, cfg, logger); err != nil {
 		logger.Error("gateway stopped", "error", err)
 		return 1
 	}
