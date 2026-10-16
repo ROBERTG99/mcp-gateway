@@ -11,6 +11,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/ROBERTG99/mcp-gateway/pkg/canonicaljson"
 )
 
 // NewMemoryDedup returns an in-process DedupStore (tests and examples). Concurrent calls with
@@ -100,11 +102,20 @@ func (p *pgDedup) Once(ctx context.Context, tenant, key, tool, argsSHA256 string
 		if storedTool != tool || strings.TrimSpace(storedHash) != argsSHA256 {
 			return nil, false, ErrKeyReused
 		}
-		return result, true, nil
+		// jsonb normalises formatting; canonical form keeps replays byte-identical.
+		canonical, err := canonicaljson.Canonicalize(result)
+		if err != nil {
+			return nil, false, fmt.Errorf("dedup: stored result: %w", err)
+		}
+		return canonical, true, nil
 	}
-	res, err := fn(ctx, tx)
+	raw, err := fn(ctx, tx)
 	if err != nil {
 		return nil, false, err
+	}
+	res, err := canonicaljson.Canonicalize(raw)
+	if err != nil {
+		return nil, false, fmt.Errorf("dedup: result is not JSON: %w", err)
 	}
 	if _, err := tx.Exec(ctx, "UPDATE "+p.table+" SET result = $3 WHERE tenant = $1 AND key = $2", tenant, key, res); err != nil {
 		return nil, false, fmt.Errorf("dedup: store result: %w", err)
