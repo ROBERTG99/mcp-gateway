@@ -57,6 +57,9 @@ func TestRedactJSONKeepsStructure(t *testing.T) {
 	if !strings.Contains(string(got), `"email":"[REDACTED:EMAIL]"`) {
 		t.Fatalf("nested email not redacted: %s", got)
 	}
+	if got := string(r.JSON(json.RawMessage(`{"a@example.com":1,"b@example.com":2}`))); !strings.Contains(got, `"[REDACTED:EMAIL]#2"`) {
+		t.Fatalf("colliding redacted keys: %s", got)
+	}
 	if got := string(r.JSON(json.RawMessage(`{"alice@example.com":1}`))); strings.Contains(got, "alice") {
 		t.Fatalf("map key not redacted: %s", got)
 	}

@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"math/big"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -130,7 +131,14 @@ func (r *Redactor) Value(v any) any {
 	case map[string]any:
 		out := make(map[string]any, len(x))
 		for k, val := range x {
-			out[r.String(k)] = r.Value(val) // keys can hold personal data too
+			rk := r.String(k) // keys can hold personal data too
+			for i := 2; ; i++ {
+				if _, taken := out[rk]; !taken || rk == k {
+					break
+				}
+				rk = r.String(k) + "#" + strconv.Itoa(i) // two redacted keys must not overwrite each other
+			}
+			out[rk] = r.Value(val)
 		}
 		return out
 	case []any:

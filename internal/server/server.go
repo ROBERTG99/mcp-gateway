@@ -127,8 +127,7 @@ func (a *App) readyz(w http.ResponseWriter, _ *http.Request) {
 	case !a.policy.Ready():
 		checks["policy"], ready = "not loaded: "+a.policy.LastError(), false
 	case a.policy.LastError() != "":
-		// The last good bundle keeps serving (docs/DECISIONS.md); the failure is visible here and
-		// in mcpgw_policy_reload_failures_total.
+		// The last good bundle keeps serving (docs/adr/0002); the failure is visible here and in the logs.
 		checks["policy"] = "stale: last reload failed: " + a.policy.LastError()
 	}
 	status := http.StatusOK
