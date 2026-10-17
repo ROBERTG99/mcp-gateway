@@ -1,0 +1,4 @@
+BenchmarkScoreToolResult-4   	    5114	    231871 ns/op	   1.75 MB/s
+BenchmarkScoreToolResult-4   	    4636	    229537 ns/op	   1.77 MB/s
+BenchmarkScoreToolResult-4   	    4642	    244211 ns/op	   1.66 MB/s
+ok  	github.com/ROBERTG99/mcp-gateway/internal/injection	3.402s

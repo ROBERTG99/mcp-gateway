@@ -18,6 +18,8 @@ export default defineConfig({
   use: {
     baseURL: process.env.CONSOLE_URL ?? "http://localhost:8200",
     trace: "retain-on-failure",
+    // VIDEO=1 (make docs) records the approval flow for docs/images/.
+    video: process.env.VIDEO === "1" ? "on" : "off",
     ...devices["Desktop Chrome"],
     launchOptions: { executablePath },
   },

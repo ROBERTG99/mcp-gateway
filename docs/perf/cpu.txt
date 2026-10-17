@@ -1,0 +1,15 @@
+cpu_usage.py: 25.0 s window, 4 CPUs; average cores used
+  machine (busy)             3.52
+  gateway                    1.45
+  upstream-orders            0.48
+  upstream-crm               0.38
+  host:loadgen               0.37
+  postgres                   0.26
+  host:docker-proxy          0.12
+  host:dockerd               0.12
+  redis                      0.09
+  host:containerd            0.02
+  upstream-ledger            0.02
+  dev-issuer                 0.02
+  approval-sink              0.02
+  dynamodb                   0.02

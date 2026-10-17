@@ -21,8 +21,12 @@ query, `data.mcpgw.authz.decision`, held behind an atomic pointer (`internal/pol
   /admin/policy/reload` forces it. A successful reload swaps the prepared query atomically and
   resynchronises every cached per-principal tool list (agents receive `tools/list_changed`).
 - A failed reload keeps the last good bundle serving (spec §4.1). `/readyz` stays 200 but reports
-  `policy: stale: last reload failed: <error>`, and the error is logged. A Prometheus counter and
-  alert for reload failures are planned in T-38 (observability).
+  `policy: stale: last reload failed: <error>`, and the error is logged. The counter
+  `mcpgw_policy_reload_failures_total` counts every failed load or reload, the first one included
+  (`internal/telemetry/metrics.go`, `internal/policy/policy.go`). The gauge `mcpgw_policy_stale` is
+  1 while the last reload failed and the previous bundle is still serving. The `PolicyLoadFailure`
+  alert in `deploy/prometheus/alerts.yaml` fires on a recent failure, on the stale gauge or when
+  `mcpgw_policy_loaded` is 0.
 - Rego unit tests (`*_test.rego`) and golden decisions run with `mcp-gateway policy test`, with no
   OPA binary installed.
 
