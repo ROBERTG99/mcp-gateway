@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"golang.org/x/text/unicode/norm"
 )
@@ -73,7 +74,11 @@ var (
 		regexp.MustCompile(`\b(ignore|disregard)\s+the\s+above\b`),
 		regexp.MustCompile(`\b(forget|disregard)\s+(your|all)\s+(previous\s+)?(guidance|instructions|rules|training)\b`),
 		regexp.MustCompile(`\bnew\s+(system\s+)?instructions?\s*:`),
-		regexp.MustCompile(`\byou\s+are\s+now\s+(in\s+)?(an?\s+)?(admin|developer|debug|god|unrestricted|jailbreak|dan)\b`),
+		regexp.MustCompile(`\byou\s+are\s+(now\s+)?(in\s+)?(an?\s+)?(admin|developer|debug|god|unrestricted|jailbreak|dan)\b`),
+		// Credential solicitation, instructions hidden in an encoding, and bypassing a human check.
+		regexp.MustCompile(`\b(submit|send|share|paste|post|forward|reveal)\s+(the|your|any|all)\s+(session\s+|access\s+|api\s+|bearer\s+)?(tokens?|passwords?|credentials?|keys?|secrets?)\b`),
+		regexp.MustCompile(`\b(decode|decrypt|deobfuscate|unscramble)\b[^.]{0,60}\b(follow|execute|obey|run)\b`),
+		regexp.MustCompile(`\b(skip|bypass|disable|avoid)\s+(the\s+)?(approval|human\s+review|review|verification|confirmation)\b`),
 		regexp.MustCompile(`\b(reveal|print|show|output)\s+(your|the)\s+(system\s+prompt|hidden\s+instructions|instructions)\b`),
 		regexp.MustCompile(`\bdo\s+not\s+(tell|inform|alert|notify)\s+the\s+(user|human|operator|customer)\b`),
 		regexp.MustCompile(`\b(the\s+)?real\s+(task|instructions?)\s+(is|are)\b`),
@@ -84,13 +89,19 @@ var (
 		regexp.MustCompile(`(?i)<\|\s*(system|assistant|user|im_start|im_end|endoftext)\s*\|>`),
 		regexp.MustCompile(`(?i)\[/?(inst|sys)\]|<<\s*sys\s*>>`),
 		regexp.MustCompile(`(?im)^\s*#{2,}\s*(system|instruction|instructions)\b`),
+		// A speaker label after a sentence ("... on Monday. SYSTEM: ..."), a "system instructions:"
+		// header, or text addressed to the model ("To the AI:", "for the assistant:").
+		regexp.MustCompile(`(?i)[.!?]\s+(system|assistant|developer)\s*:`),
+		regexp.MustCompile(`(?i)\b(system|developer)\s+(prompt|instructions?|message)\s*:`),
+		regexp.MustCompile(`(?i)\b(to|for)\s+(the|any|all)\s+(ai|assistant|llm|model|ai\s+agents?|agents?)(\s+reading\s+this)?\s*:`),
 	}
 	genericTool = regexp.MustCompile(`\b[a-z][a-z0-9_]{1,31}\.(get|add|record|issue|refund|create|delete|update|send|list|call|transfer|approve)_[a-z_]+\b`)
 	urlRe       = regexp.MustCompile(`(?i)\bhttps?://\S+`)
 	linkQuery   = regexp.MustCompile(`(?i)\bhttps?://[^\s"'<>]+\?[^\s"'<>]*=`)
 	base64Blob  = regexp.MustCompile(`[A-Za-z0-9+/]{40,}={0,2}`)
 	tokenRe     = regexp.MustCompile(`[\p{L}\p{N}_.]+`)
-	spacedRe    = regexp.MustCompile(`\b(?:[a-z][ ._\-]){3,}[a-z]\b`)
+	spacedRe    = regexp.MustCompile(`\b(?:[a-z][ ._\-]){2,}[a-z]\b`)
+	sentenceRe  = regexp.MustCompile(`[.!?\n]+`)
 	imperatives = map[string]bool{
 		"ignore": true, "disregard": true, "forget": true, "override": true, "bypass": true, "call": true, "run": true,
 		"execute": true, "send": true, "forward": true, "delete": true, "remove": true, "approve": true, "refund": true,
@@ -140,7 +151,16 @@ func normalize(text string) (string, bool) {
 }
 
 // Score evaluates text.
-func (s *Scorer) Score(text string) Result {
+func (s *Scorer) Score(text string) Result { return s.score(text, 0) }
+
+// dense reports whether text of at least minTokens tokens has more clause-initial imperatives per
+// 100 tokens than the threshold.
+func (s *Scorer) dense(text string, minTokens int) bool {
+	tokens := tokenRe.FindAllString(text, -1)
+	return len(tokens) >= minTokens && float64(countImperatives(text))*100/float64(len(tokens)) > s.opts.ImperativesPer100
+}
+
+func (s *Scorer) score(text string, depth int) Result {
 	norm, hidden := normalize(text)
 	// Variants for phrase matching: spaced-out letters joined, and leetspeak folded.
 	despaced := spacedRe.ReplaceAllStringFunc(norm, func(m string) string {
@@ -164,26 +184,39 @@ func (s *Scorer) Score(text string) Result {
 			}
 		}
 	}
-	for _, re := range roleMarkers {
-		if re.MatchString(norm) {
-			fired[SignalRole] = true
+	for _, v := range variants {
+		for _, re := range roleMarkers {
+			if re.MatchString(v) {
+				fired[SignalRole] = true
+			}
 		}
 	}
 	if s.mentionsTool(norm) {
 		fired[SignalTool] = true
 	}
-	if linkQuery.MatchString(text) {
+	if linkQuery.MatchString(text) || linkQuery.MatchString(norm) {
 		fired[SignalLink] = true
 	}
 	for _, m := range base64Blob.FindAllString(text, -1) {
-		if _, err := base64.StdEncoding.DecodeString(padded(m)); err == nil {
+		if decoded, err := base64.StdEncoding.DecodeString(padded(m)); err == nil {
 			fired[SignalBase64] = true
+			// The payload counts as if it were written in clear (one level deep).
+			if depth == 0 && utf8.Valid(decoded) {
+				for _, sig := range s.score(string(decoded), 1).Signals {
+					fired[sig] = true
+				}
+			}
 			break
 		}
 	}
 	prose := urlRe.ReplaceAllString(norm, " ") // URLs are not prose
-	if tokens := tokenRe.FindAllString(prose, -1); len(tokens) >= 5 {
-		if float64(countImperatives(prose))*100/float64(len(tokens)) > s.opts.ImperativesPer100 {
+	if s.dense(prose, 5) {
+		fired[SignalImperative] = true
+	}
+	// An injected instruction is often one sentence inside ordinary text: a sentence of at least
+	// eight tokens is judged on its own density too.
+	for _, sentence := range sentenceRe.Split(prose, -1) {
+		if s.dense(sentence, 8) {
 			fired[SignalImperative] = true
 		}
 	}

@@ -100,7 +100,7 @@ chore: configure commit attribution
 | T-31 | Policy tester and upstreams pages | M4 | done | policy tester with six examples (allow, hold, deny, approval_granted) showing matched rules; upstreams page with health, breaker, tools; TestPolicyTesterShowsMatchedRules, TestUpstreamsPage |
 | T-32 | Playwright, axe, screenshots | M4 | done | make e2e (cd e2e && pnpm exec playwright test) on the compose stack: 33 passed (approvals.spec.ts keyboard-only approve + audit, reject with reason, reviewer no buttons and API 403; console.spec.ts axe 0 serious/critical on 7 screens at 375 and 1280 px in light and dark, no horizontal scroll, error and empty states); screenshots in docs/images/ |
 | T-33 | Eval datasets | M5 | done | go run ./cmd/datagen evals (seed 20260): policy.v1 90/60, injection.v1 120/80 (100 malicious incl. 30 obfuscated, 100 benign incl. 30 hard negatives), redaction.v1 72/48 (90 with PII spans, 30 decoy-only); TestEvalDatasetsCountsAndSplits (counts, strata, unique ids, determinism, committed files == generator, test partition never rewritten) |
-| T-34 | Eval runner and reports | M5 | todo | |
+| T-34 | Eval runner and reports | M5 | done | go run ./cmd/evalgen run: evalgate.report.v1 per suite and split in evals/reports/, evals/REPORT.md; test: policy decision_accuracy 1.0, injection recall 0.8000 (dev 0.9167) and FPR 0, redaction recall 1.0 / precision 1.0, latency.v1 policy eval p95 0.19 ms; TestReportMatchesEvalgateSchema, TestPolicyEvalIsExact, TestMarkdownCitesReports, TestInjectionSignalFamilies; make eval needs scripts/evalgate_check.py (T-36) |
 | T-35 | Chaos eval | M5 | todo | |
 | T-36 | Eval gate | M5 | todo | |
 | T-37 | Traces, logs, step records | M6 | todo | |
