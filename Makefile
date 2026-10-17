@@ -157,7 +157,7 @@ policy-test: ## Rego unit tests and golden decisions
 
 .PHONY: hooks-test
 hooks-test: ## Claude Code hook tests
-	$(UV) run pytest tests/harness
+	$(UV) run pytest tests/harness tests/evals
 
 .PHONY: test
 test: unit integration contract policy-test hooks-test ## Unit, integration, contract, policy and hook tests on the host

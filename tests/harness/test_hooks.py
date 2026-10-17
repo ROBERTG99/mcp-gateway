@@ -156,8 +156,11 @@ def test_guard_blocks_env_file_edit() -> None:
 
 
 def test_guard_blocks_env_read_tool() -> None:
-    payload = {"hook_event_name": "PreToolUse", "tool_name": "Read",
-               "tool_input": {"file_path": str(ROOT / ".env.production")}}
+    payload = {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Read",
+        "tool_input": {"file_path": str(ROOT / ".env.production")},
+    }
     assert run_hook("pre_tool_guard.py", payload).returncode == 2
     payload["tool_input"] = {"file_path": str(ROOT / ".env.example")}
     assert run_hook("pre_tool_guard.py", payload).returncode == 0

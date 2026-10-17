@@ -102,7 +102,7 @@ chore: configure commit attribution
 | T-33 | Eval datasets | M5 | done | go run ./cmd/datagen evals (seed 20260): policy.v1 90/60, injection.v1 120/80 (100 malicious incl. 30 obfuscated, 100 benign incl. 30 hard negatives), redaction.v1 72/48 (90 with PII spans, 30 decoy-only); TestEvalDatasetsCountsAndSplits (counts, strata, unique ids, determinism, committed files == generator, test partition never rewritten) |
 | T-34 | Eval runner and reports | M5 | done | go run ./cmd/evalgen run: evalgate.report.v1 per suite and split in evals/reports/, evals/REPORT.md; test: policy decision_accuracy 1.0, injection recall 0.8000 (dev 0.9167) and FPR 0, redaction recall 1.0 / precision 1.0, latency.v1 policy eval p95 0.19 ms; TestReportMatchesEvalgateSchema, TestPolicyEvalIsExact, TestMarkdownCitesReports, TestInjectionSignalFamilies; make eval needs scripts/evalgate_check.py (T-36) |
 | T-35 | Chaos eval | M5 | todo | |
-| T-36 | Eval gate | M5 | todo | |
+| T-36 | Eval gate | M5 | done | make eval: evalgen then scripts/evalgate_check.py against evals/baseline (4 reports, 0 failures); tests/evals/test_evalgate_check.py 8 passed incl. test_fails_below_threshold and test_forced_regression_fails (150->140 correct, 6.7 pp drop above threshold fails as regression); 0.67 pp drop passes |
 | T-37 | Traces, logs, step records | M6 | todo | |
 | T-38 | Metrics, alerts, dashboard | M6 | todo | |
 | T-39 | Security hardening and threat model | M6 | todo | |

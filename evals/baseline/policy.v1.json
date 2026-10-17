@@ -1,0 +1,691 @@
+{
+  "schema": "evalgate.report.v1",
+  "suite": "policy.v1",
+  "run_id": "policy.v1-test-20261017T000801Z",
+  "created_at": "2026-10-17T00:08:01Z",
+  "git_sha": "e92ace360e51da99e5b28fa5db5889b6da4d3a58",
+  "mode": "offline",
+  "models": [],
+  "prompt_hashes": {
+    "injection_detector": "a27d94e8612e26f9e9584587f5175c51e97d4ac466ce3468ea083e1e1e4bd457",
+    "policy_bundle": "81993332a611147cc767b8b11b9748eb7a09b9a072accfee9b68c01cc9170e2c",
+    "redaction_detector": "dd5e1b871be5ed4306866ca273051e19110c9a08d898243931747d2a33bfa9cc"
+  },
+  "n_cases": 60,
+  "metrics": {
+    "decision_accuracy": {
+      "value": 1,
+      "threshold": 1,
+      "direction": "higher",
+      "passed": true,
+      "ci_low": 1,
+      "ci_high": 1
+    }
+  },
+  "cost_usd_total": 0,
+  "cost_usd_per_case": 0,
+  "latency_p50_ms": 0.073,
+  "latency_p95_ms": 0.288,
+  "cases": [
+    {
+      "id": "pol-test-001",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.552,
+      "error": null
+    },
+    {
+      "id": "pol-test-002",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.085,
+      "error": null
+    },
+    {
+      "id": "pol-test-003",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.056,
+      "error": null
+    },
+    {
+      "id": "pol-test-004",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.049,
+      "error": null
+    },
+    {
+      "id": "pol-test-005",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.089,
+      "error": null
+    },
+    {
+      "id": "pol-test-006",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.093,
+      "error": null
+    },
+    {
+      "id": "pol-test-007",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.051,
+      "error": null
+    },
+    {
+      "id": "pol-test-008",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.047,
+      "error": null
+    },
+    {
+      "id": "pol-test-009",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.051,
+      "error": null
+    },
+    {
+      "id": "pol-test-010",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.104,
+      "error": null
+    },
+    {
+      "id": "pol-test-011",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.044,
+      "error": null
+    },
+    {
+      "id": "pol-test-012",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.043,
+      "error": null
+    },
+    {
+      "id": "pol-test-013",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.033,
+      "error": null
+    },
+    {
+      "id": "pol-test-014",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.036,
+      "error": null
+    },
+    {
+      "id": "pol-test-015",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.07,
+      "error": null
+    },
+    {
+      "id": "pol-test-016",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.037,
+      "error": null
+    },
+    {
+      "id": "pol-test-017",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.128,
+      "error": null
+    },
+    {
+      "id": "pol-test-018",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.075,
+      "error": null
+    },
+    {
+      "id": "pol-test-019",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.042,
+      "error": null
+    },
+    {
+      "id": "pol-test-020",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.032,
+      "error": null
+    },
+    {
+      "id": "pol-test-021",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.031,
+      "error": null
+    },
+    {
+      "id": "pol-test-022",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.048,
+      "error": null
+    },
+    {
+      "id": "pol-test-023",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.034,
+      "error": null
+    },
+    {
+      "id": "pol-test-024",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.031,
+      "error": null
+    },
+    {
+      "id": "pol-test-025",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.052,
+      "error": null
+    },
+    {
+      "id": "pol-test-026",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.086,
+      "error": null
+    },
+    {
+      "id": "pol-test-027",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.091,
+      "error": null
+    },
+    {
+      "id": "pol-test-028",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.093,
+      "error": null
+    },
+    {
+      "id": "pol-test-029",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.088,
+      "error": null
+    },
+    {
+      "id": "pol-test-030",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.083,
+      "error": null
+    },
+    {
+      "id": "pol-test-031",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.08,
+      "error": null
+    },
+    {
+      "id": "pol-test-032",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.165,
+      "error": null
+    },
+    {
+      "id": "pol-test-033",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.094,
+      "error": null
+    },
+    {
+      "id": "pol-test-034",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.088,
+      "error": null
+    },
+    {
+      "id": "pol-test-035",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.074,
+      "error": null
+    },
+    {
+      "id": "pol-test-036",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.129,
+      "error": null
+    },
+    {
+      "id": "pol-test-037",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.08,
+      "error": null
+    },
+    {
+      "id": "pol-test-038",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.099,
+      "error": null
+    },
+    {
+      "id": "pol-test-039",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.082,
+      "error": null
+    },
+    {
+      "id": "pol-test-040",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.07,
+      "error": null
+    },
+    {
+      "id": "pol-test-041",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.071,
+      "error": null
+    },
+    {
+      "id": "pol-test-042",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.336,
+      "error": null
+    },
+    {
+      "id": "pol-test-043",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.143,
+      "error": null
+    },
+    {
+      "id": "pol-test-044",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.073,
+      "error": null
+    },
+    {
+      "id": "pol-test-045",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.064,
+      "error": null
+    },
+    {
+      "id": "pol-test-046",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.071,
+      "error": null
+    },
+    {
+      "id": "pol-test-047",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.08,
+      "error": null
+    },
+    {
+      "id": "pol-test-048",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.233,
+      "error": null
+    },
+    {
+      "id": "pol-test-049",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.102,
+      "error": null
+    },
+    {
+      "id": "pol-test-050",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.104,
+      "error": null
+    },
+    {
+      "id": "pol-test-051",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.523,
+      "error": null
+    },
+    {
+      "id": "pol-test-052",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.288,
+      "error": null
+    },
+    {
+      "id": "pol-test-053",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.062,
+      "error": null
+    },
+    {
+      "id": "pol-test-054",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.085,
+      "error": null
+    },
+    {
+      "id": "pol-test-055",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.062,
+      "error": null
+    },
+    {
+      "id": "pol-test-056",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.041,
+      "error": null
+    },
+    {
+      "id": "pol-test-057",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.041,
+      "error": null
+    },
+    {
+      "id": "pol-test-058",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.035,
+      "error": null
+    },
+    {
+      "id": "pol-test-059",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.046,
+      "error": null
+    },
+    {
+      "id": "pol-test-060",
+      "split": "test",
+      "scores": {
+        "decision_correct": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.04,
+      "error": null
+    }
+  ]
+}
