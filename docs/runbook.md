@@ -153,7 +153,7 @@ Things to know:
 
 ### How the policy bundle loads
 
-The Rego bundle is a directory (`MCPGW_POLICY_DIR`). The image holds one at `/policies` (`Dockerfile`). With `policies.existingConfigMap` set, the chart mounts that ConfigMap at `/etc/mcp-gateway/policies` instead and sets `MCPGW_POLICY_DIR` to it.
+The Rego bundle is a directory (`MCPGW_POLICY_DIR`). The image holds one at `/policies` (`Dockerfile`). With `policies.existingConfigMap` set, the chart mounts that ConfigMap at `/etc/mcp-gateway-policies` instead and sets `MCPGW_POLICY_DIR` to it.
 
 The gateway checks the directory every `MCPGW_POLICY_RELOAD_INTERVAL` (default 5s) and reloads when the content hash changes (`internal/policy/policy.go:155`). A reload swaps the compiled bundle atomically. Agents then get `tools/list_changed` because the per-principal tool lists are refreshed (`docs/adr/0002-embedded-opa-vs-sidecar.md`).
 

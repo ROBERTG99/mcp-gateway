@@ -303,16 +303,22 @@ func (b *Bundle) store() storage.Store {
 	return inmem.NewFromObject(map[string]any{"mcpgw": b.Data})
 }
 
-// nonDeterministic are builtin prefixes a policy may not call: decisions must depend on the input
-// and the bundle only (.claude/rules/rego.md), so a bundle that uses them fails to compile.
-var nonDeterministic = []string{"http.send", "net.", "opa.runtime", "time.now_ns", "rand.", "uuid.", "trace", "print"}
+// nonDeterministic are the builtins a policy may not call: decisions must depend on the input and
+// the bundle only (.claude/rules/rego.md), so a bundle that uses them fails to compile. Deterministic
+// members of the same families (net.cidr_contains, uuid.parse, time.parse_rfc3339_ns) stay allowed.
+func nonDeterministic(name string) bool {
+	switch name {
+	case "http.send", "net.lookup_ip_addr", "opa.runtime", "time.now_ns", "rand.intn", "uuid.rfc4122", "trace", "print", "internal.print":
+		return true
+	}
+	return false
+}
 
-// capabilities are OPA's builtins minus the non-deterministic ones.
+// capabilities are OPA's builtins minus the non-deterministic ones; the gateway and `policy test`
+// both compile with them.
 func capabilities() *ast.Capabilities {
 	c := ast.CapabilitiesForThisVersion()
-	c.Builtins = slices.DeleteFunc(slices.Clone(c.Builtins), func(b *ast.Builtin) bool {
-		return slices.ContainsFunc(nonDeterministic, func(p string) bool { return b.Name == p || strings.HasPrefix(b.Name, p) })
-	})
+	c.Builtins = slices.DeleteFunc(slices.Clone(c.Builtins), func(b *ast.Builtin) bool { return nonDeterministic(b.Name) })
 	return c
 }
 
@@ -355,7 +361,8 @@ func RunTests(ctx context.Context, dir string) ([]TestResult, error) {
 		return nil, fmt.Errorf("transaction: %w", err)
 	}
 	defer store.Abort(ctx, txn)
-	ch, err := tester.NewRunner().SetStore(store).SetModules(modules).RunTests(ctx, txn)
+	compiler := ast.NewCompiler().WithCapabilities(capabilities())
+	ch, err := tester.NewRunner().SetCompiler(compiler).SetStore(store).SetModules(modules).RunTests(ctx, txn)
 	if err != nil {
 		return nil, fmt.Errorf("run rego tests: %w", err)
 	}

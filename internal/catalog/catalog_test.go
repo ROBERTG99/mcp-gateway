@@ -197,4 +197,15 @@ func TestWriteToolsOverrideReadOnlyHint(t *testing.T) {
 	if tool, _ := plain.Lookup("echoer.echo"); !tool.ReadOnly() {
 		t.Fatal("without write_tools the upstream's hint applies")
 	}
+	// A write_tools entry that matches no tool (a typo or a renamed tool) is reported, because the
+	// safeguard would otherwise fail open silently.
+	typo := catalog.New([]catalog.UpstreamConfig{{Name: "echoer", URL: url, Timeout: 5 * time.Second,
+		WriteTools: []string{"echo", "ecoh"}}}, catalog.Options{})
+	t.Cleanup(typo.Close)
+	if err := typo.Refresh(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if st := typo.Status(); len(st) != 1 || len(st[0].UnknownWriteTools) != 1 || st[0].UnknownWriteTools[0] != "ecoh" {
+		t.Fatalf("status = %+v, want unknown_write_tools [ecoh]", st)
+	}
 }

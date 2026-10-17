@@ -215,4 +215,9 @@ func TestDecideRBACAndAudit(t *testing.T) {
 	if _, err := svc.Get(t.Context(), a.ID, reviewer); err != nil {
 		t.Fatalf("reviewer get: %v", err)
 	}
+	// The calling agent may still withdraw (reject) its own held call.
+	w := hold(t, svc)
+	if _, err := svc.Decide(t.Context(), w.ID, self, false, "no longer needed"); err != nil {
+		t.Fatalf("self-withdrawal: %v", err)
+	}
 }

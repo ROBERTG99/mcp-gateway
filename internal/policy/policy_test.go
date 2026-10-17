@@ -305,6 +305,44 @@ func TestRunTestsReportsBrokenTestModule(t *testing.T) {
 	}
 }
 
+// TestDeterministicBuiltinsAllowed: the restriction is by exact builtin, so deterministic members
+// of the same families (net.cidr_contains, uuid.parse, time.parse_rfc3339_ns) still compile.
+func TestDeterministicBuiltinsAllowed(t *testing.T) {
+	dir := t.TempDir()
+	src := `package mcpgw.authz
+
+ip_ok if net.cidr_contains("10.0.0.0/8", "10.1.2.3")
+
+parsed := uuid.parse("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
+
+ts := time.parse_rfc3339_ns("2026-10-17T00:00:00Z")
+
+decision := {"allow": false, "require_approval": false, "reasons": ["x"]}
+`
+	if err := os.WriteFile(filepath.Join(dir, "authz.rego"), []byte(src), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := policy.New(context.Background(), policy.Options{Dir: dir}); err != nil {
+		t.Fatalf("deterministic builtins rejected: %v", err)
+	}
+}
+
+// TestRunTestsUsesTheSameBuiltins: `policy test` must reject what the gateway rejects, or the
+// test gate passes a bundle the gateway refuses to load.
+func TestRunTestsUsesTheSameBuiltins(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "authz.rego"), []byte("package mcpgw.authz\n\nnow := time.now_ns()\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "authz_test.rego"), []byte("package mcpgw.authz_test\n\nimport data.mcpgw.authz\n\ntest_now if authz.now > 0\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	res, err := policy.RunTests(context.Background(), dir)
+	if err == nil && slices.ContainsFunc(res, func(r policy.TestResult) bool { return r.Pass }) {
+		t.Fatal("policy test passed a bundle that uses time.now_ns")
+	}
+}
+
 // TestNonDeterministicBuiltinsRejected: a bundle that calls the network, the clock or a random
 // source does not compile, so a hot reload of such a bundle fails and the last good one keeps
 // serving (.claude/rules/rego.md: decisions depend on the input only).

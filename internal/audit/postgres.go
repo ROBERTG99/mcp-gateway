@@ -260,7 +260,27 @@ func NewPostgresSeq(pool *pgxpool.Pool, block int) *PostgresSeq {
 }
 
 // Warm fetches the first block (call at startup so the first calls do not wait).
-func (s *PostgresSeq) Warm(ctx context.Context) error { return s.fetch(ctx) }
+func (s *PostgresSeq) Warm(ctx context.Context) error {
+	// Single flight with the background refills: wait for one already running instead of fetching
+	// a second block (fetch clears the flag when it finishes).
+	s.mu.Lock()
+	if s.fetching {
+		wait := s.filled
+		s.mu.Unlock()
+		select {
+		case <-wait:
+		case <-ctx.Done():
+			return fmt.Errorf("warm audit seqs: %w", ctx.Err())
+		}
+		if !s.warmed.Load() {
+			return errors.New("warm audit seqs: the running refill failed")
+		}
+		return nil
+	}
+	s.fetching = true
+	s.mu.Unlock()
+	return s.fetch(ctx)
+}
 
 // Next implements SeqAllocator.
 func (s *PostgresSeq) Next(ctx context.Context) (int64, error) {

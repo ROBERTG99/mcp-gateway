@@ -425,3 +425,7 @@ components:
         tools: { type: array, items: { type: string } }
         last_error: { type: string }
         last_refresh: { type: string, format: date-time }
+        unknown_write_tools:
+          type: array
+          description: write_tools entries in upstreams.yaml that match no tool of this upstream
+          items: { type: string }

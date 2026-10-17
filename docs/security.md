@@ -59,7 +59,7 @@ The gateway is the enforcement point for the tools an LLM agent may use, so most
   - argument, depth and schema rejections happen before the rate limiter (spec order), so they use no tokens; each still takes an audit slot, so one agent sending only malformed calls can add to audit pressure for every tenant until the body limit and the audit buffer bound it (LLM10).
 - **Gateway-side classification:** a tool listed under `write_tools` in `upstreams.yaml` is a write whatever `readOnlyHint` its upstream declares (`TestWriteToolsOverrideReadOnlyHint`), so a misconfigured or compromised upstream cannot turn a refund into a read that skips the write scope and the idempotency key.
 - **Deterministic policy:** bundles compile without `http.send`, `net.*`, `time.now_ns`, `rand.*`, `uuid.*` and `opa.runtime`, so a hot reload that uses them fails and the last good bundle keeps serving (`TestNonDeterministicBuiltinsRejected`). Non-object arguments and fractional amounts are denied by policy itself (`invalid_args`, `invalid_amount`).
-- **Separation of duties:** an approver cannot decide an approval whose held call they made, and a failed read of the approval refuses the decision (`TestDecideRBACAndAudit`).
+- **Separation of duties:** an approver cannot approve a call they made themselves (they may withdraw it), and a failed read of the approval refuses the approval (`TestDecideRBACAndAudit`).
 - **Ordering of side effects:** an upstream write runs only after the audit slot, policy, approval and idempotency stages have all passed.
 - **Redaction:** applied before the audit log, approval webhooks and logs. Logs go through the redacting handler, and sensitive keys are dropped.
 - **Audit log:** append-only, hash-chained and verified by `mcp-gateway audit verify`.

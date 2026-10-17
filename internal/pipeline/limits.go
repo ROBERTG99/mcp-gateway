@@ -71,6 +71,9 @@ func (s *schemas) get(t catalog.Tool) (e schemaEntry, fresh bool) {
 	e = resolveSchema(t)
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if prev, ok := s.m[t.Def]; ok { // another call resolved it meanwhile: only the first reports fresh
+		return prev, false
+	}
 	if s.m == nil {
 		s.m = map[*mcp.Tool]schemaEntry{}
 	}

@@ -241,3 +241,29 @@ func TestHelmValuesSchemaRejects(t *testing.T) {
 		}
 	}
 }
+
+// TestHelmPolicyConfigMapMount: with policies.existingConfigMap the bundle is mounted beside the
+// config volume, not inside it (ConfigMap volumes are read-only, so a nested mountpoint fails).
+func TestHelmPolicyConfigMapMount(t *testing.T) {
+	docs := renderValues(t, "values.yaml", "--set", "policies.existingConfigMap=mcpgw-policies")
+	dep := kinds(docs)["Deployment"][0]
+	c := get(dep, "spec", "template", "spec", "containers").([]any)[0]
+	var paths []string
+	for _, m := range get(c, "volumeMounts").([]any) {
+		paths = append(paths, get(m, "mountPath").(string))
+	}
+	for _, a := range paths {
+		for _, b := range paths {
+			if a != b && strings.HasPrefix(b, a+"/") {
+				t.Errorf("volume mount %s is nested inside %s", b, a)
+			}
+		}
+	}
+	env := map[string]string{}
+	for _, e := range get(c, "env").([]any) {
+		env[get(e, "name").(string)], _ = get(e, "value").(string)
+	}
+	if !slices.Contains(paths, env["MCPGW_POLICY_DIR"]) {
+		t.Errorf("MCPGW_POLICY_DIR %v is not a mount path %v", env["MCPGW_POLICY_DIR"], paths)
+	}
+}

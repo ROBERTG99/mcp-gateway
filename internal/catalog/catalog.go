@@ -76,6 +76,9 @@ type UpstreamStatus struct {
 	Tools       []string     `json:"tools"`
 	LastError   string       `json:"last_error,omitempty"`
 	LastRefresh time.Time    `json:"last_refresh"`
+	// UnknownWriteTools are write_tools entries that match no tool of the upstream (a typo or a
+	// renamed tool): the override then protects nothing.
+	UnknownWriteTools []string `json:"unknown_write_tools,omitempty"`
 }
 
 // Options configure a Catalog.
@@ -183,9 +186,17 @@ func (c *Catalog) Status() []UpstreamStatus {
 		for _, t := range u.tools {
 			names = append(names, t.FullName())
 		}
+		var unknown []string
+		if u.up {
+			for _, w := range u.cfg.WriteTools {
+				if !slices.ContainsFunc(u.tools, func(t Tool) bool { return t.Name == w }) {
+					unknown = append(unknown, w)
+				}
+			}
+		}
 		out = append(out, UpstreamStatus{
 			Name: u.cfg.Name, URL: u.cfg.URL, Up: u.up, Breaker: u.breaker.State(), Tools: names,
-			LastError: u.lastErr, LastRefresh: u.lastRefresh,
+			LastError: u.lastErr, LastRefresh: u.lastRefresh, UnknownWriteTools: unknown,
 		})
 		u.mu.Unlock()
 	}
@@ -319,6 +330,11 @@ func (c *Catalog) refreshUpstream(ctx context.Context, u *upstream) error {
 			c.opts.Logger.Warn("upstream declares a configured write tool read-only; treating it as a write", "tool", def.Name)
 		}
 		tools = append(tools, Tool{Server: u.cfg.Name, Name: d.Name, Def: &def})
+	}
+	for _, w := range u.cfg.WriteTools {
+		if !slices.ContainsFunc(defs, func(d *mcp.Tool) bool { return d.Name == w }) {
+			c.opts.Logger.Warn("write_tools entry matches no tool of the upstream; it protects nothing", "upstream", u.cfg.Name, "tool", w)
+		}
 	}
 	u.mu.Lock()
 	u.tools, u.up, u.lastErr, u.lastRefresh = tools, true, "", c.opts.Clock.Now()

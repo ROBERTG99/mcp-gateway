@@ -50,7 +50,7 @@ spec:
             - { name: MCPGW_UPSTREAMS_FILE, value: /etc/mcp-gateway/upstreams.yaml }
             - { name: MCPGW_TENANTS_FILE, value: /etc/mcp-gateway/tenants.yaml }
             {{- if .Values.policies.existingConfigMap }}
-            - { name: MCPGW_POLICY_DIR, value: /etc/mcp-gateway/policies }
+            - { name: MCPGW_POLICY_DIR, value: /etc/mcp-gateway-policies }
             {{- end }}
             - { name: MCPGW_JWKS_URL, value: {{ .Values.auth.jwksURL | quote }} }
             - { name: MCPGW_JWT_ISSUER, value: {{ .Values.auth.issuer | quote }} }
@@ -100,7 +100,7 @@ spec:
           volumeMounts:
             - { name: config, mountPath: /etc/mcp-gateway, readOnly: true }
             {{- if .Values.policies.existingConfigMap }}
-            - { name: policies, mountPath: /etc/mcp-gateway/policies, readOnly: true }
+            - { name: policies, mountPath: /etc/mcp-gateway-policies, readOnly: true }
             {{- end }}
             - { name: tmp, mountPath: /tmp }
       volumes:

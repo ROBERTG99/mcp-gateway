@@ -39,7 +39,7 @@
     window.addEventListener("pageshow", function () { busy(false); });
     // A navigation cancelled with Esc never fires pageshow: clear the state when the page is shown.
     document.addEventListener("visibilitychange", function () { if (!document.hidden) busy(false); });
-    setInterval(function () { if (!document.hidden && main && main.getAttribute("aria-busy") === "true") busy(false); }, 15000);
+    document.addEventListener("keydown", function (ev) { if (ev.key === "Escape") busy(false); });
     var target = document.getElementById("error") || document.getElementById("flash") || document.getElementById("result");
     if (target) target.focus();
   });

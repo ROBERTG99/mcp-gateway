@@ -54,8 +54,9 @@ func addr(ctx context.Context) (string, error) {
 	return shared.addr, shared.err
 }
 
-// leaseTTL bounds how long a crashed test binary keeps a database.
-const leaseTTL = 10 * time.Minute
+// leaseTTL bounds how long a crashed test binary keeps a database. It exceeds go test's default
+// 10 min timeout, so a live test never loses its lease.
+const leaseTTL = 30 * time.Minute
 
 // release deletes a lease only if it still holds this test's token.
 var release = redis.NewScript(`if redis.call("GET", KEYS[1]) == ARGV[1] then return redis.call("DEL", KEYS[1]) end return 0`)

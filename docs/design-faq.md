@@ -34,7 +34,7 @@ See `docs/adr/0008-upstream-side-dedup-second-idempotency-layer.md`.
 
 Each replica queues events in memory and appends them in batches. Every batch runs in one Postgres transaction that first takes a fixed advisory lock (`internal/audit/postgres.go:17-18`, `internal/audit/postgres.go:122`). Under the lock it reads the newest row, extends the chain from there and commits (`internal/audit/postgres.go:126-132`, `internal/audit/postgres.go:140-154`, `internal/audit/event.go:222-235`). Unique constraints on `chain_pos` and `hash` make a fork fail loudly (`migrations/00002_audit.sql:9`, `migrations/00002_audit.sql:23`).
 
-Sequence numbers come from a Postgres sequence, fetched in blocks (`internal/audit/postgres.go:228-324`). A `seq` is given when the call starts, and `chain_pos` when the batch is written. The two orders can differ, so `chain_pos` is a separate column that is not in the JSON (`internal/audit/event.go:29`). A test runs two writers against one database (`internal/audit/postgres_test.go:23-45`). A batch whose commit succeeded but whose acknowledgement was lost is recognised on retry (`internal/audit/postgres.go:29-70`).
+Sequence numbers come from a Postgres sequence, fetched in blocks (`internal/audit/postgres.go:228-344`). A `seq` is given when the call starts, and `chain_pos` when the batch is written. The two orders can differ, so `chain_pos` is a separate column that is not in the JSON (`internal/audit/event.go:29`). A test runs two writers against one database (`internal/audit/postgres_test.go:23-45`). A batch whose commit succeeded but whose acknowledgement was lost is recognised on retry (`internal/audit/postgres.go:29-70`).
 
 Trade-off: the lock serialises all appends. Batching keeps it off the request path. For throughput see `docs/perf/README.md`.
 
@@ -76,11 +76,11 @@ Trade-offs:
 
 An approval names the exact call: tenant, agent, server, tool, the SHA-256 of the canonical arguments and the idempotency key (`internal/approvals/store.go:55-66`, `internal/pipeline/pipeline.go:302-306`). When the policy says `require_approval`, the first call creates a pending approval and a webhook row in one transaction. A unique index folds identical concurrent holds into one (`internal/approvals/postgres.go:59-88`, `migrations/00005_approvals_one_pending.sql:13-14`).
 
-An approver needs `mcpgw:approve` and the approval's tenant, and may not be the agent whose call was held (`internal/approvals/service.go:154-166`). The agent then retries with `_meta.approval_id` and the same key. `Consume` locks the row, checks the binding and marks it consumed in one transaction (`internal/approvals/postgres.go:176-209`, `internal/approvals/store.go:148-168`). Any field that differs gives `approval_mismatch`.
+An approver needs `mcpgw:approve` and the approval's tenant, and may not approve a call it made itself (`internal/approvals/service.go:154-169`). The agent then retries with `_meta.approval_id` and the same key. `Consume` locks the row, checks the binding and marks it consumed in one transaction (`internal/approvals/postgres.go:176-209`, `internal/approvals/store.go:148-168`). Any field that differs gives `approval_mismatch`.
 
 The policy then runs again. An approval lifts only a hold, and a deny still wins (`internal/pipeline/approval.go:57-69`, `policies/authz.rego:12-20`). Test: `internal/pipeline/approval_test.go:139-175`.
 
-Self-approval is refused: `Decide` compares the approver with the held call's tenant and agent before deciding (`internal/approvals/service.go:157-166`, tested in `TestDecideRBACAndAudit`). Another principal of the same tenant with `mcpgw:approve` can still approve, so keep that scope for people, not agent tokens.
+Self-approval is refused: `Decide` compares the approver with the held call's tenant and agent before approving (the agent may still withdraw its own hold by rejecting it) (`internal/approvals/service.go:157-169`, tested in `TestDecideRBACAndAudit`). Another principal of the same tenant with `mcpgw:approve` can still approve, so keep that scope for people, not agent tokens.
 
 ## 8. What happens when Redis goes down?
 
@@ -166,7 +166,7 @@ Caveat: the gateway reads `upstreams.yaml` once at start (`internal/server/serve
 
 This is design only. Nothing in the repository is region aware. The only "region" is the AWS SDK setting for DynamoDB (`internal/config/config.go:57`). A multi-region deployment would need these changes:
 
-- **Audit chain.** One advisory lock, one sequence and one chain per database (`internal/audit/postgres.go:17-18`, `internal/audit/postgres.go:122`, `internal/audit/postgres.go:306`). A lock cannot span regions. The likely design is one chain per region, with head hashes anchored elsewhere. `VerifyPostgres` and the admin audit view would change.
+- **Audit chain.** One advisory lock, one sequence and one chain per database (`internal/audit/postgres.go:17-18`, `internal/audit/postgres.go:122`, `internal/audit/postgres.go:326`). A lock cannot span regions. The likely design is one chain per region, with head hashes anchored elsewhere. `VerifyPostgres` and the admin audit view would change.
 - **Idempotency.** DynamoDB conditional writes are atomic within one region. Global tables replicate asynchronously, so two regions could both acquire a key (`internal/idempotency/dynamodb.go:92-97`). The safe option is a home region per tenant for writes, with upstream dedup as the backstop. Redis keys are local too (`internal/idempotency/redis.go:23`).
 - **Rate limits and budgets.** Redis counters are per region (`internal/ratelimit/redis.go:70`). Use per-region budgets or the same home region.
 - **Approvals.** Row locks assume a single primary (`internal/approvals/postgres.go:176-209`).
