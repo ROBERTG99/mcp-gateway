@@ -148,4 +148,6 @@ def test_env_example_does_not_change_the_stack() -> None:
         text = (ROOT / name).read_text(encoding="utf-8")
         for var, default in re.findall(r"\$\{([A-Z0-9_]+):-([^}]*)\}", text):
             if env.get(var):
-                assert env[var] == default, f"{name}: .env.example sets {var}={env[var]!r}, compose default {default!r}"
+                assert env[var] == default, (
+                    f"{name}: .env.example sets {var}={env[var]!r}, compose default {default!r}"
+                )
