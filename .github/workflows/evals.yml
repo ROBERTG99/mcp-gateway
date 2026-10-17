@@ -1,0 +1,41 @@
+# Offline evals with the eval gate (scripts/evalgate_check.py, --max-regression-pp 1.0; the
+# evalgate action tag does not exist yet, docs/DECISIONS.md) and a PR comment with evals/REPORT.md.
+# Required check: evals.
+name: evals
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evals-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: make eval
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-reports
+          path: |
+            evals/reports
+            evals/REPORT.md
+      - name: Comment the report on the pull request
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: gh pr comment "$PR" --body-file evals/REPORT.md --edit-last || gh pr comment "$PR" --body-file evals/REPORT.md

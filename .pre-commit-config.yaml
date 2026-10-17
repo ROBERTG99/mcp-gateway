@@ -1,0 +1,48 @@
+# pre-commit hooks (pre-commit install). Local hooks call the pinned tools in ./bin (make bootstrap)
+# and the repository's own commands, so nothing is fetched at commit time.
+repos:
+  - repo: local
+    hooks:
+      - id: gofmt
+        name: gofmt
+        entry: gofmt -l -w
+        language: system
+        types: [go]
+      - id: golangci-lint
+        name: golangci-lint
+        entry: bin/golangci-lint run --new-from-rev HEAD --timeout 5m
+        language: system
+        types: [go]
+        pass_filenames: false
+      - id: policy-fmt
+        name: rego fmt
+        entry: go run ./cmd/mcp-gateway policy fmt --check policies
+        language: system
+        files: ^policies/
+        pass_filenames: false
+      - id: ruff
+        name: ruff
+        entry: uv run ruff check --fix
+        language: system
+        types: [python]
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format
+        language: system
+        types: [python]
+      - id: gitleaks
+        name: gitleaks
+        entry: bin/gitleaks protect --staged --config .gitleaks.toml --redact --no-banner
+        language: system
+        pass_filenames: false
+      - id: actionlint
+        name: actionlint
+        entry: bin/actionlint
+        language: system
+        files: ^\.github/workflows/
+        pass_filenames: false
+      - id: markdownlint
+        name: markdownlint-cli2
+        entry: e2e/node_modules/.bin/markdownlint-cli2
+        language: system
+        types: [markdown]

@@ -1,0 +1,12 @@
+# Code owners (GitHub reads this file at the repository root). Security-sensitive paths are listed
+# separately so a future second owner can be added to them only.
+* @ROBERTG99
+
+/policies/ @ROBERTG99
+/internal/authn/ @ROBERTG99
+/internal/audit/ @ROBERTG99
+/internal/approvals/ @ROBERTG99
+/internal/redact/ @ROBERTG99
+/migrations/ @ROBERTG99
+/.github/ @ROBERTG99
+/.claude/ @ROBERTG99
