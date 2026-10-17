@@ -1,9 +1,9 @@
 {
   "schema": "evalgate.report.v1",
   "suite": "latency.v1",
-  "run_id": "latency.v1-test-20261017T160915Z",
-  "created_at": "2026-10-17T16:09:15Z",
-  "git_sha": "83b6f6780cacc94335b94ec46b805eb8aeca0a49",
+  "run_id": "latency.v1-test-20261017T220915Z",
+  "created_at": "2026-10-17T22:09:15Z",
+  "git_sha": "931583747c1330e94cdd5e7a861b56eeb0c58be2",
   "mode": "offline",
   "models": [],
   "prompt_hashes": {
@@ -14,186 +14,76 @@
   "n_cases": 60,
   "metrics": {
     "policy_eval_p95_ms": {
-      "value": 0.304,
+      "value": 0.224,
       "threshold": 1,
       "direction": "lower",
       "passed": true,
-      "ci_low": 0.281,
-      "ci_high": 0.319
+      "ci_low": 0.21,
+      "ci_high": 0.24
     }
   },
   "cost_usd_total": 0,
   "cost_usd_per_case": 0,
-  "latency_p50_ms": 0.088,
-  "latency_p95_ms": 0.304,
+  "latency_p50_ms": 0.07,
+  "latency_p95_ms": 0.224,
   "cases": [
     {
       "id": "pol-test-001",
       "split": "test",
       "scores": {
-        "latency_ms": 0.082
+        "latency_ms": 0.06
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.082,
+      "latency_ms": 0.06,
       "error": null
     },
     {
       "id": "pol-test-002",
       "split": "test",
       "scores": {
-        "latency_ms": 0.085
+        "latency_ms": 0.058
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.085,
+      "latency_ms": 0.058,
       "error": null
     },
     {
       "id": "pol-test-003",
       "split": "test",
       "scores": {
-        "latency_ms": 0.079
+        "latency_ms": 0.056
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.079,
+      "latency_ms": 0.056,
       "error": null
     },
     {
       "id": "pol-test-004",
       "split": "test",
       "scores": {
-        "latency_ms": 0.08
+        "latency_ms": 0.055
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.08,
+      "latency_ms": 0.055,
       "error": null
     },
     {
       "id": "pol-test-005",
       "split": "test",
       "scores": {
-        "latency_ms": 0.081
+        "latency_ms": 0.053
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.081,
+      "latency_ms": 0.053,
       "error": null
     },
     {
       "id": "pol-test-006",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.106
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.106,
-      "error": null
-    },
-    {
-      "id": "pol-test-007",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.086
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.086,
-      "error": null
-    },
-    {
-      "id": "pol-test-008",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.084
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.084,
-      "error": null
-    },
-    {
-      "id": "pol-test-009",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.082
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.082,
-      "error": null
-    },
-    {
-      "id": "pol-test-010",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.08
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.08,
-      "error": null
-    },
-    {
-      "id": "pol-test-011",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.067
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.067,
-      "error": null
-    },
-    {
-      "id": "pol-test-012",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.072
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.072,
-      "error": null
-    },
-    {
-      "id": "pol-test-013",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.064
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.064,
-      "error": null
-    },
-    {
-      "id": "pol-test-014",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.071
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.071,
-      "error": null
-    },
-    {
-      "id": "pol-test-015",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.063
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.063,
-      "error": null
-    },
-    {
-      "id": "pol-test-016",
       "split": "test",
       "scores": {
         "latency_ms": 0.069
@@ -204,73 +94,172 @@
       "error": null
     },
     {
-      "id": "pol-test-017",
+      "id": "pol-test-007",
       "split": "test",
       "scores": {
-        "latency_ms": 0.116
+        "latency_ms": 0.055
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.116,
+      "latency_ms": 0.055,
+      "error": null
+    },
+    {
+      "id": "pol-test-008",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.057
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.057,
+      "error": null
+    },
+    {
+      "id": "pol-test-009",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.056
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.056,
+      "error": null
+    },
+    {
+      "id": "pol-test-010",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.055
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.055,
+      "error": null
+    },
+    {
+      "id": "pol-test-011",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.046
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.046,
+      "error": null
+    },
+    {
+      "id": "pol-test-012",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.051
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.051,
+      "error": null
+    },
+    {
+      "id": "pol-test-013",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.044
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.044,
+      "error": null
+    },
+    {
+      "id": "pol-test-014",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.049
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.049,
+      "error": null
+    },
+    {
+      "id": "pol-test-015",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.045
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.045,
+      "error": null
+    },
+    {
+      "id": "pol-test-016",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.05
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.05,
+      "error": null
+    },
+    {
+      "id": "pol-test-017",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.085
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.085,
       "error": null
     },
     {
       "id": "pol-test-018",
       "split": "test",
       "scores": {
-        "latency_ms": 0.076
+        "latency_ms": 0.053
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.076,
+      "latency_ms": 0.053,
       "error": null
     },
     {
       "id": "pol-test-019",
       "split": "test",
       "scores": {
-        "latency_ms": 0.072
+        "latency_ms": 0.051
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.072,
+      "latency_ms": 0.051,
       "error": null
     },
     {
       "id": "pol-test-020",
       "split": "test",
       "scores": {
-        "latency_ms": 0.062
+        "latency_ms": 0.043
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.062,
+      "latency_ms": 0.043,
       "error": null
     },
     {
       "id": "pol-test-021",
       "split": "test",
       "scores": {
-        "latency_ms": 0.061
+        "latency_ms": 0.042
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.061,
+      "latency_ms": 0.042,
       "error": null
     },
     {
       "id": "pol-test-022",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.094
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.094,
-      "error": null
-    },
-    {
-      "id": "pol-test-023",
       "split": "test",
       "scores": {
         "latency_ms": 0.067
@@ -281,249 +270,29 @@
       "error": null
     },
     {
-      "id": "pol-test-024",
+      "id": "pol-test-023",
       "split": "test",
       "scores": {
-        "latency_ms": 0.062
+        "latency_ms": 0.048
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.062,
+      "latency_ms": 0.048,
+      "error": null
+    },
+    {
+      "id": "pol-test-024",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.046
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.046,
       "error": null
     },
     {
       "id": "pol-test-025",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.119
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.119,
-      "error": null
-    },
-    {
-      "id": "pol-test-026",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.104
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.104,
-      "error": null
-    },
-    {
-      "id": "pol-test-027",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.1
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.1,
-      "error": null
-    },
-    {
-      "id": "pol-test-028",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.117
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.117,
-      "error": null
-    },
-    {
-      "id": "pol-test-029",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.124
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.124,
-      "error": null
-    },
-    {
-      "id": "pol-test-030",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.125
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.125,
-      "error": null
-    },
-    {
-      "id": "pol-test-031",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.125
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.125,
-      "error": null
-    },
-    {
-      "id": "pol-test-032",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.116
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.116,
-      "error": null
-    },
-    {
-      "id": "pol-test-033",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.121
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.121,
-      "error": null
-    },
-    {
-      "id": "pol-test-034",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.09
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.09,
-      "error": null
-    },
-    {
-      "id": "pol-test-035",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.116
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.116,
-      "error": null
-    },
-    {
-      "id": "pol-test-036",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.087
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.087,
-      "error": null
-    },
-    {
-      "id": "pol-test-037",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.114
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.114,
-      "error": null
-    },
-    {
-      "id": "pol-test-038",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.101
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.101,
-      "error": null
-    },
-    {
-      "id": "pol-test-039",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.107
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.107,
-      "error": null
-    },
-    {
-      "id": "pol-test-040",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.094
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.094,
-      "error": null
-    },
-    {
-      "id": "pol-test-041",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.086
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.086,
-      "error": null
-    },
-    {
-      "id": "pol-test-042",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.083
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.083,
-      "error": null
-    },
-    {
-      "id": "pol-test-043",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.08
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.08,
-      "error": null
-    },
-    {
-      "id": "pol-test-044",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.079
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.079,
-      "error": null
-    },
-    {
-      "id": "pol-test-045",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.076
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.076,
-      "error": null
-    },
-    {
-      "id": "pol-test-046",
       "split": "test",
       "scores": {
         "latency_ms": 0.081
@@ -534,106 +303,18 @@
       "error": null
     },
     {
-      "id": "pol-test-047",
+      "id": "pol-test-026",
       "split": "test",
       "scores": {
-        "latency_ms": 0.145
+        "latency_ms": 0.069
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.145,
+      "latency_ms": 0.069,
       "error": null
     },
     {
-      "id": "pol-test-048",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.117
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.117,
-      "error": null
-    },
-    {
-      "id": "pol-test-049",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.122
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.122,
-      "error": null
-    },
-    {
-      "id": "pol-test-050",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.117
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.117,
-      "error": null
-    },
-    {
-      "id": "pol-test-051",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.141
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.141,
-      "error": null
-    },
-    {
-      "id": "pol-test-052",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.124
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.124,
-      "error": null
-    },
-    {
-      "id": "pol-test-053",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.109
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.109,
-      "error": null
-    },
-    {
-      "id": "pol-test-054",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.114
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.114,
-      "error": null
-    },
-    {
-      "id": "pol-test-055",
-      "split": "test",
-      "scores": {
-        "latency_ms": 0.08
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.08,
-      "error": null
-    },
-    {
-      "id": "pol-test-056",
+      "id": "pol-test-027",
       "split": "test",
       "scores": {
         "latency_ms": 0.067
@@ -644,47 +325,366 @@
       "error": null
     },
     {
-      "id": "pol-test-057",
+      "id": "pol-test-028",
       "split": "test",
       "scores": {
-        "latency_ms": 0.063
+        "latency_ms": 0.08
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.063,
+      "latency_ms": 0.08,
+      "error": null
+    },
+    {
+      "id": "pol-test-029",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.096
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.096,
+      "error": null
+    },
+    {
+      "id": "pol-test-030",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.101
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.101,
+      "error": null
+    },
+    {
+      "id": "pol-test-031",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.094
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.094,
+      "error": null
+    },
+    {
+      "id": "pol-test-032",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.094
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.094,
+      "error": null
+    },
+    {
+      "id": "pol-test-033",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.096
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.096,
+      "error": null
+    },
+    {
+      "id": "pol-test-034",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.083
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.083,
+      "error": null
+    },
+    {
+      "id": "pol-test-035",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.093
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.093,
+      "error": null
+    },
+    {
+      "id": "pol-test-036",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.077
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.077,
+      "error": null
+    },
+    {
+      "id": "pol-test-037",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.084
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.084,
+      "error": null
+    },
+    {
+      "id": "pol-test-038",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.082
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.082,
+      "error": null
+    },
+    {
+      "id": "pol-test-039",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.086
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.086,
+      "error": null
+    },
+    {
+      "id": "pol-test-040",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.081
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.081,
+      "error": null
+    },
+    {
+      "id": "pol-test-041",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.066
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.066,
+      "error": null
+    },
+    {
+      "id": "pol-test-042",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.06
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.06,
+      "error": null
+    },
+    {
+      "id": "pol-test-043",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.058
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.058,
+      "error": null
+    },
+    {
+      "id": "pol-test-044",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.057
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.057,
+      "error": null
+    },
+    {
+      "id": "pol-test-045",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.058
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.058,
+      "error": null
+    },
+    {
+      "id": "pol-test-046",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.057
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.057,
+      "error": null
+    },
+    {
+      "id": "pol-test-047",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.103
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.103,
+      "error": null
+    },
+    {
+      "id": "pol-test-048",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.095
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.095,
+      "error": null
+    },
+    {
+      "id": "pol-test-049",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.095
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.095,
+      "error": null
+    },
+    {
+      "id": "pol-test-050",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.093
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.093,
+      "error": null
+    },
+    {
+      "id": "pol-test-051",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.113
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.113,
+      "error": null
+    },
+    {
+      "id": "pol-test-052",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.094
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.094,
+      "error": null
+    },
+    {
+      "id": "pol-test-053",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.086
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.086,
+      "error": null
+    },
+    {
+      "id": "pol-test-054",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.074
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.074,
+      "error": null
+    },
+    {
+      "id": "pol-test-055",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.049
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.049,
+      "error": null
+    },
+    {
+      "id": "pol-test-056",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.046
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.046,
+      "error": null
+    },
+    {
+      "id": "pol-test-057",
+      "split": "test",
+      "scores": {
+        "latency_ms": 0.045
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.045,
       "error": null
     },
     {
       "id": "pol-test-058",
       "split": "test",
       "scores": {
-        "latency_ms": 0.063
+        "latency_ms": 0.045
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.063,
+      "latency_ms": 0.045,
       "error": null
     },
     {
       "id": "pol-test-059",
       "split": "test",
       "scores": {
-        "latency_ms": 0.091
+        "latency_ms": 0.067
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.091,
+      "latency_ms": 0.067,
       "error": null
     },
     {
       "id": "pol-test-060",
       "split": "test",
       "scores": {
-        "latency_ms": 0.068
+        "latency_ms": 0.047
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.068,
+      "latency_ms": 0.047,
       "error": null
     }
   ],
