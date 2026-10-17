@@ -217,8 +217,10 @@ func (a *App) readyz(w http.ResponseWriter, r *http.Request) {
 	if err := a.db.Ping(ctx); err != nil {
 		checks["postgres"], ready = "unreachable", false
 	}
+	// Redis does not gate readiness: without it writes fail closed (-32049) but reads are served on
+	// the per-process token bucket, which an unready pod would never receive (spec §4.6).
 	if err := a.redis.Ping(ctx).Err(); err != nil {
-		checks["redis"], ready = "unreachable", false
+		checks["redis"] = "unreachable: writes refused, reads on the local rate limiter"
 	}
 	switch {
 	case !a.policy.Ready():

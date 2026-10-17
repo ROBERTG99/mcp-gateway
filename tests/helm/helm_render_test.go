@@ -186,12 +186,28 @@ func TestHelmRenderObjects(t *testing.T) {
 			if env["MCPGW_CONSOLE_SECURE_COOKIES"] != "true" {
 				t.Error("console cookies must be Secure in the chart")
 			}
+			// The gateway gets only the secrets it reads, each by key; the schema owner's URL and the
+			// role passwords stay with the migrate Job.
+			if get(c, "envFrom") != nil {
+				t.Error("gateway container uses envFrom: it would receive every key of the Secret")
+			}
+			fromSecret := map[string]bool{}
 			for _, e := range get(c, "env").([]any) {
-				if n := get(e, "name").(string); strings.Contains(n, "SECRET") || strings.Contains(n, "PASSWORD") ||
-					n == "MCPGW_DATABASE_URL" || n == "MCPGW_CONSOLE_SESSION_KEY" {
-					if get(e, "value") != nil {
-						t.Errorf("%s has a literal value; secrets come from a Secret", n)
-					}
+				n := get(e, "name").(string)
+				if get(e, "valueFrom", "secretKeyRef", "name") == "mcp-gateway" {
+					fromSecret[n] = true
+				}
+				if (strings.Contains(n, "SECRET") || strings.Contains(n, "PASSWORD") || strings.HasSuffix(n, "_URL") && strings.Contains(n, "DATABASE")) &&
+					get(e, "value") != nil {
+					t.Errorf("%s has a literal value; secrets come from a Secret", n)
+				}
+				if n == "MCPGW_MIGRATE_DATABASE_URL" || strings.HasSuffix(n, "_DB_PASSWORD") {
+					t.Errorf("gateway container receives %s", n)
+				}
+			}
+			for _, n := range []string{"MCPGW_DATABASE_URL", "MCPGW_REDIS_URL", "MCPGW_APPROVAL_WEBHOOK_SECRET"} {
+				if !fromSecret[n] {
+					t.Errorf("%s not taken from the Secret by key", n)
 				}
 			}
 			if get(c, "readinessProbe", "httpGet", "path") != "/readyz" || get(c, "livenessProbe", "httpGet", "path") != "/healthz" {

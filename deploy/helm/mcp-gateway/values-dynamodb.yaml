@@ -10,5 +10,5 @@ idempotency:
 serviceAccount:
   create: true
   annotations:
-    # IAM role with dynamodb:GetItem, PutItem, UpdateItem and DeleteItem on the table (IRSA).
+    # IAM role with dynamodb:GetItem, PutItem and DeleteItem on the table (IRSA).
     eks.amazonaws.com/role-arn: arn:aws:iam::111122223333:role/mcp-gateway-idempotency

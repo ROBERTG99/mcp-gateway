@@ -47,7 +47,9 @@ def test_least_privilege_and_concurrency() -> None:
             assert "timeout-minutes" in body, f"{p.name}/{job}: no timeout-minutes"
             for step in body.get("steps", []):
                 uses = step.get("uses", "")
-                assert not uses or uses.startswith("./") or "@" in uses, f"{p.name}/{job}: unpinned action {uses}"
+                assert not uses or uses.startswith("./") or "@" in uses, (
+                    f"{p.name}/{job}: unpinned action {uses}"
+                )
                 assert "${{ github.event" not in str(step.get("run", "")), (
                     f"{p.name}/{job}: event data interpolated into a shell script"
                 )
@@ -71,7 +73,9 @@ def test_ci_covers_spec_checks() -> None:
     ):
         assert target in runs, f"ci.yml does not run {target}"
     integration = next(j for j in doc["jobs"].values() if "make integration" in run_lines({"jobs": {"j": j}}))
-    assert {"postgres", "redis"} <= set(integration.get("services", {})), "integration needs service containers"
+    assert {"postgres", "redis"} <= set(integration.get("services", {})), (
+        "integration needs service containers"
+    )
     assert "security" in doc["jobs"] and "CI" in str(doc.get("env", {})) + str(doc["jobs"]["security"])
 
 

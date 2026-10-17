@@ -173,7 +173,9 @@ func TestDecideRBACAndAudit(t *testing.T) {
 	approver := authn.Principal{Tenant: "t_alpha", Agent: "jo.approver", Scopes: []string{"mcpgw:approve"}}
 	reviewer := authn.Principal{Tenant: "*", Agent: "sam.security", Scopes: []string{"mcpgw:audit:read"}}
 	otherTenant := authn.Principal{Tenant: "t_beta", Agent: "kim.approver", Scopes: []string{"mcpgw:approve"}}
-	for name, p := range map[string]authn.Principal{"reviewer": reviewer, "other tenant": otherTenant} {
+	// The agent whose call was held may not approve it, even with the approve scope.
+	self := authn.Principal{Tenant: "t_alpha", Agent: "agent-support", Scopes: []string{"mcpgw:approve", "orders:write"}}
+	for name, p := range map[string]authn.Principal{"reviewer": reviewer, "other tenant": otherTenant, "the calling agent": self} {
 		if _, err := svc.Decide(t.Context(), a.ID, p, true, "note"); !errors.Is(err, approvals.ErrForbidden) {
 			t.Fatalf("%s: %v, want ErrForbidden", name, err)
 		}

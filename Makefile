@@ -165,7 +165,7 @@ hooks-test: ## Claude Code hook tests and the other Python tests (eval gate, bud
 	$(UV) run pytest
 
 .PHONY: test
-test: unit integration contract policy-test hooks-test ## Unit, integration, contract, policy and hook tests on the host
+test: unit integration contract policy-test hooks-test ## Unit, integration, contract, policy and hook tests on the host (contract needs make up)
 
 .PHONY: coverage
 coverage: ## Coverage report with thresholds (85% core, 70% overall)
@@ -252,10 +252,12 @@ kind-smoke: ## Optional chart install on kind (outside make verify)
 
 ##@ Gates
 .PHONY: verify
-verify: lint typecheck security test coverage policy-test hooks-test helm-check promtool eval bench ## The single gate (everything except eval-live)
+# The contract tests (Schemathesis) need the stack, so they run after `up` rather than through `test`.
+verify: lint typecheck security unit integration policy-test hooks-test coverage helm-check promtool eval bench ## The single gate (everything except eval-live)
 	$(MAKE) up
 	$(MAKE) image-size
 	$(MAKE) seed
+	$(MAKE) contract
 	$(MAKE) demo
 	$(MAKE) e2e
 	$(MAKE) test-docker

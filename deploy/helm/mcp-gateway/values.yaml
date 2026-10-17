@@ -10,10 +10,11 @@ image:
 
 imagePullSecrets: []
 
-# Name of a Secret created outside the chart (secrets come from the environment only). Keys:
-# MCPGW_DATABASE_URL, MCPGW_MIGRATE_DATABASE_URL, MCPGW_REDIS_URL, MCPGW_APPROVAL_WEBHOOK_SECRET,
-# MCPGW_CONSOLE_SESSION_KEY and, for the migrate Job, MCPGW_APP_DB_PASSWORD,
-# MCPGW_READONLY_DB_PASSWORD, MCPGW_UPSTREAM_DB_PASSWORD. See docs/runbook.md.
+# Name of a Secret created outside the chart (secrets come from the environment only). The gateway
+# reads MCPGW_DATABASE_URL, MCPGW_REDIS_URL and MCPGW_APPROVAL_WEBHOOK_SECRET (optional) from it by
+# key; the migrate Job loads the whole Secret and also needs MCPGW_MIGRATE_DATABASE_URL and the role
+# passwords MCPGW_APP_DB_PASSWORD, MCPGW_READONLY_DB_PASSWORD and MCPGW_UPSTREAM_DB_PASSWORD.
+# See docs/runbook.md.
 existingSecret: mcp-gateway
 
 serviceAccount:
@@ -46,7 +47,7 @@ otel:
 
 logLevel: info
 
-# More non-secret MCPGW_* variables (docs/DEVELOPMENT.md lists them), e.g. MCPGW_UPSTREAM_TIMEOUT: 10s.
+# More non-secret MCPGW_* variables (.env.example lists them), e.g. MCPGW_UPSTREAM_TIMEOUT: 10s.
 extraEnv: {}
 
 # Rendered into upstreams.yaml (same format as config/upstreams.yaml).

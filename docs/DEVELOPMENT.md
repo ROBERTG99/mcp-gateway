@@ -11,10 +11,10 @@
 | Go | host 1.24.7; module toolchain `go1.27.2` (downloaded through the Go proxy by `GOTOOLCHAIN=auto`) |
 | Node / pnpm | 22.22.0 / 10.28.0 |
 | Python / uv | 3.13.16 / 0.11.32 |
-| Docker | 29.8.2 (daemon started by the SessionStart hook with the `mirror.gcr.io` registry mirror) |
+| Docker | 29.8.2 (daemon started by hand, `nohup dockerd &`, with the `mirror.gcr.io` registry mirror; the SessionStart hook does it once `.claude/settings.json` is installed) |
 | PostgreSQL client and server | 16.15 (host binaries; the stack uses `pgvector/pgvector:pg16`) |
 | Redis | 7.0.15 (host); the stack uses `redis:7` |
-| Chromium | `/opt/pw-browsers` (Playwright, preinstalled) |
+| Chromium | `/opt/pw-browsers` (Playwright, preinstalled). `make docs` records a video, and Playwright 1.64 looks for `/opt/pw-browsers/ffmpeg-1013/ffmpeg-linux`, while the image ships only `ffmpeg-1011`, which has no VP9 encoder. In the cloud container, make that path a two-line shell wrapper that runs `exec /usr/bin/ffmpeg "$@"` (never `playwright install`). |
 | Helm, kubeconform, golangci-lint, gosec, govulncheck, actionlint, gitleaks, promtool, go-licenses | missing at bootstrap; installed into `./bin` by `make bootstrap` (`go install`) |
 | hadolint, trivy | missing at bootstrap; downloaded from GitHub releases into `./bin` by `make bootstrap` |
 | Terraform, kubectl, kind | missing; not needed (no Terraform in this repository, `make kind-smoke` is optional) |

@@ -73,9 +73,16 @@ spec:
             {{- range $k, $v := .Values.extraEnv }}
             - { name: {{ $k }}, value: {{ $v | quote }} }
             {{- end }}
-          envFrom:
-            - secretRef:
-                name: {{ .Values.existingSecret }}
+            # Only the secrets the gateway reads, by key; the migrate Job gets the rest.
+            - name: MCPGW_DATABASE_URL
+              valueFrom:
+                secretKeyRef: { name: {{ .Values.existingSecret }}, key: MCPGW_DATABASE_URL }
+            - name: MCPGW_REDIS_URL
+              valueFrom:
+                secretKeyRef: { name: {{ .Values.existingSecret }}, key: MCPGW_REDIS_URL }
+            - name: MCPGW_APPROVAL_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef: { name: {{ .Values.existingSecret }}, key: MCPGW_APPROVAL_WEBHOOK_SECRET, optional: true }
           readinessProbe:
             httpGet: { path: /readyz, port: admin }
             periodSeconds: 5

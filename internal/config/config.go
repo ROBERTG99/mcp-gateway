@@ -74,9 +74,6 @@ type Config struct {
 	MaxStoredResultBytes int64 `env:"MCPGW_MAX_STORED_RESULT_BYTES" default:"262144" desc:"Maximum result stored for idempotent replay (bytes)"`
 	MaxArgsDepth         int   `env:"MCPGW_MAX_ARGS_DEPTH" default:"32" desc:"Maximum nesting depth of tool arguments"`
 
-	OTLPEndpoint string `env:"MCPGW_OTLP_ENDPOINT" default:"" desc:"OTLP/HTTP traces endpoint (empty disables export)"`
-
-	ConsoleSessionKey    string `env:"MCPGW_CONSOLE_SESSION_KEY" default:"" secret:"true" desc:"HMAC key for console session cookies (random per process when empty)"`
 	ConsoleSecureCookies bool   `env:"MCPGW_CONSOLE_SECURE_COOKIES" default:"false" desc:"Set the Secure flag on console cookies (enable behind TLS)"`
 	DevIssuerURL         string `env:"MCPGW_DEV_ISSUER_URL" default:"" desc:"Dev issuer for the console persona sign-in; empty disables sign-in (development only)"`
 
