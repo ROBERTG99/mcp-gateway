@@ -24,13 +24,13 @@
   <tbody role="rowgroup">
   {{range .Data.Page.Events}}
   <tr class="row" role="row">
-    <td role="cell" data-label="Seq"><a href="/console/audit/{{.Seq}}"><span class="sr-only">Event </span>{{.Seq}}</a></td>
+    <td role="cell" data-label="Seq"><a href="/console/audit/{{.Seq}}" aria-label="Event {{.Seq}}">{{.Seq}}</a></td>
     <td role="cell" data-label="Time (UTC)" class="mono nowrap">{{ts .TS}}</td>
     <td role="cell" data-label="Tenant" class="mono">{{.Tenant}}</td>
     <td role="cell" data-label="Agent">{{.Agent}}</td>
     <td role="cell" data-label="Tool" class="mono">{{.Server}}.{{.Tool}}</td>
     <td role="cell" data-label="Decision"><span class="status {{.Decision}}">{{decisionLabel .Decision}}</span></td>
-    <td role="cell" data-label="Status"><span class="status {{.Status}}">{{.Status}}</span>{{if .ApprovalID}} <a href="/console/approvals/{{deref .ApprovalID}}" class="muted">approval<span class="sr-only"> for event {{.Seq}}</span></a>{{end}}</td>
+    <td role="cell" data-label="Status"><span class="status {{.Status}}">{{.Status}}</span>{{if .ApprovalID}} <a href="/console/approvals/{{deref .ApprovalID}}" class="muted" aria-label="approval for event {{.Seq}}">approval</a>{{end}}</td>
     <td role="cell" data-label="Latency" class="mono">{{printf "%.1f" .LatencyMS}} ms</td>
   </tr>
   {{end}}

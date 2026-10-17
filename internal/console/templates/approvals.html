@@ -20,7 +20,7 @@
     <td role="cell" data-label="Args hash" class="mono">{{short .ArgsSHA256}}</td>
     <td role="cell" data-label="Expires">{{.ExpiresIn}}</td>
     <td role="cell" data-label="Status"><span class="status {{.Status}}">{{.Status}}</span></td>
-    <td role="cell" data-label="Open"><a href="/console/approvals/{{.ID}}">Review<span class="sr-only"> approval {{.ID}}</span></a></td>
+    <td role="cell" data-label="Open"><a href="/console/approvals/{{.ID}}" aria-label="Review approval {{.ID}}">Review</a></td>
   </tr>
   {{end}}
   </tbody>
