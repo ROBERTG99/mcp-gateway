@@ -7,6 +7,7 @@ package telemetry
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/url"
 	"os"
@@ -19,6 +20,8 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/ROBERTG99/mcp-gateway/internal/redact"
 )
 
 // Instrumentation scope and attribute keys.
@@ -121,6 +124,14 @@ func ExtractMeta(ctx context.Context, meta map[string]any) context.Context {
 		}
 	}
 	return otel.GetTextMapPropagator().Extract(ctx, carrier)
+}
+
+// NewLogger is the gateway's production logger: JSON, every record through the redactor (NFR-4:
+// no secrets, tokens or raw PII in logs) and trace_id/span_id from the record's context.
+func NewLogger(w io.Writer, level string) *slog.Logger {
+	var l slog.Level
+	_ = l.UnmarshalText([]byte(level))
+	return slog.New(redact.NewHandler(TraceHandler{Handler: slog.NewJSONHandler(w, &slog.HandlerOptions{Level: l})}, redact.New()))
 }
 
 // TraceHandler adds trace_id and span_id to every record logged with a context that carries a span.

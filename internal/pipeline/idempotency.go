@@ -82,9 +82,9 @@ func (p *Pipeline) complete(ctx context.Context, c *call, res *mcp.CallToolResul
 	if p.deps.Idempotency == nil {
 		return
 	}
-	stored := storedResult{Result: res}
-	raw, err := json.Marshal(stored)
-	if err != nil || len(raw) > p.opts.MaxStoredResult {
+	// A nil result (refused as too large) is recorded as oversized, like one above MaxStoredResult.
+	raw, err := json.Marshal(storedResult{Result: res})
+	if res == nil || err != nil || len(raw) > p.opts.MaxStoredResult {
 		raw, _ = json.Marshal(storedResult{Oversized: true})
 	}
 	if err := p.deps.Idempotency.Complete(context.WithoutCancel(ctx), c.principal.Tenant, c.idemKey, c.idemHash(), raw, p.opts.IdempotencyTTL); err != nil {

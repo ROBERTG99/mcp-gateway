@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/ROBERTG99/mcp-gateway/internal/config"
-	"github.com/ROBERTG99/mcp-gateway/internal/redact"
 	"github.com/ROBERTG99/mcp-gateway/internal/server"
 	"github.com/ROBERTG99/mcp-gateway/internal/telemetry"
 	"github.com/ROBERTG99/mcp-gateway/internal/version"
@@ -34,10 +33,4 @@ func cmdServe(ctx context.Context, _ []string, _, stderr io.Writer) int {
 	return 0
 }
 
-func newLogger(w io.Writer, level string) *slog.Logger {
-	var l slog.Level
-	_ = l.UnmarshalText([]byte(level))
-	// Every log line passes through the redactor (NFR-4: no secrets, tokens or raw PII in logs).
-	// trace_id and span_id are added from the context of each record.
-	return slog.New(redact.NewHandler(telemetry.TraceHandler{Handler: slog.NewJSONHandler(w, &slog.HandlerOptions{Level: l})}, redact.New()))
-}
+func newLogger(w io.Writer, level string) *slog.Logger { return telemetry.NewLogger(w, level) }

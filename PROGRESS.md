@@ -22,11 +22,11 @@ ROBERTG99 <54124633+ROBERTG99@users.noreply.github.com> | ROBERTG99 <54124633+RO
 chore: configure commit attribution
 ```
 
-## Resume here (handoff, 2026-10-16)
+## Resume here (handoff, 2026-10-17)
 
-**State:** T-01..T-32 done and pushed on `claude/build-md-execution-blkq3q`. Milestones M0-M4 reviewed "ship"; M5 is in progress (T-33 done, T-34 eval runner in progress). `make check-fast` is green; integration tests pass with Docker (testcontainers); `make e2e` passes on the compose stack (33 Playwright tests, axe clean).
+**State:** T-01..T-39 done and pushed on `claude/build-md-execution-blkq3q`. Milestones M0-M5 reviewed "ship"; M6 is in progress (T-37..T-39 done). `make check-fast` is green; `go test -race -tags=integration ./...` passes with Docker; `make e2e` passes on the compose stack (48 Playwright tests).
 
-**Next:** finish T-34 (`internal/evals`, `cmd/evalgen`): the first offline run fails the injection recall gate (dev 0.6667, test 0.5250 vs >= 0.80); tune the detector on dev only, never the threshold. Then T-35..T-36.
+**Next:** T-40 (BenchmarkGatewayOverhead with `scripts/bench_budget.py`, loadgen `--mode load` for `make loadtest`, TestStartupUnder2s, RSS check), then the M6 review, then M7 (T-41..T-43), M8 (T-44..T-46), M9 (T-47..T-49). `docs/evaluation.md` is cited by `evals/REPORT.md` and must be written in T-46.
 
 **Start of a new session (Claude Code on the web):**
 
@@ -37,12 +37,13 @@ chore: configure commit attribution
 **What exists (for orientation):**
 
 - Gateway assembly: `internal/server/server.go` (App: verifier, catalog, policy engine, Redis, Postgres pool, audit writer + Postgres sink/seq, approvals service + outbox worker + maintenance loop, pipeline, proxy, admin API and console on chi). `cmd/mcp-gateway`: serve, migrate, dev-issuer, dev-token, policy test/fmt, audit verify, healthcheck.
-- Pipeline (`internal/pipeline`): audit reserve -> args parse (I-JSON, object) -> rate limit -> key validation (writes) -> policy -> approval -> idempotency acquire -> upstream -> idempotency complete/release -> output marking -> audit commit. Not yet built: NFR-9 limits stage (`limits.go`, T-39), telemetry spans/metrics (T-37/T-38).
+- Pipeline (`internal/pipeline`): audit reserve -> args parse (I-JSON, object) -> NFR-9 limits (depth, input schema; `limits.go`) -> rate limit -> key validation (writes) -> policy -> approval -> idempotency acquire -> upstream -> result size check -> idempotency complete/release -> output marking -> audit commit -> step record and metrics. Spans per stage (T-37), metrics on 8211 (T-38).
 - Audit: `Event.Sanitize` (write path only, markers for unstorable values) vs lossless `Event.Normalize` (read path); the writer bisects unstorable batches and stores a placeholder. Verify hashes stored rows as they are.
 - Console (`internal/console`): sign-in personas, audit list/event with verify (cross-tenant viewers only), approvals queue/detail with approve/reject, policy tester with six examples, upstreams. No inline styles or scripts (CSP; `TestTemplatesHaveNoInlineCode`).
 - E2E (`e2e/`, pnpm): `tests/approvals.spec.ts` (keyboard-only approve, reject, reviewer 403), `tests/console.spec.ts` (axe at 375/1280 px, light/dark, screenshots to `docs/images/`). MCP calls use the session protocol (initialize, initialized, tools/call) against :8210.
-- Compose (`compose.yaml`): postgres 8220, redis 8230, approval-sink (WireMock) 8241, migrate, dev-issuer 8212, upstream-ledger/crm/orders 8213-8215, gateway 8200/8210/8211, profiles `dynamodb` and `tools`. Missing: observability profile (T-38), chaos profile (T-35), `compose.test.yaml` (T-41), `scripts/demo.sh` (T-44), `scripts/docs.sh` (video for `make docs`, T-46).
-- Not started: evals (M5: `internal/datagen/evals.go` is a stub that returns an error), observability (M6), Helm/CI (M7), docs (M8: README is still the placeholder; ADR 0002 exists), release (M9).
+- Compose (`compose.yaml`): postgres 8220, redis 8230, approval-sink (WireMock) 8241, migrate, dev-issuer 8212, upstream-ledger/crm/orders 8213-8215, gateway 8200/8210/8211, profiles `dynamodb` and `tools`. Profile `observability` (Prometheus 8250, Grafana 8251, Jaeger 8253); `make chaos` reconfigures the stack. Missing: `compose.test.yaml` (T-41), `scripts/demo.sh` (T-44), `scripts/docs.sh` (video for `make docs`, T-46).
+- Evals (M5): datasets in `evals/datasets`, `go run ./cmd/evalgen run`, `make eval` gate, `make chaos`. Security: `docs/security.md`, `make security` (`scripts/security.sh`).
+- Not started: benchmarks/load test (T-40), Helm/CI (M7), docs (M8: README is still the placeholder; ADR 0002 exists), release (M9).
 
 **Gotchas learned:**
 
@@ -59,6 +60,7 @@ chore: configure commit attribution
 
 | Milestone | Reviewer verdict | Notes |
 |---|---|---|
+| M5 | ship (second pass) | First pass "fix first": an accidental `loadgen` binary was committed (untracked and ignored; history rewrite listed under Needs the maintainer); the gate accepted regressions whose CI included 0 (now any drop > 1.0 pp fails, plus missing reports/metrics and inconsistent values); injection dev/test share templates (disclosed in REPORT.md caveats and KNOWN_LIMITATIONS; three over-broad rules narrowed). Evidence: make eval (0 failures), tests/evals 11 passed, make chaos. |
 | M4 | ship (second pass; UX re-review blockers fixed after it) | Code review first pass "fix first": console pages checked only the session, not the admin API scopes (TestConsoleRequiresScope, GETs and POSTs), and upstream content lacked the untrusted-output chip (TestUpstreamsPage). UX review: 10 blockers fixed in 752aa56 (verify failure keeps the list, theme toggle state, hover and placeholder contrast, h1 on error pages, rendered CSRF/scope errors, execution summary, state gaps, separate approve/reject text); 2 mobile blockers fixed after: list tables stack as labelled cards below 768 px and the chip is above the upstreams table (e2e `375px lists`). Evidence: make check-fast; go test -race -tags=integration ./internal/console ./internal/admin ./internal/server ./internal/config; SCREENSHOTS=1 pnpm exec playwright test: 48 passed; BenchmarkAuditPage p95 14.71 ms (reviewer run). |
 | M3 | ship (third pass) | First pass "fix first": one hostile argument (integer beyond 2^53 or NUL) stalled the audit writer forever (now sanitised on write, unstorable batches bisected with a placeholder; TestAuditArgsAlwaysStorable, TestAuditWriterIsolatesUnstorableEvent, TestHostileArgsDoNotStopAudit, TestAuditUnstorableArgsPostgres); served `ts` not re-hashable (Event.MarshalJSON, TestAuditAPIEventsRehashable); approval_consumed never returned. Second pass: read-side sanitising hid tampering (lossless Normalize, TestAuditVerifyDetectsValueTampers). Suggestions applied: uuid lookups, outbox SKIP LOCKED lease, one pending approval per call (migration 00005), webhook secret length, verify limited to cross-tenant viewers, writer closed flag, dynamic audit WHERE, enqueue latency on thread CPU time plus wall p50. |
 | M2 | ship (third pass) | Blockers fixed with regression tests: `arguments: null` bypassed argument rules (TestNullArgumentsDoNotBypassArgumentRules), JWKS refresh blocked under a mutex (TestJWKSHungIssuerDoesNotBlock), cards followed by digits escaped redaction, reload failure undocumented (ADR 0002 + stale readiness), docs citing not-yet-built metrics reworded. |
@@ -107,7 +109,7 @@ chore: configure commit attribution
 | T-36 | Eval gate | M5 | done | make eval: evalgen then scripts/evalgate_check.py against evals/baseline (4 reports, 0 failures); tests/evals/test_evalgate_check.py 8 passed incl. test_fails_below_threshold and test_forced_regression_fails (150->140 correct, 6.7 pp drop above threshold fails as regression); 0.67 pp drop passes |
 | T-37 | Traces, logs, step records | M6 | done | go test -tags=integration -run TestSpanTreeForToolCall ./internal/telemetry: one trace has mcp.request, mcpgw.authn, mcpgw.policy.eval, mcpgw.idempotency, mcpgw.upstream.call, mcpgw.audit.enqueue, go-redis spans and the upstream's mcpserver.tool span under the upstream call; TestLogsCarryTraceID, TestStepRecord, TestMetaPropagation; collector config with T-38 |
 | T-38 | Metrics, alerts, dashboard | M6 | done | make promtool: 6 rules, alerts_test.yaml SUCCESS (audit buffer > 80%, policy load failure, upstream down, approval pending > 10 min); TestMetricsAfterToolCalls (all spec metrics with series), TestDashboardsUseExportedMetrics; make observability: Prometheus scrapes the gateway, rules loaded, Grafana dashboard provisioned, Jaeger shows traces spanning mcp-gateway, upstream-orders and upstream-crm |
-| T-39 | Security hardening and threat model | M6 | todo | |
+| T-39 | Security hardening and threat model | M6 | done | TestLimits (depth 32/33, schema violations -32602 before upstream, result > 4 MiB -32046 result_too_large, > 256 KiB forwarded not stored), TestBodyLimit (> 1 MiB -> 413), integration TestNoSecretsInLogs (tokens, cards, IBANs, emails absent; one step record per call) and TestProductionLoggerRedacts; breaker cooldown must exceed per-upstream timeouts; ./scripts/security.sh all ok except govulncheck not run (vuln.go.dev 403 via proxy), moby/go-archive v0.3.0; docs/security.md (STRIDE, OWASP LLM Top 10, accepted findings); go test -race -tags=integration ./... ok |
 | T-40 | Benchmarks and load test | M6 | todo | |
 | T-41 | Compose stack and test-docker | M7 | todo | |
 | T-42 | Helm chart | M7 | todo | |

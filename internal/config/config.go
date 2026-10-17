@@ -31,6 +31,7 @@ type Config struct {
 	UpstreamTimeout   time.Duration `env:"MCPGW_UPSTREAM_TIMEOUT" default:"10s" desc:"Timeout of one upstream call"`
 	OTelEndpoint      string        `env:"MCPGW_OTEL_ENDPOINT" default:"" desc:"OTLP/HTTP trace endpoint (host:port or URL); empty records spans without exporting"`
 	Node              string        `env:"MCPGW_NODE" default:"" desc:"app.node attribute on spans and step records (default: hostname)"`
+	MaxBodyBytes      int64         `env:"MCPGW_MAX_BODY_BYTES" default:"1048576" desc:"Largest MCP request body accepted (NFR-9: 1 MiB); larger bodies get HTTP 413"`
 	BreakerThreshold  int           `env:"MCPGW_BREAKER_THRESHOLD" default:"5" desc:"Consecutive upstream failures that open its circuit breaker"`
 	BreakerCooldown   time.Duration `env:"MCPGW_BREAKER_COOLDOWN" default:"30s" desc:"How long an open breaker rejects calls before one probe"`
 	PrincipalCacheTTL time.Duration `env:"MCPGW_PRINCIPAL_CACHE_TTL" default:"60s" desc:"Cache lifetime of a per-principal MCP server"`
@@ -69,7 +70,6 @@ type Config struct {
 	ShutdownTimeout     time.Duration `env:"MCPGW_SHUTDOWN_TIMEOUT" default:"10s" desc:"Graceful shutdown budget (audit drain included)"`
 	RetentionInterval   time.Duration `env:"MCPGW_RETENTION_INTERVAL" default:"1h" desc:"How often retention deletes old approvals, findings and delivered outbox rows"`
 
-	MaxBodyBytes         int64 `env:"MCPGW_MAX_BODY_BYTES" default:"1048576" desc:"Maximum request body (bytes)"`
 	MaxResultBytes       int64 `env:"MCPGW_MAX_RESULT_BYTES" default:"4194304" desc:"Maximum upstream result (bytes)"`
 	MaxStoredResultBytes int64 `env:"MCPGW_MAX_STORED_RESULT_BYTES" default:"262144" desc:"Maximum result stored for idempotent replay (bytes)"`
 	MaxArgsDepth         int   `env:"MCPGW_MAX_ARGS_DEPTH" default:"32" desc:"Maximum nesting depth of tool arguments"`

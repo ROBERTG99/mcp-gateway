@@ -73,6 +73,10 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		if upstreams[i].Timeout == 0 {
 			upstreams[i].Timeout = cfg.UpstreamTimeout
 		}
+		if upstreams[i].Timeout >= cfg.BreakerCooldown {
+			return nil, fmt.Errorf("upstream %s: timeout %s must be shorter than MCPGW_BREAKER_COOLDOWN (%s)",
+				upstreams[i].Name, upstreams[i].Timeout, cfg.BreakerCooldown)
+		}
 	}
 	if cfg.Node == "" {
 		cfg.Node, _ = os.Hostname() // app.node on spans and step records
@@ -155,8 +159,9 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		Limiter: ratelimit.NewRedis(a.redis, tenants, nil), LocalLimiter: ratelimit.NewMemory(tenants, nil),
 		Scorer: injection.New(injection.Options{}), Findings: store.NewFindings(a.db)},
 		pipeline.Options{Node: cfg.Node, IdempotencyTTL: cfg.IdempotencyTTL, IdempotencyLockTTL: cfg.IdempotencyLockTTL,
-			MaxStoredResult: int(cfg.MaxStoredResultBytes), InjectionThreshold: cfg.InjectionThreshold,
-			InjectionMode: cfg.InjectionMode})
+			MaxStoredResult: int(cfg.MaxStoredResultBytes), MaxResultBytes: int(cfg.MaxResultBytes), MaxArgsDepth: cfg.MaxArgsDepth,
+			InjectionThreshold: cfg.InjectionThreshold,
+			InjectionMode:      cfg.InjectionMode})
 	a.proxy = proxy.New(proxy.Options{Catalog: a.catalog, Caller: a.pipeline, Logger: logger,
 		Visible:  proxy.PolicyVisibility(a.policy),
 		CacheTTL: cfg.PrincipalCacheTTL, MaxBodyBytes: cfg.MaxBodyBytes})
@@ -169,7 +174,7 @@ func (a *App) MCPHandler() http.Handler {
 	mux := http.NewServeMux()
 	node := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		trace.SpanFromContext(r.Context()).SetAttributes(telemetry.AttrNode.String(a.cfg.Node))
-		a.verifier.Middleware(a.proxy).ServeHTTP(w, r)
+		limitBody(a.verifier.Middleware(a.proxy), a.cfg.MaxBodyBytes).ServeHTTP(w, r)
 	})
 	mux.Handle("/mcp", otelhttp.NewHandler(node, "mcp.request",
 		otelhttp.WithSpanNameFormatter(func(string, *http.Request) string { return "mcp.request" })))
@@ -274,6 +279,22 @@ func (a *App) RunBackground(ctx context.Context) error {
 
 // Upstreams reports upstream health (used by tests to wait for the catalog).
 func (a *App) Upstreams() []catalog.UpstreamStatus { return a.catalog.Status() }
+
+// limitBody answers 413 to request bodies above n bytes (NFR-9), before authentication or
+// decoding.
+func limitBody(next http.Handler, n int64) http.Handler {
+	if n <= 0 {
+		return next
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.ContentLength > n {
+			http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+			return
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, n)
+		next.ServeHTTP(w, r)
+	})
+}
 
 // MetricsHandler serves Prometheus metrics (MCPGW_METRICS_ADDR, 8211).
 func (a *App) MetricsHandler() http.Handler {

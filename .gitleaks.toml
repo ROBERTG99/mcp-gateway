@@ -1,0 +1,12 @@
+# gitleaks configuration (make security). Default rules plus an allowlist for synthetic test data:
+# the redaction eval datasets and tests contain fabricated JWTs and bearer tokens on purpose
+# (docs/security.md, "Accepted findings").
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Synthetic tokens in redaction datasets and tests"
+paths = [
+  '''evals/datasets/(dev|test)/redaction\.v1\.jsonl''',
+  '''internal/redact/.*_test\.go''',
+]

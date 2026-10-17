@@ -26,6 +26,7 @@ import (
 	"github.com/ROBERTG99/mcp-gateway/internal/devissuer"
 	"github.com/ROBERTG99/mcp-gateway/internal/server"
 	"github.com/ROBERTG99/mcp-gateway/internal/store"
+	"github.com/ROBERTG99/mcp-gateway/internal/telemetry"
 	"github.com/ROBERTG99/mcp-gateway/internal/testutil/pgtest"
 	"github.com/ROBERTG99/mcp-gateway/internal/testutil/redistest"
 	"github.com/ROBERTG99/mcp-gateway/internal/upstreams"
@@ -43,6 +44,9 @@ type Options struct {
 	ExtraUpstreams map[string]string
 	// PolicyDir overrides the policy bundle (default the repository's policies/).
 	PolicyDir string
+	// LogWriter receives the gateway's logs from the production logger at debug level (default:
+	// discarded).
+	LogWriter io.Writer
 	// Configure adjusts the gateway config before start.
 	Configure func(*config.Config)
 }
@@ -156,6 +160,9 @@ func Start(t testing.TB, opts Options) *Stack {
 		opts.Configure(&cfg)
 	}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	if opts.LogWriter != nil {
+		logger = telemetry.NewLogger(opts.LogWriter, "debug")
+	}
 	st.App, err = server.New(ctx, cfg, logger)
 	if err != nil {
 		t.Fatal(err)

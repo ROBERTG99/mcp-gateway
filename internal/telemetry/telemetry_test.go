@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -85,5 +86,23 @@ func TestOTLPTracesURL(t *testing.T) {
 		if got := telemetry.OTLPTracesURL(in); got != want {
 			t.Errorf("OTLPTracesURL(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+// TestProductionLoggerRedacts: whatever reaches a log line (message, attribute or error) through
+// the production logger is redacted, and sensitive keys are dropped whatever their value.
+func TestProductionLoggerRedacts(t *testing.T) {
+	var buf bytes.Buffer
+	l := telemetry.NewLogger(&buf, "debug")
+	l.Debug("upstream said order 4111 1111 1111 1111 not found", "error", "contact ana.lane42@example.com",
+		"authorization", "Bearer s3cr3tTokenValue0123456789abcdef", "args", map[string]any{"iban": "GB82WEST12345698765432"})
+	out := buf.String()
+	for _, secret := range []string{"4111 1111 1111 1111", "ana.lane42@example.com", "s3cr3tTokenValue", "GB82WEST12345698765432"} {
+		if strings.Contains(out, secret) {
+			t.Errorf("log line contains %q: %s", secret, out)
+		}
+	}
+	if !strings.Contains(out, "[REDACTED:CARD]") || !strings.Contains(out, "[REDACTED:EMAIL]") {
+		t.Fatalf("redaction markers missing: %s", out)
 	}
 }

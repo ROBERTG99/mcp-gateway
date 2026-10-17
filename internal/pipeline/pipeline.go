@@ -80,6 +80,8 @@ type Options struct {
 	IdempotencyTTL     time.Duration // completed record lifetime (default 24 h)
 	IdempotencyLockTTL time.Duration // in-progress lock lifetime (default 30 s)
 	MaxStoredResult    int           // bytes; larger results are not stored for replay (default 256 KiB)
+	MaxResultBytes     int           // bytes; larger upstream results are refused (default 4 MiB)
+	MaxArgsDepth       int           // nesting levels of the arguments (default 32)
 	InjectionThreshold float64       // score at or above which output is flagged (default 0.5)
 	InjectionMode      string        // "mark" (default) or "block"
 	Node               string        // app.node on spans and step records (default: hostname)
@@ -87,8 +89,9 @@ type Options struct {
 
 // Pipeline executes governed tool calls. It implements proxy.Caller.
 type Pipeline struct {
-	deps Deps
-	opts Options
+	deps    Deps
+	opts    Options
+	schemas schemas
 }
 
 var _ proxy.Caller = (*Pipeline)(nil)
@@ -109,6 +112,12 @@ func New(deps Deps, opts Options) *Pipeline {
 	}
 	if opts.MaxStoredResult == 0 {
 		opts.MaxStoredResult = 256 << 10
+	}
+	if opts.MaxResultBytes == 0 {
+		opts.MaxResultBytes = DefaultMaxResultBytes
+	}
+	if opts.MaxArgsDepth == 0 {
+		opts.MaxArgsDepth = DefaultMaxArgsDepth
 	}
 	if opts.InjectionThreshold == 0 {
 		opts.InjectionThreshold = 0.5
@@ -190,6 +199,10 @@ func (p *Pipeline) run(ctx context.Context, c *call) (*mcp.CallToolResult, error
 		c.status = "rejected"
 		return nil, err
 	}
+	if err := p.checkArgs(c); err != nil {
+		c.status = "rejected"
+		return nil, err
+	}
 	if err := p.rateLimit(ctx, c); err != nil {
 		return nil, err
 	}
@@ -232,6 +245,15 @@ func (p *Pipeline) run(ctx context.Context, c *call) (*mcp.CallToolResult, error
 	span.End()
 	if err != nil {
 		p.release(ctx, c)
+		c.status = "error"
+		return nil, err
+	}
+	if err := p.checkResult(c, res); err != nil {
+		// The upstream may have committed a write: keep the key completed (as oversized), so a
+		// retry forwards to the upstream's own dedup instead of executing again.
+		if c.acquired {
+			p.complete(ctx, c, nil)
+		}
 		c.status = "error"
 		return nil, err
 	}
