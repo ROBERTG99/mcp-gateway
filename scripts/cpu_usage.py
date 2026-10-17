@@ -57,20 +57,19 @@ def cgroup_seconds(cid: str) -> float:
     raise FileNotFoundError(f"no cgroup CPU counter for container {cid[:12]}")
 
 
-def process_seconds(name: str) -> float:
-    """CPU seconds (utime + stime) of every live process whose comm is name."""
-    total = 0
+def process_seconds(names: tuple[str, ...]) -> dict[str, float]:
+    """CPU seconds (utime + stime) of the live processes per comm name, in one pass over /proc."""
+    ticks = dict.fromkeys(names, 0)
     for stat in Path("/proc").glob("[0-9]*/stat"):
         try:
             text = stat.read_text()
         except OSError:
             continue
         comm = text[text.index("(") + 1 : text.rindex(")")]
-        if comm != name:
-            continue
-        fields = text[text.rindex(")") + 2 :].split()
-        total += int(fields[11]) + int(fields[12])
-    return total / CLK_TCK
+        if comm in ticks:
+            fields = text[text.rindex(")") + 2 :].split()
+            ticks[comm] += int(fields[11]) + int(fields[12])
+    return {name: t / CLK_TCK for name, t in ticks.items()}
 
 
 def busy_seconds() -> float:
@@ -82,7 +81,7 @@ def busy_seconds() -> float:
 
 def snapshot(ids: dict[str, str]) -> dict[str, float]:
     snap = {svc: cgroup_seconds(cid) for svc, cid in ids.items()}
-    snap.update({f"host:{name}": process_seconds(name) for name in HOST_PROCS})
+    snap.update({f"host:{name}": sec for name, sec in process_seconds(HOST_PROCS).items()})
     snap["machine (busy)"] = busy_seconds()
     return snap
 

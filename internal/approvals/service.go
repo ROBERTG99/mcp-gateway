@@ -148,24 +148,12 @@ func (s *Service) withExpiry(a Approval) Approval {
 }
 
 // Decide approves or rejects. The approver needs mcpgw:approve and the approval's tenant, and may
-// not be the agent whose call was held (no self-approval); rejections need a reason. Successful
+// not approve a call they made (the store refuses self-approval); rejections need a reason. Successful
 // decisions are audited as server "mcpgw", tool "approval.approve" / "approval.reject", agent =
 // approver.
 func (s *Service) Decide(ctx context.Context, id string, approver authn.Principal, approve bool, note string) (Approval, error) {
 	if !approver.HasScope(ScopeApprove) || approver.Tenant == "*" || approver.Tenant == "" {
 		return Approval{}, ErrForbidden
-	}
-	// No self-approval; withdrawing one's own held call (a rejection) stays allowed. The binding
-	// never changes after Hold, so reading it before the atomic decision is safe. A read that fails
-	// for any reason but not-found refuses the approval (the check fails closed).
-	if approve {
-		cur, err := s.store.Get(ctx, id)
-		switch {
-		case err == nil && cur.Tenant == approver.Tenant && cur.Agent == approver.Agent:
-			return Approval{}, ErrForbidden
-		case err != nil && !errors.Is(err, ErrNotFound):
-			return Approval{}, fmt.Errorf("read approval: %w", err)
-		}
 	}
 	if !approve && note == "" {
 		return Approval{}, ErrReasonRequired

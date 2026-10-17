@@ -95,6 +95,20 @@ func kinds(docs []map[string]any) map[string][]map[string]any {
 	return out
 }
 
+// gatewayContainer is the first container of the rendered Deployment.
+func gatewayContainer(docs []map[string]any) any {
+	return get(kinds(docs)["Deployment"][0], "spec", "template", "spec", "containers").([]any)[0]
+}
+
+// envValues maps the container's literal env values by name ("" for valueFrom entries).
+func envValues(c any) map[string]string {
+	env := map[string]string{}
+	for _, e := range get(c, "env").([]any) {
+		env[get(e, "name").(string)], _ = get(e, "value").(string)
+	}
+	return env
+}
+
 // podSpecs returns every pod template in the rendered chart (Deployment and the migrate Job).
 func podSpecs(docs []map[string]any) map[string]map[string]any {
 	out := map[string]map[string]any{}
@@ -171,11 +185,8 @@ func TestHelmRenderObjects(t *testing.T) {
 				}
 			}
 			dep := k["Deployment"][0]
-			env := map[string]string{}
-			c := get(dep, "spec", "template", "spec", "containers").([]any)[0]
-			for _, e := range get(c, "env").([]any) {
-				env[get(e, "name").(string)], _ = get(e, "value").(string)
-			}
+			c := gatewayContainer(docs)
+			env := envValues(c)
 			store := map[string]string{"values.yaml": "redis", "values-dynamodb.yaml": "dynamodb"}[file]
 			if env["MCPGW_IDEMPOTENCY_STORE"] != store {
 				t.Errorf("MCPGW_IDEMPOTENCY_STORE = %q, want %q", env["MCPGW_IDEMPOTENCY_STORE"], store)
@@ -246,8 +257,7 @@ func TestHelmValuesSchemaRejects(t *testing.T) {
 // config volume, not inside it (ConfigMap volumes are read-only, so a nested mountpoint fails).
 func TestHelmPolicyConfigMapMount(t *testing.T) {
 	docs := renderValues(t, "values.yaml", "--set", "policies.existingConfigMap=mcpgw-policies")
-	dep := kinds(docs)["Deployment"][0]
-	c := get(dep, "spec", "template", "spec", "containers").([]any)[0]
+	c := gatewayContainer(docs)
 	var paths []string
 	for _, m := range get(c, "volumeMounts").([]any) {
 		paths = append(paths, get(m, "mountPath").(string))
@@ -259,10 +269,7 @@ func TestHelmPolicyConfigMapMount(t *testing.T) {
 			}
 		}
 	}
-	env := map[string]string{}
-	for _, e := range get(c, "env").([]any) {
-		env[get(e, "name").(string)], _ = get(e, "value").(string)
-	}
+	env := envValues(c)
 	if !slices.Contains(paths, env["MCPGW_POLICY_DIR"]) {
 		t.Errorf("MCPGW_POLICY_DIR %v is not a mount path %v", env["MCPGW_POLICY_DIR"], paths)
 	}

@@ -194,3 +194,32 @@ func TestApprovalBoundToArgsHash(t *testing.T) {
 		t.Fatalf("expired: %s", r)
 	}
 }
+
+// TestConsumedApprovalBoundedByIdempotencyTTL: a consumed approval authorises its own same-key
+// retry only while that key's idempotency record can exist (IdempotencyTTL after consumption).
+// Later the record is gone, so the retry would execute the write again without a new human
+// decision: it is refused as approval_consumed instead.
+func TestConsumedApprovalBoundedByIdempotencyTTL(t *testing.T) {
+	f := newApprovalFixture(t)
+	meta := mcp.Meta{"idempotency_key": "refund-held-0042"}
+	id, _ := held(t, f.p, heldArgs, meta)
+	if _, err := f.svc.Decide(t.Context(), id, approver, true, "ok"); err != nil {
+		t.Fatal(err)
+	}
+	retry := mcp.Meta{"idempotency_key": "refund-held-0042", "approval_id": id}
+	if _, err := call(f.p, refundTool, heldArgs, retry); err != nil {
+		t.Fatalf("approved retry: %v", err)
+	}
+	f.clock.Advance(23 * time.Hour)
+	if res, err := call(f.p, refundTool, heldArgs, retry); err != nil || gwMeta(res)["idempotent_replay"] != true {
+		t.Fatalf("retry inside the window: %v", err)
+	}
+	f.clock.Advance(time.Hour + time.Second) // past the 24 h idempotency TTL: the record expired
+	_, err := call(f.p, refundTool, heldArgs, retry)
+	if r := approvalReason(t, err); r != approvals.ReasonConsumed {
+		t.Fatalf("retry after the idempotency TTL: %s, want approval_consumed", r)
+	}
+	if f.up.calls.Load() != 1 {
+		t.Fatalf("upstream calls = %d, want 1 (the write ran again)", f.up.calls.Load())
+	}
+}

@@ -146,6 +146,9 @@ func (p *Postgres) Decide(ctx context.Context, id, tenant, status, by, note stri
 	switch {
 	case tenant != "" && a.Tenant != tenant:
 		return Approval{}, ErrForbidden
+	case status == StatusApproved && a.Agent == by:
+		// No self-approval; an agent may still withdraw (reject) its own held call.
+		return Approval{}, ErrForbidden
 	case a.Status == StatusPending && !now.Before(a.ExpiresAt):
 		if _, err := tx.Exec(ctx, `UPDATE approvals SET status = 'expired', updated_at = $2 WHERE id = $1`, a.ID, now); err != nil {
 			return Approval{}, fmt.Errorf("expire approval: %w", err)

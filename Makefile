@@ -178,8 +178,8 @@ coverage: ## Coverage report with thresholds (85% core, 70% overall)
 COMPOSE_TEST = $(COMPOSE) -f compose.yaml -f compose.test.yaml --profile dynamodb --profile test
 test-docker: ## Full test suite inside containers
 	$(COMPOSE_TEST) build go-tests
-	$(COMPOSE_TEST) up -d --wait postgres-test redis-test dynamodb
-	$(COMPOSE_TEST) run --rm go-tests && $(COMPOSE_TEST) run --rm harness-tests; \
+	$(COMPOSE_TEST) up -d --wait postgres-test redis-test dynamodb && \
+	  $(COMPOSE_TEST) run --rm go-tests && $(COMPOSE_TEST) run --rm harness-tests; \
 	  status=$$?; $(COMPOSE_TEST) rm -sfv postgres-test redis-test; exit $$status
 
 .PHONY: image-size

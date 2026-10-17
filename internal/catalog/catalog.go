@@ -117,6 +117,10 @@ type upstream struct {
 	up          bool
 	lastErr     string
 	lastRefresh time.Time
+	// unknownWrite are write_tools entries matching no tool at the last refresh; overridden are
+	// write_tools the upstream declared read-only. Both are logged only when they change.
+	unknownWrite []string
+	overridden   []string
 }
 
 // New builds a catalog. Call Refresh (or Run) to connect.
@@ -186,17 +190,9 @@ func (c *Catalog) Status() []UpstreamStatus {
 		for _, t := range u.tools {
 			names = append(names, t.FullName())
 		}
-		var unknown []string
-		if u.up {
-			for _, w := range u.cfg.WriteTools {
-				if !slices.ContainsFunc(u.tools, func(t Tool) bool { return t.Name == w }) {
-					unknown = append(unknown, w)
-				}
-			}
-		}
 		out = append(out, UpstreamStatus{
 			Name: u.cfg.Name, URL: u.cfg.URL, Up: u.up, Breaker: u.breaker.State(), Tools: names,
-			LastError: u.lastErr, LastRefresh: u.lastRefresh, UnknownWriteTools: unknown,
+			LastError: u.lastErr, LastRefresh: u.lastRefresh, UnknownWriteTools: slices.Clone(u.unknownWrite),
 		})
 		u.mu.Unlock()
 	}
@@ -320,6 +316,7 @@ func (c *Catalog) refreshUpstream(ctx context.Context, u *upstream) error {
 		params = &mcp.ListToolsParams{Cursor: res.NextCursor}
 	}
 	tools := make([]Tool, 0, len(defs))
+	var overridden []string
 	for _, d := range defs {
 		def := *d // shallow copy: schemas and annotations are shared, unchanged
 		def.Name = u.cfg.Name + "." + d.Name
@@ -327,17 +324,25 @@ func (c *Catalog) refreshUpstream(ctx context.Context, u *upstream) error {
 			a := *def.Annotations
 			a.ReadOnlyHint = false
 			def.Annotations = &a
-			c.opts.Logger.Warn("upstream declares a configured write tool read-only; treating it as a write", "tool", def.Name)
+			overridden = append(overridden, d.Name)
 		}
 		tools = append(tools, Tool{Server: u.cfg.Name, Name: d.Name, Def: &def})
 	}
+	var unknown []string
 	for _, w := range u.cfg.WriteTools {
 		if !slices.ContainsFunc(defs, func(d *mcp.Tool) bool { return d.Name == w }) {
-			c.opts.Logger.Warn("write_tools entry matches no tool of the upstream; it protects nothing", "upstream", u.cfg.Name, "tool", w)
+			unknown = append(unknown, w)
 		}
 	}
 	u.mu.Lock()
+	if !slices.Equal(overridden, u.overridden) && len(overridden) > 0 {
+		c.opts.Logger.Warn("upstream declares configured write tools read-only; treating them as writes", "upstream", u.cfg.Name, "tools", overridden)
+	}
+	if !slices.Equal(unknown, u.unknownWrite) && len(unknown) > 0 {
+		c.opts.Logger.Warn("write_tools entries match no tool of the upstream; they protect nothing", "upstream", u.cfg.Name, "tools", unknown)
+	}
 	u.tools, u.up, u.lastErr, u.lastRefresh = tools, true, "", c.opts.Clock.Now()
+	u.overridden, u.unknownWrite = overridden, unknown
 	u.mu.Unlock()
 	return nil
 }
@@ -364,7 +369,7 @@ func (c *Catalog) adopt(u *upstream, s *mcp.ClientSession) *mcp.ClientSession {
 
 func (u *upstream) markDown(err error, now time.Time) {
 	u.mu.Lock()
-	u.up, u.lastErr, u.lastRefresh, u.tools = false, err.Error(), now, nil
+	u.up, u.lastErr, u.lastRefresh, u.tools, u.unknownWrite = false, err.Error(), now, nil, nil
 	u.mu.Unlock()
 }
 

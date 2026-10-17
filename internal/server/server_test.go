@@ -27,17 +27,19 @@ func testConfig(t *testing.T, policyDir string) config.Config {
 	return cfg
 }
 
-// readyz returns the status code and the policy check (Postgres and Redis are not running in
-// this unit test, so overall readiness is 503 either way; the policy check is what is asserted).
-func readyz(t *testing.T, a *server.App) (int, string) {
+// readyz returns the status code and the checks (Postgres and Redis are not running in this unit
+// test, so overall readiness is 503 either way; individual checks are what is asserted).
+func readyz(t *testing.T, a *server.App) (int, map[string]string) {
 	t.Helper()
 	rec := httptest.NewRecorder()
 	a.AdminHandler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
 	var body struct {
 		Checks map[string]string `json:"checks"`
 	}
-	_ = json.Unmarshal(rec.Body.Bytes(), &body)
-	return rec.Code, body.Checks["policy"]
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("readyz body: %v", err)
+	}
+	return rec.Code, body.Checks
 }
 
 func TestReadyzReflectsPolicyBundle(t *testing.T) {
@@ -46,8 +48,8 @@ func TestReadyzReflectsPolicyBundle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, check := readyz(t, good); check != "ok" {
-		t.Fatalf("policy check with a good bundle = %q", check)
+	if _, checks := readyz(t, good); checks["policy"] != "ok" {
+		t.Fatalf("policy check with a good bundle = %q", checks["policy"])
 	}
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "authz.rego"), []byte("package mcpgw.authz\n\ndecision := {"), 0o600); err != nil {
@@ -57,8 +59,8 @@ func TestReadyzReflectsPolicyBundle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if code, check := readyz(t, bad); code != http.StatusServiceUnavailable || !strings.HasPrefix(check, "not loaded") {
-		t.Fatalf("readyz with a broken bundle = %d %q, want 503 not loaded", code, check)
+	if code, checks := readyz(t, bad); code != http.StatusServiceUnavailable || !strings.HasPrefix(checks["policy"], "not loaded") {
+		t.Fatalf("readyz with a broken bundle = %d %q, want 503 not loaded", code, checks["policy"])
 	}
 }
 
@@ -69,15 +71,7 @@ func TestReadyzWaitsForAuditSequence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rec := httptest.NewRecorder()
-	a.AdminHandler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
-	var body struct {
-		Checks map[string]string `json:"checks"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
-		t.Fatal(err)
-	}
-	if rec.Code != http.StatusServiceUnavailable || body.Checks["audit"] != "sequence not allocated yet" {
-		t.Fatalf("readyz before warm-up = %d %v, want 503 with audit not allocated", rec.Code, body.Checks)
+	if code, checks := readyz(t, a); code != http.StatusServiceUnavailable || checks["audit"] != "sequence not allocated yet" {
+		t.Fatalf("readyz before warm-up = %d %v, want 503 with audit not allocated", code, checks)
 	}
 }

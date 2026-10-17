@@ -88,7 +88,8 @@ type Store interface {
 	// FindPending returns an unexpired pending approval bound to b, if any.
 	FindPending(ctx context.Context, b Binding, now time.Time) (Approval, bool, error)
 	List(ctx context.Context, f ListFilter) ([]Approval, error)
-	// Decide moves a pending approval to approved or rejected. tenant ("" = no check) must match.
+	// Decide moves a pending approval to approved or rejected. tenant ("" = no check) must match,
+	// and the agent whose call was held (by) may reject it but not approve it (ErrForbidden).
 	Decide(ctx context.Context, id, tenant, status, by, note string, now time.Time) (Approval, error)
 	// Consume atomically checks and consumes an approved approval for b. It returns the approval
 	// (with its status) and a -32045 reason when it cannot be consumed.

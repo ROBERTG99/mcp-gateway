@@ -103,12 +103,19 @@ def test_faq_answers_fifteen_questions_with_references() -> None:
         refs = REF.findall(body)
         assert refs, f"FAQ {n}: no file:line reference"
         for path, start, end in refs:
-            f = ROOT / path
-            assert f.is_file(), f"FAQ {n}: {path} does not exist"
-            lines = len(f.read_text(encoding="utf-8").splitlines())
-            assert 1 <= int(start) <= lines and (not end or int(start) <= int(end) <= lines), (
-                f"FAQ {n}: {path}:{start}{'-' + end if end else ''} is outside the file ({lines} lines)"
-            )
+            err = ref_error(path, start, end)
+            assert err is None, f"FAQ {n}: {err}"
+
+
+def ref_error(path: str, start: str, end: str) -> str | None:
+    """Why a path:start[-end] reference does not resolve, or None when it points inside the file."""
+    f = ROOT / path
+    if not f.is_file():
+        return f"{path} missing"
+    n = len(f.read_text(encoding="utf-8").splitlines())
+    if not 1 <= int(start) <= n or (end and not int(start) <= int(end) <= n):
+        return f"{path}:{start}{'-' + end if end else ''} outside {n} lines"
+    return None
 
 
 def test_doc_references_resolve() -> None:
@@ -119,11 +126,6 @@ def test_doc_references_resolve() -> None:
             continue
         for i, line in prose_lines(doc):
             for path, start, end in REF.findall(line):
-                f = ROOT / path
-                if not f.is_file():
-                    bad.append(f"{doc.relative_to(ROOT)}:{i}: {path} missing")
-                    continue
-                n = len(f.read_text(encoding="utf-8").splitlines())
-                if not 1 <= int(start) <= n or (end and not int(start) <= int(end) <= n):
-                    bad.append(f"{doc.relative_to(ROOT)}:{i}: {path}:{start} outside {n} lines")
+                if err := ref_error(path, start, end):
+                    bad.append(f"{doc.relative_to(ROOT)}:{i}: {err}")
     assert not bad, "\n".join(bad)

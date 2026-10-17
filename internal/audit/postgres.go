@@ -51,20 +51,18 @@ func (p *PostgresSink) Append(ctx context.Context, events []Event) ([]Event, err
 			rest = append(rest, e)
 		}
 	}
-	var added []Event
 	if len(rest) > 0 {
-		if added, err = p.append(ctx, rest); err != nil {
+		added, err := p.append(ctx, rest)
+		if err != nil {
 			return nil, err
 		}
-	}
-	out := make([]Event, 0, len(events))
-	for _, e := range events {
-		if s, ok := have[e.Seq]; ok {
-			out = append(out, s)
-		} else {
-			out = append(out, added[0])
-			added = added[1:]
+		for _, e := range added {
+			have[e.Seq] = e
 		}
+	}
+	out := make([]Event, len(events))
+	for i, e := range events {
+		out[i] = have[e.Seq]
 	}
 	return out, nil
 }
@@ -263,10 +261,7 @@ func NewPostgresSeq(pool *pgxpool.Pool, block int) *PostgresSeq {
 func (s *PostgresSeq) Warm(ctx context.Context) error {
 	// Single flight with the background refills: wait for one already running instead of fetching
 	// a second block (fetch clears the flag when it finishes).
-	s.mu.Lock()
-	if s.fetching {
-		wait := s.filled
-		s.mu.Unlock()
+	if wait, owner := s.claim(); !owner {
 		select {
 		case <-wait:
 		case <-ctx.Done():
@@ -277,9 +272,19 @@ func (s *PostgresSeq) Warm(ctx context.Context) error {
 		}
 		return nil
 	}
-	s.fetching = true
-	s.mu.Unlock()
 	return s.fetch(ctx)
+}
+
+// claim takes the single refill slot. The caller that gets it (owner) must call fetch, which
+// releases it; the others get the channel closed when the running refill ends.
+func (s *PostgresSeq) claim() (wait <-chan struct{}, owner bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.fetching {
+		return s.filled, false
+	}
+	s.fetching = true
+	return nil, true
 }
 
 // Next implements SeqAllocator.
@@ -308,13 +313,9 @@ func (s *PostgresSeq) Next(ctx context.Context) (int64, error) {
 }
 
 func (s *PostgresSeq) startRefill() {
-	s.mu.Lock()
-	if s.fetching {
-		s.mu.Unlock()
+	if _, owner := s.claim(); !owner {
 		return
 	}
-	s.fetching = true
-	s.mu.Unlock()
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()

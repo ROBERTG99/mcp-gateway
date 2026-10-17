@@ -24,23 +24,8 @@ import (
 // copyPolicies copies the repository's policy bundle so the test can edit its data.
 func copyPolicies(t *testing.T) string {
 	t.Helper()
-	src := filepath.Join(stack.Root(), "policies")
 	dst := t.TempDir()
-	err := filepath.WalkDir(src, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		rel, _ := filepath.Rel(src, path)
-		if d.IsDir() {
-			return os.MkdirAll(filepath.Join(dst, rel), 0o755)
-		}
-		b, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		return os.WriteFile(filepath.Join(dst, rel), b, 0o600)
-	})
-	if err != nil {
+	if err := os.CopyFS(dst, os.DirFS(filepath.Join(stack.Root(), "policies"))); err != nil {
 		t.Fatal(err)
 	}
 	return dst

@@ -303,22 +303,16 @@ func (b *Bundle) store() storage.Store {
 	return inmem.NewFromObject(map[string]any{"mcpgw": b.Data})
 }
 
-// nonDeterministic are the builtins a policy may not call: decisions must depend on the input and
-// the bundle only (.claude/rules/rego.md), so a bundle that uses them fails to compile. Deterministic
-// members of the same families (net.cidr_contains, uuid.parse, time.parse_rfc3339_ns) stay allowed.
-func nonDeterministic(name string) bool {
-	switch name {
-	case "http.send", "net.lookup_ip_addr", "opa.runtime", "time.now_ns", "rand.intn", "uuid.rfc4122", "trace", "print", "internal.print":
-		return true
-	}
-	return false
-}
-
-// capabilities are OPA's builtins minus the non-deterministic ones; the gateway and `policy test`
+// capabilities are OPA's builtins minus those OPA marks non-deterministic (http.send,
+// net.lookup_ip_addr, time.now_ns, rand.intn, uuid.rfc4122, io.jwt.decode_verify, opa.runtime and
+// others) and the debugging output builtins: decisions must depend on the input and the bundle only
+// (.claude/rules/rego.md), so a bundle that uses them fails to compile. The gateway and `policy test`
 // both compile with them.
 func capabilities() *ast.Capabilities {
 	c := ast.CapabilitiesForThisVersion()
-	c.Builtins = slices.DeleteFunc(slices.Clone(c.Builtins), func(b *ast.Builtin) bool { return nonDeterministic(b.Name) })
+	c.Builtins = slices.DeleteFunc(slices.Clone(c.Builtins), func(b *ast.Builtin) bool {
+		return b.Nondeterministic || b.Name == "print" || b.Name == "internal.print" || b.Name == "trace"
+	})
 	return c
 }
 

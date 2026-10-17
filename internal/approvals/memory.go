@@ -110,6 +110,9 @@ func (m *Memory) Decide(_ context.Context, id, tenant, status, by, note string, 
 		return Approval{}, ErrNotFound
 	case tenant != "" && a.Tenant != tenant:
 		return Approval{}, ErrForbidden
+	case status == StatusApproved && a.Agent == by:
+		// No self-approval; an agent may still withdraw (reject) its own held call.
+		return Approval{}, ErrForbidden
 	case a.Status == StatusPending && !now.Before(a.ExpiresAt):
 		a.Status, a.UpdatedAt = StatusExpired, now
 		m.approvals[id] = a

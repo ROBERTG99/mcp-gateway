@@ -57,8 +57,11 @@ func (p *Pipeline) approve(ctx context.Context, c *call, in policy.Input, d poli
 	case reason == "",
 		// A consumed approval authorises its own call only: the same-key retry continues to the
 		// idempotency stage, which replays (or, after a failed attempt, re-executes under the
-		// same key, where upstream dedup still guarantees one write).
-		reason == approvals.ReasonConsumed && a.Matches(c.binding()):
+		// same key, where upstream dedup still guarantees one write). Only while that key's
+		// idempotency record can exist: later the retry would execute the write again without a
+		// new human decision, so it falls through to approval_consumed.
+		reason == approvals.ReasonConsumed && a.Matches(c.binding()) && a.ConsumedAt != nil &&
+			p.deps.Clock.Now().Before(a.ConsumedAt.Add(p.opts.IdempotencyTTL)):
 		in.Approval = &policy.Approval{ID: a.ID, Status: approvals.StatusApproved}
 		d2, err := p.deps.Policy.Evaluate(ctx, in)
 		if err != nil || !d2.Allow {

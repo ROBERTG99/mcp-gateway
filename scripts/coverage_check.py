@@ -71,7 +71,12 @@ def pct(cov: int, tot: int) -> float:
 def check(
     blocks: dict[Block, tuple[int, bool]], core_min: float, overall_min: float
 ) -> tuple[list[str], bool]:
-    pkgs = per_package(blocks)
+    return check_packages(per_package(blocks), core_min, overall_min)
+
+
+def check_packages(
+    pkgs: dict[str, tuple[int, int]], core_min: float, overall_min: float
+) -> tuple[list[str], bool]:
     lines, ok = [], True
     for pkg in CORE:
         if pkg not in pkgs:
@@ -99,13 +104,13 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--core-min", type=float, default=85.0)
     ap.add_argument("--overall-min", type=float, default=70.0)
     args = ap.parse_args(argv)
-    blocks = parse(Path(args.profile).read_text(encoding="utf-8"))
-    lines, ok = check(blocks, args.core_min, args.overall_min)
+    pkgs = per_package(parse(Path(args.profile).read_text(encoding="utf-8")))
+    lines, ok = check_packages(pkgs, args.core_min, args.overall_min)
     print("coverage (statements):")
     for line in lines:
         print("  " + line)
-    others = sorted(per_package(blocks).items(), key=lambda kv: pct(*kv[1]))
-    print("lowest packages: " + ", ".join(f"{k} {pct(*v):.0f}%" for k, v in others[:6]))
+    lowest = sorted(pkgs.items(), key=lambda kv: pct(*kv[1]))[:6]
+    print("lowest packages: " + ", ".join(f"{k} {pct(*v):.0f}%" for k, v in lowest))
     return 0 if ok else 1
 
 

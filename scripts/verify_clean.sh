@@ -24,5 +24,6 @@ cd "$dest"
 if [[ "${VERIFY_COLD:-}" != "1" && -d "$OLDPWD/bin" ]]; then cp -a "$OLDPWD/bin" .; fi
 test ! -e .env
 echo "verify-clean: $(git rev-parse HEAD) in $dest"
-env -u ANTHROPIC_API_KEY -u OPENAI_API_KEY -u CLAUDE_API_KEY -u GEMINI_API_KEY make bootstrap
-env -u ANTHROPIC_API_KEY -u OPENAI_API_KEY -u CLAUDE_API_KEY -u GEMINI_API_KEY make verify
+no_keys=(env -u ANTHROPIC_API_KEY -u OPENAI_API_KEY -u CLAUDE_API_KEY -u GEMINI_API_KEY)
+"${no_keys[@]}" make bootstrap
+"${no_keys[@]}" make verify

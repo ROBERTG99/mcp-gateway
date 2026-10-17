@@ -3,6 +3,7 @@ package idempotency_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -77,22 +78,10 @@ func TestOpenSelectsBackend(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Open(%s): %v", tc.opts.Backend, err)
 		}
-		if got := typeName(s); got != tc.want {
+		if got := fmt.Sprintf("%T", s); got != tc.want {
 			t.Errorf("Open(%s) = %s, want %s", tc.opts.Backend, got, tc.want)
 		}
 	}
-}
-
-func typeName(v any) string {
-	switch v.(type) {
-	case *idempotency.Memory:
-		return "*idempotency.Memory"
-	case *idempotency.Redis:
-		return "*idempotency.Redis"
-	case *idempotency.DynamoDB:
-		return "*idempotency.DynamoDB"
-	}
-	return "?"
 }
 
 func TestOutcomeString(t *testing.T) {

@@ -27,17 +27,9 @@ func TestBodyLimitThroughGateway(t *testing.T) {
 	st := stack.Start(t, stack.Options{})
 	token := st.Token(t, "t_alpha", "agent-support", "crm:read")
 	big := `{"jsonrpc":"2.0","id":1,"method":"ping","params":{"pad":"` + strings.Repeat("a", 1<<20) + `"}}`
-	for _, tc := range []struct {
-		name    string
-		body    string
-		chunked bool
-		want    int
-	}{
-		{"declared over", big, false, http.StatusRequestEntityTooLarge},
-		{"streamed over", big, true, http.StatusRequestEntityTooLarge},
-	} {
-		var body io.Reader = bytes.NewReader([]byte(tc.body))
-		if tc.chunked {
+	for _, chunked := range []bool{false, true} { // declared length, then streamed (chunked)
+		var body io.Reader = bytes.NewReader([]byte(big))
+		if chunked {
 			body = io.MultiReader(body) // hides the length: the request is sent chunked
 		}
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, st.MCPURL, body)
@@ -49,11 +41,11 @@ func TestBodyLimitThroughGateway(t *testing.T) {
 		req.Header.Set("Accept", "application/json, text/event-stream")
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			t.Fatalf("%s: %v", tc.name, err)
+			t.Fatalf("chunked=%v: %v", chunked, err)
 		}
 		_ = resp.Body.Close()
-		if resp.StatusCode != tc.want {
-			t.Errorf("%s: status %d, want %d", tc.name, resp.StatusCode, tc.want)
+		if resp.StatusCode != http.StatusRequestEntityTooLarge {
+			t.Errorf("chunked=%v: status %d, want 413", chunked, resp.StatusCode)
 		}
 	}
 }
