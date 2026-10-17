@@ -1,0 +1,118 @@
+# Default values: Redis holds idempotency records, rate limits and budgets. values-dynamodb.yaml
+# moves idempotency records to DynamoDB. Postgres, Redis and the token issuer run outside the chart.
+
+replicaCount: 2
+
+image:
+  repository: ghcr.io/robertg99/mcp-gateway
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# Name of a Secret created outside the chart (secrets come from the environment only). Keys:
+# MCPGW_DATABASE_URL, MCPGW_MIGRATE_DATABASE_URL, MCPGW_REDIS_URL, MCPGW_APPROVAL_WEBHOOK_SECRET,
+# MCPGW_CONSOLE_SESSION_KEY and, for the migrate Job, MCPGW_APP_DB_PASSWORD,
+# MCPGW_READONLY_DB_PASSWORD, MCPGW_UPSTREAM_DB_PASSWORD. See docs/runbook.md.
+existingSecret: mcp-gateway
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+auth:
+  jwksURL: https://issuer.example.com/.well-known/jwks.json
+  issuer: https://issuer.example.com
+  audience: mcp-gateway
+
+idempotency:
+  store: redis
+  dynamodb:
+    table: mcpgw_idempotency
+    region: us-east-1
+    endpoint: ""
+
+approvals:
+  webhookURL: ""
+  ttl: 15m
+
+injection:
+  mode: mark
+  threshold: "0.5"
+
+otel:
+  endpoint: ""
+
+logLevel: info
+
+# More non-secret MCPGW_* variables (docs/DEVELOPMENT.md lists them), e.g. MCPGW_UPSTREAM_TIMEOUT: 10s.
+extraEnv: {}
+
+# Rendered into upstreams.yaml (same format as config/upstreams.yaml).
+upstreams:
+  - name: ledger
+    url: http://upstream-ledger:8213/mcp
+  - name: crm
+    url: http://upstream-crm:8214/mcp
+  - name: orders
+    url: http://upstream-orders:8215/mcp
+
+# Rendered into tenants.yaml (same format as config/tenants.yaml).
+tenants:
+  t_alpha:
+    rate_per_second: 2000
+    burst: 4000
+    agent_rate_per_second: 2000
+    agent_burst: 4000
+    daily_budget: 5000000
+
+policies:
+  # ConfigMap holding the Rego bundle (policies/*.rego and data/*.json, flattened by
+  # `kubectl create configmap --from-file`). Empty uses the bundle built into the image. The gateway
+  # reloads it when the mounted files change; a broken bundle keeps the previous one.
+  existingConfigMap: ""
+
+migrations:
+  # Pre-install and pre-upgrade Job running `mcp-gateway migrate up`.
+  enabled: true
+
+service:
+  type: ClusterIP
+  ports:
+    admin: 8200
+    mcp: 8210
+    metrics: 8211
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+networkPolicy:
+  enabled: true
+  # Peers allowed to reach the MCP (8210) and admin (8200) ports; empty allows pods in the release
+  # namespace only.
+  ingressFrom: []
+  # Peers allowed to scrape metrics (8211).
+  metricsFrom:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: monitoring
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

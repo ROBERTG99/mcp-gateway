@@ -1,0 +1,122 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mcpgw.fullname" . }}
+  labels:
+    {{- include "mcpgw.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "mcpgw.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "mcpgw.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "mcpgw.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- include "mcpgw.podSecurityContext" . | nindent 8 }}
+      # The gateway drains the audit buffer within MCPGW_SHUTDOWN_TIMEOUT (10 s) on SIGTERM.
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: gateway
+          image: {{ include "mcpgw.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["serve"]
+          securityContext:
+            {{- include "mcpgw.containerSecurityContext" . | nindent 12 }}
+          ports:
+            - { name: admin, containerPort: 8200, protocol: TCP }
+            - { name: mcp, containerPort: 8210, protocol: TCP }
+            - { name: metrics, containerPort: 8211, protocol: TCP }
+          env:
+            - name: MCPGW_NODE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - { name: MCPGW_UPSTREAMS_FILE, value: /etc/mcp-gateway/upstreams.yaml }
+            - { name: MCPGW_TENANTS_FILE, value: /etc/mcp-gateway/tenants.yaml }
+            {{- if .Values.policies.existingConfigMap }}
+            - { name: MCPGW_POLICY_DIR, value: /etc/mcp-gateway/policies }
+            {{- end }}
+            - { name: MCPGW_JWKS_URL, value: {{ .Values.auth.jwksURL | quote }} }
+            - { name: MCPGW_JWT_ISSUER, value: {{ .Values.auth.issuer | quote }} }
+            - { name: MCPGW_JWT_AUDIENCE, value: {{ .Values.auth.audience | quote }} }
+            - { name: MCPGW_IDEMPOTENCY_STORE, value: {{ .Values.idempotency.store | quote }} }
+            {{- if eq .Values.idempotency.store "dynamodb" }}
+            - { name: MCPGW_DYNAMODB_TABLE, value: {{ .Values.idempotency.dynamodb.table | quote }} }
+            - { name: MCPGW_DYNAMODB_REGION, value: {{ .Values.idempotency.dynamodb.region | quote }} }
+            {{- with .Values.idempotency.dynamodb.endpoint }}
+            - { name: MCPGW_DYNAMODB_ENDPOINT, value: {{ . | quote }} }
+            {{- end }}
+            {{- end }}
+            - { name: MCPGW_APPROVAL_WEBHOOK_URL, value: {{ .Values.approvals.webhookURL | quote }} }
+            - { name: MCPGW_APPROVAL_TTL, value: {{ .Values.approvals.ttl | quote }} }
+            - { name: MCPGW_INJECTION_MODE, value: {{ .Values.injection.mode | quote }} }
+            - { name: MCPGW_INJECTION_THRESHOLD, value: {{ .Values.injection.threshold | quote }} }
+            - { name: MCPGW_OTEL_ENDPOINT, value: {{ .Values.otel.endpoint | quote }} }
+            - { name: MCPGW_LOG_LEVEL, value: {{ .Values.logLevel | quote }} }
+            - { name: MCPGW_CONSOLE_SECURE_COOKIES, value: "true" }
+            {{- range $k, $v := .Values.extraEnv }}
+            - { name: {{ $k }}, value: {{ $v | quote }} }
+            {{- end }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.existingSecret }}
+          readinessProbe:
+            httpGet: { path: /readyz, port: admin }
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: { path: /healthz, port: admin }
+            periodSeconds: 10
+            failureThreshold: 3
+          startupProbe:
+            httpGet: { path: /healthz, port: admin }
+            periodSeconds: 1
+            failureThreshold: 30
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - { name: config, mountPath: /etc/mcp-gateway, readOnly: true }
+            {{- if .Values.policies.existingConfigMap }}
+            - { name: policies, mountPath: /etc/mcp-gateway/policies, readOnly: true }
+            {{- end }}
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "mcpgw.fullname" . }}
+        {{- with .Values.policies.existingConfigMap }}
+        - name: policies
+          configMap:
+            name: {{ . }}
+        {{- end }}
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
