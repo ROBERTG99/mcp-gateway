@@ -24,15 +24,15 @@
     </nav>
     <div class="who">
       <span>Signed in as <strong>{{.Principal.Agent}}</strong> ({{.PersonaTitle}}, {{tenantLabel .Principal.Tenant}})</span>
-      <button type="button" id="theme-toggle" aria-pressed="false" hidden>Toggle theme</button>
+      <button type="button" id="theme-toggle" aria-pressed="false" hidden>Dark theme</button>
       <form method="post" action="/console/signout"><input type="hidden" name="csrf" value="{{.CSRF}}"><button type="submit">Sign out</button></form>
     </div>
     {{end}}
   </div>
 </header>
 <main id="content" aria-busy="false">
-  <p class="loading" id="loading" hidden>Loading…</p>
-  {{if .Error}}<div class="banner" role="alert"><strong>{{if .ErrorTitle}}{{.ErrorTitle}}{{else}}Something went wrong.{{end}}</strong> {{.Error}}{{if .RetryURL}} <a href="{{.RetryURL}}">{{if .RetryLabel}}{{.RetryLabel}}{{else}}Retry{{end}}</a>{{end}}</div>{{end}}
+  <div aria-live="polite"><p class="loading" id="loading" hidden>Loading…</p></div>
+  {{if .Error}}<div class="banner" role="alert" tabindex="-1" id="error"><strong>{{if .ErrorTitle}}{{.ErrorTitle}}{{else}}Something went wrong.{{end}}</strong> {{.Error}}{{if .RetryURL}} <a href="{{.RetryURL}}">{{if .RetryLabel}}{{.RetryLabel}}{{else}}Retry{{end}}</a>{{end}}</div>{{end}}
   {{if .Flash}}<div class="banner ok" role="status" tabindex="-1" id="flash">{{.Flash}}</div>{{end}}
   {{template "content" .}}
 </main>

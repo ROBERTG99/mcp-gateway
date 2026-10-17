@@ -37,7 +37,10 @@
       });
     });
     window.addEventListener("pageshow", function () { busy(false); });
-    var flash = document.getElementById("flash");
-    if (flash) flash.focus();
+    // A navigation cancelled with Esc never fires pageshow: clear the state when the page is shown.
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) busy(false); });
+    setInterval(function () { if (!document.hidden && main && main.getAttribute("aria-busy") === "true") busy(false); }, 15000);
+    var target = document.getElementById("error") || document.getElementById("flash") || document.getElementById("result");
+    if (target) target.focus();
   });
 })();

@@ -13,6 +13,10 @@
     <dt>Expires</dt><dd><span class="mono">{{ts .ExpiresAt}}</span> ({{.ExpiresIn}})</dd>
   </dl>
 </section>
+<section class="card">
+  <h2 class="flush">Arguments <span class="chip">agent-supplied, redacted</span></h2>
+  <pre>{{pretty .ArgsRedacted}}</pre>
+</section>
 {{if .CanDecide}}
 <div class="decide">
 <form method="post" action="/console/approvals/{{.ID}}/approve" class="card" aria-labelledby="approve-h">
@@ -34,10 +38,6 @@
 {{else if eq .Status "pending"}}
 <p class="muted">Only an approver of {{tenantLabel .Tenant}} can decide this approval.</p>
 {{end}}
-<section class="card">
-  <h2 class="flush">Arguments <span class="chip">agent-supplied, redacted</span></h2>
-  <pre>{{pretty .ArgsRedacted}}</pre>
-</section>
 <section class="card">
 <h2 class="flush">Details</h2>
 <dl class="fields">

@@ -87,21 +87,41 @@ test("empty state explains what to do", async ({ page }) => {
   await expectAccessible(page);
 });
 
-test.describe("375px lists", () => {
-  test.use({ viewport: { width: 375, height: 900 } });
+for (const width of [375, 768]) {
+  test.describe(`${width}px lists`, () => {
+    test.use({ viewport: { width, height: 900 } });
 
-  // Rows stack as labelled cards: no list table overflows sideways, and the chip is on screen.
-  test("every list column is visible without horizontal scrolling", async ({ page }) => {
-    const noSidewaysScroll = async () => {
-      const overflow = await page.locator(".table-wrap").evaluate((el) => el.scrollWidth - el.clientWidth);
-      expect(overflow).toBeLessThanOrEqual(0);
-    };
-    await holdRefund();
-    await signIn(page, "approver");
-    for (const path of ["/console/approvals", "/console/audit", "/console/upstreams"]) {
-      await page.goto(path);
-      await noSidewaysScroll();
-    }
-    await expect(page.locator("main .chip", { hasText: "untrusted output" }).first()).toBeInViewport();
+    // Rows stack as labelled cards: no list table overflows sideways, and the chip is on screen.
+    test("every list column is visible without horizontal scrolling", async ({ page }) => {
+      const noSidewaysScroll = async () => {
+        const overflow = await page.locator(".table-wrap").evaluate((el) => el.scrollWidth - el.clientWidth);
+        expect(overflow).toBeLessThanOrEqual(0);
+      };
+      await holdRefund();
+      await signIn(page, "approver");
+      for (const path of ["/console/approvals", "/console/audit", "/console/upstreams"]) {
+        await page.goto(path);
+        await noSidewaysScroll();
+      }
+      await expect(page.locator("main .chip", { hasText: "untrusted output" }).first()).toBeInViewport();
+    });
   });
+}
+
+// The selected status filter and policy example look different from the others, not only to
+// assistive technology (aria-current).
+test("selected filter and example are visibly marked", async ({ page }) => {
+  await signIn(page, "approver");
+  for (const path of ["/console/approvals", "/console/policy?example=refund-small"]) {
+    await page.goto(path);
+    const current = page.locator(".tabs a[aria-current]").first();
+    const other = page.locator(".tabs a:not([aria-current])").first();
+    const style = (loc: typeof current) =>
+      loc.evaluate((el) => {
+        const cs = getComputedStyle(el);
+        return `${cs.borderTopColor}|${cs.backgroundColor}|${cs.fontWeight}`;
+      });
+    expect(await style(current)).not.toEqual(await style(other));
+  }
+  await expectAccessible(page);
 });

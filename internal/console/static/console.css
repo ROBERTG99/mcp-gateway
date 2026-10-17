@@ -74,8 +74,9 @@ footer { max-width: 1280px; margin: var(--space-6) auto; padding: 0 var(--space-
 caption { text-align: left; padding: var(--space-2) var(--space-3); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .tabs ul { display: flex; flex-wrap: wrap; gap: var(--space-2); list-style: none; padding: 0; margin: 0 0 var(--space-4); }
-.tabs a { display: inline-block; padding: var(--space-1) var(--space-3); border: 1px solid var(--line); border-radius: 999px; color: var(--ink); text-decoration: none; }
-.tabs a[aria-current="page"] { border-color: var(--accent); font-weight: 600; }
+.tabs a { display: inline-block; min-height: 44px; line-height: 1.5; padding: 0.6rem var(--space-3); border: 1px solid var(--ink-muted); border-radius: 999px; color: var(--ink); text-decoration: none; }
+/* The selected filter or example: accent border, tinted fill and weight, not colour alone. */
+.tabs a[aria-current] { border: 2px solid var(--accent); background: var(--surface-2); font-weight: 700; }
 .decide { display: grid; gap: var(--space-4); grid-template-columns: 1fr; }
 @media (min-width: 768px) { .decide { grid-template-columns: 1fr 1fr; } }
 ul.rules { list-style: none; padding: 0; margin: 0; }
@@ -85,12 +86,11 @@ textarea.code { min-height: 280px; font-family: var(--font-mono); font-size: 0.8
 .status.replayed, .status.closed { border-color: var(--ink-muted); background: var(--surface-2); }
 .banner.warn { border-left-color: var(--hold); background: var(--hold-bg); }
 .nowrap { white-space: nowrap; }
-/* Below 768 px list tables stack every row as a labelled card, so no column needs a sideways scroll. */
-@media (max-width: 767px) {
+/* Below 1024 px list tables stack every row as a labelled card, so no column needs a sideways scroll. */
+@media (max-width: 1023px) {
   table.cards thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   table.cards, table.cards tbody, table.cards tr, table.cards td, table.cards caption { display: block; width: 100%; }
   table.cards tr { border-bottom: 1px solid var(--line); padding: var(--space-2) 0; }
   table.cards td { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); gap: var(--space-2); border: 0; padding: var(--space-1) var(--space-3); overflow-wrap: anywhere; }
-  table.cards td::before { content: attr(data-label); font-weight: 600; color: var(--ink-muted); }
+  table.cards td::before { content: attr(data-label); font-family: var(--font-sans); font-weight: 600; color: var(--ink-muted); }
 }
-.tabs a { min-height: 44px; display: inline-flex; align-items: center; }
