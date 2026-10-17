@@ -334,7 +334,7 @@ All six rules are in `deploy/prometheus/alerts.yaml` and are tested by `make pro
 - `rate(mcpgw_audit_rejections_total[5m])`: is the gateway already refusing calls?
 - Is `AuditFlushSLO` also firing? That points at slow Postgres writes.
 - `/readyz`: `postgres` unreachable, or `audit: sequence not allocated yet`.
-- Postgres: connections, disk, locks, replication lag. All replicas append to one chain under one advisory lock (`internal/audit/postgres.go:122`).
+- Postgres: connections, disk, locks, replication lag. All replicas append to one chain under one advisory lock (`internal/audit/postgres.go:120`).
 - Pod logs for audit writer errors.
 - A flood from one agent: `mcpgw_tool_calls_total` by `tenant` and `status`. Malformed calls also take audit slots (`docs/security.md`, "Limits and their edges").
 
@@ -422,7 +422,7 @@ All six rules are in `deploy/prometheus/alerts.yaml` and are tested by `make pro
 **First checks.**
 
 - Postgres write latency, CPU, disk and connection counts.
-- Several replicas writing at once: they take turns on one advisory lock (`internal/audit/postgres.go:122`).
+- Several replicas writing at once: they take turns on one advisory lock (`internal/audit/postgres.go:120`).
 - `mcpgw_audit_buffer_depth`: is it growing?
 - Batch settings: `MCPGW_AUDIT_BATCH` (default 500) and `MCPGW_AUDIT_FLUSH_INTERVAL` (default 50ms).
 

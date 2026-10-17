@@ -32,21 +32,21 @@ See `docs/adr/0008-upstream-side-dedup-second-idempotency-layer.md`.
 
 ## 3. How does one audit chain stay consistent across replicas?
 
-Each replica queues events in memory and appends them in batches. Every batch runs in one Postgres transaction that first takes a fixed advisory lock (`internal/audit/postgres.go:17-18`, `internal/audit/postgres.go:122`). Under the lock it reads the newest row, extends the chain from there and commits (`internal/audit/postgres.go:126-132`, `internal/audit/postgres.go:140-154`, `internal/audit/event.go:222-235`). Unique constraints on `chain_pos` and `hash` make a fork fail loudly (`migrations/00002_audit.sql:9`, `migrations/00002_audit.sql:23`).
+Each replica queues events in memory and appends them in batches. Every batch runs in one Postgres transaction that first takes a fixed advisory lock (`internal/audit/postgres.go:17-18`, `internal/audit/postgres.go:120`). Under the lock it reads the newest row, extends the chain from there and commits (`internal/audit/postgres.go:124-130`, `internal/audit/postgres.go:138-152`, `internal/audit/event.go:222-235`). Unique constraints on `chain_pos` and `hash` make a fork fail loudly (`migrations/00002_audit.sql:9`, `migrations/00002_audit.sql:23`).
 
-Sequence numbers come from a Postgres sequence, fetched in blocks (`internal/audit/postgres.go:228-344`). A `seq` is given when the call starts, and `chain_pos` when the batch is written. The two orders can differ, so `chain_pos` is a separate column that is not in the JSON (`internal/audit/event.go:29`). A test runs two writers against one database (`internal/audit/postgres_test.go:23-45`). A batch whose commit succeeded but whose acknowledgement was lost is recognised on retry (`internal/audit/postgres.go:29-70`).
+Sequence numbers come from a Postgres sequence, fetched in blocks (`internal/audit/postgres.go:226-345`). A `seq` is given when the call starts, and `chain_pos` when the batch is written. The two orders can differ, so `chain_pos` is a separate column that is not in the JSON (`internal/audit/event.go:29`). A test runs two writers against one database (`internal/audit/postgres_test.go:23-45`). A batch whose commit succeeded but whose acknowledgement was lost is recognised on retry (`internal/audit/postgres.go:29-68`).
 
 Trade-off: the lock serialises all appends. Batching keeps it off the request path. For throughput see `docs/perf/README.md`.
 
 ## 4. What does `audit verify` prove, and what does it not?
 
-It walks the chain in `chain_pos` order from the genesis hash. For every row, the stored hash must equal the SHA-256 of the previous hash plus the canonical JSON of the row, and `chain_pos` must have no gap (`internal/audit/postgres.go:183-226`, `internal/audit/event.go:199-220`). It prints the first bad `seq` (`cmd/mcp-gateway/audit.go:44-49`). The integration test edits and deletes rows as a superuser, past the append-only trigger, and expects a failure (`cmd/mcp-gateway/audit_integration_test.go:63-101`, `migrations/00002_audit.sql:30-43`).
+It walks the chain in `chain_pos` order from the genesis hash. For every row, the stored hash must equal the SHA-256 of the previous hash plus the canonical JSON of the row, and `chain_pos` must have no gap (`internal/audit/postgres.go:181-224`, `internal/audit/event.go:199-220`). It prints the first bad `seq` (`cmd/mcp-gateway/audit.go:44-49`). The integration test edits and deletes rows as a superuser, past the append-only trigger, and expects a failure (`cmd/mcp-gateway/audit_integration_test.go:63-101`, `migrations/00002_audit.sql:30-43`).
 
 It does not prove:
 
 - That the newest rows are all still there. Nothing outside the table records the head hash, so deleting the last rows goes unseen (`docs/KNOWN_LIMITATIONS.md`). The command prints the head hash (`cmd/mcp-gateway/audit.go:48`); storing it elsewhere is the mitigation.
 - That the whole chain was not rewritten. The hash has no secret key (`internal/audit/event.go:178-188`).
-- Anything before the start row when `--from-seq` is used. It trusts that row's `prev_hash` (`internal/audit/postgres.go:194-196`, `internal/audit/event.go:204-206`).
+- Anything before the start row when `--from-seq` is used. It trusts that row's `prev_hash` (`internal/audit/postgres.go:192-194`, `internal/audit/event.go:204-206`).
 - That every call was recorded. A call rejected with `-32048` is not audited, and unflushed events die with a crash.
 
 ## 5. How do you test default deny?
@@ -76,11 +76,11 @@ Trade-offs:
 
 An approval names the exact call: tenant, agent, server, tool, the SHA-256 of the canonical arguments and the idempotency key (`internal/approvals/store.go:55-66`, `internal/pipeline/pipeline.go:302-306`). When the policy says `require_approval`, the first call creates a pending approval and a webhook row in one transaction. A unique index folds identical concurrent holds into one (`internal/approvals/postgres.go:59-88`, `migrations/00005_approvals_one_pending.sql:13-14`).
 
-An approver needs `mcpgw:approve` and the approval's tenant, and may not approve a call it made itself (`internal/approvals/service.go:154-169`). The agent then retries with `_meta.approval_id` and the same key. `Consume` locks the row, checks the binding and marks it consumed in one transaction (`internal/approvals/postgres.go:176-209`, `internal/approvals/store.go:148-168`). Any field that differs gives `approval_mismatch`.
+An approver needs `mcpgw:approve` and the approval's tenant, and may not approve a call it made itself (`internal/approvals/service.go:154-157`, `internal/approvals/postgres.go:149-151`). The agent then retries with `_meta.approval_id` and the same key. `Consume` locks the row, checks the binding and marks it consumed in one transaction (`internal/approvals/postgres.go:179-212`, `internal/approvals/store.go:149-169`). Any field that differs gives `approval_mismatch`.
 
-The policy then runs again. An approval lifts only a hold, and a deny still wins (`internal/pipeline/approval.go:57-69`, `policies/authz.rego:12-20`). Test: `internal/pipeline/approval_test.go:139-175`.
+The policy then runs again. An approval lifts only a hold, and a deny still wins (`internal/pipeline/approval.go:57-72`, `policies/authz.rego:12-20`). Test: `internal/pipeline/approval_test.go:139-175`.
 
-Self-approval is refused: `Decide` compares the approver with the held call's tenant and agent before approving (the agent may still withdraw its own hold by rejecting it) (`internal/approvals/service.go:157-169`, tested in `TestDecideRBACAndAudit`). Another principal of the same tenant with `mcpgw:approve` can still approve, so keep that scope for people, not agent tokens.
+Self-approval is refused: the store's atomic `Decide` compares the approver with the held call's agent before approving (the agent may still withdraw its own hold by rejecting it) (`internal/approvals/postgres.go:149-151`, tested in `TestDecideRBACAndAudit`). Another principal of the same tenant with `mcpgw:approve` can still approve, so keep that scope for people, not agent tokens.
 
 ## 8. What happens when Redis goes down?
 
@@ -119,7 +119,7 @@ Limits:
 
 The tenant comes from the verified JWT and nowhere else (`internal/authn/verifier.go:79-117`). The pipeline uses that principal for the policy input, rate limits, idempotency and the audit event (`internal/pipeline/pipeline.go:395-399`, `internal/pipeline/pipeline.go:363`, `internal/pipeline/idempotency.go:55`, `internal/pipeline/pipeline.go:339-341`). The `_meta` sent upstream is built fresh, so client-supplied values are not copied (`internal/pipeline/pipeline.go:417-426`).
 
-Shared stores key on the tenant (`internal/idempotency/redis.go:23`, `internal/ratelimit/redis.go:70`). The policy checks a per-tenant upstream allowlist (`policies/authz.rego:35`, `policies/data/tenants.json:2-4`). Other tenants' approvals look missing (`internal/approvals/store.go:151-152`). Admin queries force the viewer's tenant, and foreign audit events return not found (`internal/admin/admin.go:171-173`, `internal/admin/admin.go:233-238`). Upstream helpers require a tenant, and the example queries filter on it (`pkg/mcpserver/mcpserver.go:128-130`, `internal/upstreams/orders.go:62-63`).
+Shared stores key on the tenant (`internal/idempotency/redis.go:23`, `internal/ratelimit/redis.go:70`). The policy checks a per-tenant upstream allowlist (`policies/authz.rego:35`, `policies/data/tenants.json:2-4`). Other tenants' approvals look missing (`internal/approvals/store.go:152-153`). Admin queries force the viewer's tenant, and foreign audit events return not found (`internal/admin/admin.go:171-173`, `internal/admin/admin.go:233-238`). Upstream helpers require a tenant, and the example queries filter on it (`pkg/mcpserver/mcpserver.go:128-130`, `internal/upstreams/orders.go:62-63`).
 
 Limits: tenants share one Postgres, one Redis and one policy bundle, and I found no row-level security. An upstream trusts the tenant in `_meta.mcpgw`, so it must be reachable only from the gateway.
 
@@ -141,7 +141,7 @@ Every call reserves an audit slot first, reads included (`internal/pipeline/pipe
 
 The writer keeps failed batches and retries them (`internal/audit/writer.go:164-200`). One event the database refuses is replaced by a placeholder so it cannot stall the log (`internal/audit/writer.go:251-262`). Tests: `internal/audit/writer_test.go:138-160`, `internal/pipeline/audit_test.go:132-147`, which also checks the upstream was not called. The counter is `mcpgw_audit_rejections_total` (`internal/telemetry/metrics.go:58`).
 
-Trade-off: audit completeness wins over availability. In a Postgres outage, once the prefetched sequence block is used (`internal/audit/postgres.go:255-260`, `internal/server/server.go:136`) or the queue is full, every call fails, reads too. A rejected call is not audited (`docs/KNOWN_LIMITATIONS.md`).
+Trade-off: audit completeness wins over availability. In a Postgres outage, once the prefetched sequence block is used (`internal/audit/postgres.go:253-258`, `internal/server/server.go:136`) or the queue is full, every call fails, reads too. A rejected call is not audited (`docs/KNOWN_LIMITATIONS.md`).
 
 ## 14. Can a team add an upstream in a day?
 
@@ -153,7 +153,7 @@ The steps are in `.claude/skills/add-upstream-server/SKILL.md:8-12`:
 - Allow it per tenant in `policies/data/tenants.json:2-4`. Scopes `<server>:read` and `<server>:write` work with no new rule (`policies/authz.rego:37-43`).
 - Tools appear as `<server>.<tool>` (`internal/catalog/catalog.go:49-50`).
 
-`tests/integration/add_upstream_test.go:49-158` does this for an echo upstream. It checks the tool is visible only to an allowed tenant with the scope, that output is marked untrusted, and that the call is audited.
+`tests/integration/add_upstream_test.go:34-143` does this for an echo upstream. It checks the tool is visible only to an allowed tenant with the scope, that output is marked untrusted, and that the call is audited.
 
 For a write system, the upstream must also:
 
@@ -166,10 +166,10 @@ Caveat: the gateway reads `upstreams.yaml` once at start (`internal/server/serve
 
 This is design only. Nothing in the repository is region aware. The only "region" is the AWS SDK setting for DynamoDB (`internal/config/config.go:57`). A multi-region deployment would need these changes:
 
-- **Audit chain.** One advisory lock, one sequence and one chain per database (`internal/audit/postgres.go:17-18`, `internal/audit/postgres.go:122`, `internal/audit/postgres.go:326`). A lock cannot span regions. The likely design is one chain per region, with head hashes anchored elsewhere. `VerifyPostgres` and the admin audit view would change.
+- **Audit chain.** One advisory lock, one sequence and one chain per database (`internal/audit/postgres.go:17-18`, `internal/audit/postgres.go:120`, `internal/audit/postgres.go:327`). A lock cannot span regions. The likely design is one chain per region, with head hashes anchored elsewhere. `VerifyPostgres` and the admin audit view would change.
 - **Idempotency.** DynamoDB conditional writes are atomic within one region. Global tables replicate asynchronously, so two regions could both acquire a key (`internal/idempotency/dynamodb.go:92-97`). The safe option is a home region per tenant for writes, with upstream dedup as the backstop. Redis keys are local too (`internal/idempotency/redis.go:23`).
 - **Rate limits and budgets.** Redis counters are per region (`internal/ratelimit/redis.go:70`). Use per-region budgets or the same home region.
-- **Approvals.** Row locks assume a single primary (`internal/approvals/postgres.go:176-209`).
+- **Approvals.** Row locks assume a single primary (`internal/approvals/postgres.go:179-212`).
 - **Policy and catalog.** Both load per instance (`internal/policy/policy.go:155-176`, `internal/server/server.go:68`). Rollout would need to compare bundle hashes (`internal/policy/policy.go:110-116`).
 - **Sessions.** They live in each replica's memory (`internal/proxy/proxy.go:77-78`).
 
