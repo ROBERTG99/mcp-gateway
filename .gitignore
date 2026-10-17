@@ -52,3 +52,5 @@ e2e/playwright-report/
 /demo-agent
 /dev-issuer
 /upstream-*
+/bench.out
+/loadtest.json

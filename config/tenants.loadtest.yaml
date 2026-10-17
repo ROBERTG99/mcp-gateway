@@ -1,0 +1,22 @@
+# Tenants for `make loadtest` (NFR-2): as config/tenants.yaml, but t_alpha's token buckets are far
+# above the target rate, so the test measures the gateway rather than the configured limit. The
+# rate-limit stage still runs on every call (Redis), and t_beta and t_gamma keep their limits.
+tenants:
+  t_alpha:
+    rate_per_second: 1000000
+    burst: 1000000
+    agent_rate_per_second: 1000000
+    agent_burst: 1000000
+    daily_budget: 100000000
+  t_beta:
+    rate_per_second: 5
+    burst: 10
+    agent_rate_per_second: 5
+    agent_burst: 10
+    daily_budget: 1000
+  t_gamma:
+    rate_per_second: 50
+    burst: 100
+    agent_rate_per_second: 25
+    agent_burst: 50
+    daily_budget: 20000

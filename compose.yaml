@@ -150,6 +150,7 @@ services:
     environment:
       MCPGW_DATABASE_URL: postgres://mcpgw_app:${MCPGW_APP_DB_PASSWORD:-mcpgw_app}@postgres:5432/mcpgw?sslmode=disable&pool_max_conns=32
       MCPGW_UPSTREAMS_FILE: /config/upstreams.yaml
+      MCPGW_TENANTS_FILE: ${MCPGW_TENANTS_FILE:-/config/tenants.yaml}
       MCPGW_JWKS_URL: http://dev-issuer:8212/.well-known/jwks.json
       MCPGW_DEV_ISSUER_URL: http://dev-issuer:8212
       MCPGW_REDIS_URL: redis://redis:6379/0

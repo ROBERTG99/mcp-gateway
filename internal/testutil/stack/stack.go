@@ -61,6 +61,7 @@ type Stack struct {
 	App       *server.App
 	DB        *pgxpool.Pool // superuser pool on the test database
 	Sink      *Sink
+	Config    config.Config // the gateway's configuration (dependencies of a second App)
 }
 
 // Root is the repository root.
@@ -163,6 +164,7 @@ func Start(t testing.TB, opts Options) *Stack {
 	if opts.LogWriter != nil {
 		logger = telemetry.NewLogger(opts.LogWriter, "debug")
 	}
+	st.Config = cfg
 	st.App, err = server.New(ctx, cfg, logger)
 	if err != nil {
 		t.Fatal(err)

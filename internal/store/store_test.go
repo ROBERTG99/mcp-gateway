@@ -82,7 +82,7 @@ func TestMigrateUpDown(t *testing.T) {
 func TestMigrateOnePendingDedups(t *testing.T) {
 	ctx := t.Context()
 	db := pgtest.New(t)
-	for _, cmd := range []string{"up", "down"} { // down rolls back 00005 only
+	for _, cmd := range []string{"up", "down", "down"} { // the downs roll back 00006, then 00005
 		if err := store.Migrate(ctx, db.URL, cmd, io.Discard); err != nil {
 			t.Fatal(err)
 		}
@@ -110,5 +110,35 @@ func TestMigrateOnePendingDedups(t *testing.T) {
 	}
 	if pending != "00000000-0000-4000-8000-000000000003" {
 		t.Fatalf("pending after migration = %q, want only the newest", pending)
+	}
+}
+
+// TestRefundTotalsUseIndex: per-order refund totals (orders.get_order, refund_order) can use the
+// (tenant, order_id) index of migration 00006 instead of scanning every refund.
+func TestRefundTotalsUseIndex(t *testing.T) {
+	ctx := t.Context()
+	db := pgtest.New(t)
+	if err := store.Migrate(ctx, db.URL, "up", io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	conn, err := pgx.Connect(ctx, db.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = conn.Close(ctx) }()
+	if _, err := conn.Exec(ctx, "SET enable_seqscan = off"); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := conn.Query(ctx, `EXPLAIN (FORMAT TEXT) SELECT COALESCE(sum(amount_cents), 0) FROM orders.refunds
+		WHERE tenant = 't_alpha' AND order_id = 'O-00001'`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan := strings.Join(lines, "\n"); !strings.Contains(plan, "orders_refunds_order") {
+		t.Fatalf("plan does not use orders_refunds_order: %s", plan)
 	}
 }

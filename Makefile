@@ -40,6 +40,7 @@ SCOPES ?= ledger:read,ledger:write,crm:read,crm:write,orders:read,orders:write
 DEV_ISSUER_URL ?= http://localhost:8212
 GATEWAY_URL ?= http://localhost:8210/mcp
 ADMIN_URL ?= http://localhost:8200
+METRICS_URL ?= http://localhost:8211/metrics
 LIVE_EVAL_BUDGET_USD ?= 2
 
 .PHONY: help
@@ -182,13 +183,20 @@ e2e: ## Playwright and axe against the running stack
 	cd e2e && $(PNPM) exec playwright test
 
 .PHONY: bench
-bench: ## Benchmarks with budgets
-	$(GO) test -run '^$$' -bench . -benchtime=2000x -count=1 ./internal/pipeline/ ./internal/console/ | tee bench.out
+# BenchmarkAuditPage (NFR-8) needs Docker (testcontainers Postgres with 100,000 audit rows).
+bench: ## Benchmarks with budgets (NFR-1 overhead, NFR-8 console)
+	set -o pipefail; $(GO) test -tags=integration -run '^$$' -bench . -benchtime=2000x -count=1 ./internal/pipeline/ ./internal/console/ | tee bench.out
 	$(UV) run python scripts/bench_budget.py bench.out
 
 .PHONY: loadtest
-loadtest: ## Load test against the stack (NFR-2, NFR-7)
-	$(GO) run ./cmd/loadgen --mode load --gateway $(GATEWAY_URL) --issuer $(DEV_ISSUER_URL) --admin $(ADMIN_URL)
+# t_alpha's token buckets are raised (config/tenants.loadtest.yaml) so the run measures the gateway,
+# not the configured limit; the stack is restored afterwards. LOADTEST_ARGS: e.g. --duration 60s.
+LOADTEST_ENV = MCPGW_TENANTS_FILE=/config/tenants.loadtest.yaml
+loadtest: ## Load test against the stack (NFR-2, NFR-7); writes loadtest.json and checks budgets
+	$(LOADTEST_ENV) $(COMPOSE) up -d --wait gateway
+	$(GO) run ./cmd/loadgen --mode load --gateway $(GATEWAY_URL) --issuer $(DEV_ISSUER_URL) --metrics $(METRICS_URL) \
+	  --report loadtest.json $(LOADTEST_ARGS) && $(UV) run python scripts/bench_budget.py --load loadtest.json; \
+	  status=$$?; $(COMPOSE) up -d --wait gateway; exit $$status
 
 .PHONY: chaos
 # 10% of refund keys stall 3 s inside the orders upstream, past a 2 s gateway timeout; the breaker
@@ -247,5 +255,5 @@ docs: ## Regenerate diagrams, OpenAPI checks, frontend types and screenshots
 .PHONY: clean
 clean: ## Remove containers, volumes, caches and build outputs
 	-$(COMPOSE) --profile tools --profile dynamodb --profile observability --profile chaos down -v --remove-orphans
-	rm -rf dist coverage*.out coverage.html bench.out e2e/test-results e2e/playwright-report
+	rm -rf dist coverage*.out coverage.html bench.out loadtest.json e2e/test-results e2e/playwright-report
 	$(GO) clean -testcache

@@ -1,15 +1,21 @@
 // Command loadgen drives the gateway over MCP.
 //
 //	loadgen --mode chaos --gateway URL --issuer URL --admin URL --calls 10000 [--out evals/reports]
+//	loadgen --mode load --gateway URL --issuer URL --metrics URL [--duration 30s] [--report loadtest.json]
 //
 // Chaos mode (spec §11, chaos.v1) sends refunds with idempotency keys while the orders upstream
 // stalls a fraction of them past the gateway timeout (MCPGW_FAULT_TIMEOUT_RATE on upstream-orders),
 // retries like an agent, re-sends 20% of keys on purpose, and checks that every key executed once
 // and every call was audited. It writes <out>/chaos.v1.json (evalgate.report.v1).
+//
+// Load mode (NFR-2, NFR-7) calls the gateway as fast as it answers (80% reads, 20% refunds with
+// fresh keys), samples the gateway's RSS from its metrics endpoint and writes a JSON report that
+// scripts/bench_budget.py --load checks.
 package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -26,17 +32,36 @@ func main() { os.Exit(run(context.Background(), os.Args[1:], os.Stdout, os.Stder
 func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("loadgen", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	mode := fs.String("mode", "chaos", "chaos")
+	mode := fs.String("mode", "chaos", "chaos or load")
 	gateway := fs.String("gateway", "http://localhost:8210/mcp", "gateway MCP URL")
 	issuer := fs.String("issuer", "http://localhost:8212", "dev issuer URL")
 	admin := fs.String("admin", "http://localhost:8200", "admin API URL")
 	calls := fs.Int("calls", 10000, "logical calls")
 	concurrency := fs.Int("concurrency", 64, "parallel workers")
-	out := fs.String("out", "evals/reports", "report directory (empty: no report)")
+	out := fs.String("out", "evals/reports", "chaos: report directory (empty: no report)")
+	metrics := fs.String("metrics", "http://localhost:8211/metrics", "load: gateway metrics URL for RSS (empty: skip)")
+	duration := fs.Duration("duration", 30*time.Second, "load: measured period")
+	warmup := fs.Duration("warmup", 3*time.Second, "load: unmeasured period before it")
+	report := fs.String("report", "loadtest.json", "load: JSON report path")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	if *mode != "chaos" {
+	switch *mode {
+	case "chaos":
+	case "load":
+		res, err := loadgen.Load(ctx, loadgen.LoadConfig{GatewayURL: strings.TrimSuffix(*gateway, "/"), IssuerURL: *issuer,
+			MetricsURL: *metrics, Duration: *duration, Warmup: *warmup, Concurrency: *concurrency, Out: stdout})
+		if err != nil {
+			_, _ = fmt.Fprintln(stderr, "load:", err)
+			return 1
+		}
+		b, _ := json.MarshalIndent(res, "", "  ")
+		if err := os.WriteFile(*report, append(b, '\n'), 0o600); err != nil {
+			_, _ = fmt.Fprintln(stderr, err)
+			return 1
+		}
+		return 0
+	default:
 		_, _ = fmt.Fprintf(stderr, "unknown mode %q\n", *mode)
 		return 2
 	}

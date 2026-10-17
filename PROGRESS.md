@@ -10,6 +10,8 @@ Build tracker for `docs/specs/000-build-spec.md` (originally `BUILD.md`). Tasks 
 
 - **A 29.7 MB build artifact is in history.** Commit 6af1610 accidentally added the compiled `loadgen` binary at the repository root; it was untracked again in the following commit and the root binary names are now in `.gitignore`. Removing it from history needs a rewrite and a force-push, which the agent must not do; decide whether to rewrite before publishing.
 
+- **NFR-2 needs an 8-vCPU run.** The build machine has 4 vCPUs shared by the whole stack and the load generator; `make loadtest` reached 642.8 calls/s (CI budget >= 500 passes, NFR-2 >= 2,000 does not). Re-run `make loadtest` on an 8-vCPU machine, ideally with the load generator on another host, and update `docs/perf/` (details in `docs/KNOWN_LIMITATIONS.md`).
+
 ## Identity evidence (§1.1)
 
 `.claude/settings.json` and `.claude/rules/git-commits.md` were not pre-seeded (the initial commit contains only `BUILD.md`, `README.md`, `LICENSE`, `.gitignore`). The rule file was created and committed alone; see the item above for the settings file.
@@ -24,9 +26,9 @@ chore: configure commit attribution
 
 ## Resume here (handoff, 2026-10-17)
 
-**State:** T-01..T-39 done and pushed on `claude/build-md-execution-blkq3q`. Milestones M0-M5 reviewed "ship"; M6 is in progress (T-37..T-39 done). `make check-fast` is green; `go test -race -tags=integration ./...` passes with Docker; `make e2e` passes on the compose stack (48 Playwright tests).
+**State:** T-01..T-39 done and pushed on `claude/build-md-execution-blkq3q`; T-40 implemented and pushed, status "partial" only because NFR-2 (2,000 calls/s on 8 vCPUs) cannot be measured on this 4-vCPU machine (642.8 calls/s; see "Needs the maintainer"). Milestones M0-M5 reviewed "ship"; M6 (T-37..T-40) awaits its review. `make check-fast` is green; `go test -race -tags=integration ./...` passes with Docker; `make e2e` passes on the compose stack (48 Playwright tests).
 
-**Next:** T-40 (BenchmarkGatewayOverhead with `scripts/bench_budget.py`, loadgen `--mode load` for `make loadtest`, TestStartupUnder2s, RSS check), then the M6 review, then M7 (T-41..T-43), M8 (T-44..T-46), M9 (T-47..T-49). `docs/evaluation.md` is cited by `evals/REPORT.md` and must be written in T-46.
+**Next:** run the `reviewer` subagent on M6 (T-37..T-40) and fix its blockers, then M7 (T-41..T-43), M8 (T-44..T-46), M9 (T-47..T-49). `docs/evaluation.md` is cited by `evals/REPORT.md` and must be written in T-46.
 
 **Start of a new session (Claude Code on the web):**
 
@@ -43,7 +45,8 @@ chore: configure commit attribution
 - E2E (`e2e/`, pnpm): `tests/approvals.spec.ts` (keyboard-only approve, reject, reviewer 403), `tests/console.spec.ts` (axe at 375/1280 px, light/dark, screenshots to `docs/images/`). MCP calls use the session protocol (initialize, initialized, tools/call) against :8210.
 - Compose (`compose.yaml`): postgres 8220, redis 8230, approval-sink (WireMock) 8241, migrate, dev-issuer 8212, upstream-ledger/crm/orders 8213-8215, gateway 8200/8210/8211, profiles `dynamodb` and `tools`. Profile `observability` (Prometheus 8250, Grafana 8251, Jaeger 8253); `make chaos` reconfigures the stack. Missing: `compose.test.yaml` (T-41), `scripts/demo.sh` (T-44), `scripts/docs.sh` (video for `make docs`, T-46).
 - Evals (M5): datasets in `evals/datasets`, `go run ./cmd/evalgen run`, `make eval` gate, `make chaos`. Security: `docs/security.md`, `make security` (`scripts/security.sh`).
-- Not started: benchmarks/load test (T-40), Helm/CI (M7), docs (M8: README is still the placeholder; ADR 0002 exists), release (M9).
+- Performance (T-40): `make bench` (`internal/pipeline/bench_test.go`, console `BenchmarkAuditPage`, budgets in `scripts/bench_budget.py`), `make loadtest` (`loadgen --mode load`, `config/tenants.loadtest.yaml`, writes `loadtest.json`), results in `docs/perf/`. To profile the gateway, build a throwaway main that imports `net/http/pprof` and calls `server.Run` (not committed); per-process CPU via `/proc/<pid>/stat`.
+- Not started: Helm/CI (M7), docs (M8: README is still the placeholder; ADR 0002 exists), release (M9).
 
 **Gotchas learned:**
 
@@ -54,6 +57,8 @@ chore: configure commit attribution
 - `docker compose build -q` with `network: host` fails silently ("additional privileges requested"); build without `-q`.
 - Schemathesis: `./scripts/schemathesis.sh` (uvx schemathesis 4.31.1) needs the stack up; its cache `.schemathesis/` is ignored.
 - `/usr/local/bin/golangci-lint` is an old system binary; the Makefile puts `./bin` first in PATH. A concurrent golangci-lint (e.g. from a subagent) makes `make check-fast` fail with "parallel golangci-lint is running": retry.
+- `make eval` rewrites `evals/reports/*` and `evals/REPORT.md` with the current git SHA: commit code first, then run it and commit the reports separately so the SHA is not `-dirty`.
+- `pkill -f <name>` from the Bash tool can kill the tool's own shell (the pattern matches its command line): use `pgrep -x`.
 - Playwright 1.64 runs against the preinstalled `/opt/pw-browsers/chromium-1194` (`e2e/playwright.config.ts`); never `playwright install` in the cloud.
 
 ## Milestone reviews
@@ -110,7 +115,7 @@ chore: configure commit attribution
 | T-37 | Traces, logs, step records | M6 | done | go test -tags=integration -run TestSpanTreeForToolCall ./internal/telemetry: one trace has mcp.request, mcpgw.authn, mcpgw.policy.eval, mcpgw.idempotency, mcpgw.upstream.call, mcpgw.audit.enqueue, go-redis spans and the upstream's mcpserver.tool span under the upstream call; TestLogsCarryTraceID, TestStepRecord, TestMetaPropagation; collector config with T-38 |
 | T-38 | Metrics, alerts, dashboard | M6 | done | make promtool: 6 rules, alerts_test.yaml SUCCESS (audit buffer > 80%, policy load failure, upstream down, approval pending > 10 min); TestMetricsAfterToolCalls (all spec metrics with series), TestDashboardsUseExportedMetrics; make observability: Prometheus scrapes the gateway, rules loaded, Grafana dashboard provisioned, Jaeger shows traces spanning mcp-gateway, upstream-orders and upstream-crm |
 | T-39 | Security hardening and threat model | M6 | done | TestLimits (depth 32/33, schema violations -32602 before upstream, result > 4 MiB -32046 result_too_large, > 256 KiB forwarded not stored), TestBodyLimit (> 1 MiB -> 413), integration TestNoSecretsInLogs (tokens, cards, IBANs, emails absent; one step record per call) and TestProductionLoggerRedacts; breaker cooldown must exceed per-upstream timeouts; ./scripts/security.sh all ok except govulncheck not run (vuln.go.dev 403 via proxy), moby/go-archive v0.3.0; docs/security.md (STRIDE, OWASP LLM Top 10, accepted findings); go test -race -tags=integration ./... ok |
-| T-40 | Benchmarks and load test | M6 | todo | |
+| T-40 | Benchmarks and load test | M6 | partial | make bench: BenchmarkGatewayOverhead overhead p95 0.409 ms (NFR-1 < 5 ms), BenchmarkAuditPage p95 8.919 ms (NFR-8), docs/perf/bench.txt; TestStartupUnder2s ready after 14.7 ms (NFR-5); make loadtest (4 vCPU, whole stack + loadgen on one host): 642.8 calls/s, 0 errors, RSS max 87.3 MB (NFR-7 ok, CI budget >= 500 ok, NFR-2 >= 2000 NOT met on this hardware; docs/perf/loadtest.json, docs/KNOWN_LIMITATIONS.md); fixes from profiling: migration 00006 refunds index (TestRefundTotalsUseIndex), injection scorer prefilters + tokenizer (TestRulePrefiltersAreExact, TestTokensMatchRegexp, eval metrics unchanged); tests/bench 11 passed; TestLoadSmall |
 | T-41 | Compose stack and test-docker | M7 | todo | |
 | T-42 | Helm chart | M7 | todo | |
 | T-43 | CI and repository integrations | M7 | todo | |

@@ -23,3 +23,31 @@ The console signs in with the dev issuer's personas: there is no password and no
 ## Chaos eval parameters
 
 `make chaos` uses a 2 s gateway timeout, a 3 s stall on 10% of refund keys and a 5 s breaker cooldown so 10,000 calls finish in minutes (215 s on the last run, `evals/reports/chaos.v1.json`). Under those settings the run saw 1,620 upstream timeouts and 2,012 breaker rejections across 15,632 attempts; retries come both from those failures (3,632) and from 2,000 deliberate re-sends. The defaults (10 s timeout, 30 s cooldown) are not exercised by the chaos run.
+
+## Throughput below NFR-2 on the build machine
+
+NFR-2 asks for at least 2,000 calls/s on an 8-vCPU laptop. The only machine available to the build has 4 vCPUs and runs the whole stack plus the load generator. On it, `make loadtest` reached 642.8 calls/s with 0 errors and a gateway RSS of at most 87.3 MB (`docs/perf/loadtest.json`). That passes the CI budget (>= 500 calls/s, `scripts/bench_budget.py --ci`) and NFR-7, but not NFR-2.
+
+The machine is CPU-bound during the run. Per-process CPU during a host-run profile at 699 calls/s:
+
+- gateway: 1.44 cores, about 2 ms of CPU per call;
+- example upstreams: 0.83 cores;
+- load generator: 0.37 cores;
+- Docker's port proxy: 0.35 cores;
+- Postgres: 0.31 cores.
+
+Without the gateway, everything else already costs about 2.9 ms of CPU per call (2.04 cores at 699 calls/s, Redis and kernel workers included). That caps this machine near 1,400 calls/s whatever the gateway does. Two fixes came out of the profiling:
+
+- a missing index on refunds (migration 00006): Postgres used 1.1 cores before it;
+- literal prefilters and a hand-written tokenizer in the injection scorer: the same results, about 4 times less CPU (`BenchmarkScoreToolResult`, 0.77-0.82 ms to 0.18-0.19 ms per result).
+
+The remaining gateway cost is spread across:
+
+- the injection scorer (14%);
+- OPA evaluation (14%);
+- HTTP and the MCP SDK;
+- the upstream MCP client;
+- GC;
+- JWT verification.
+
+Under CPU saturation, the gateway's measured overhead (`mcpgw_overhead_seconds`) includes run-queue waiting, so the `GatewayOverheadSLO` alert can go pending during a load test on this machine. The in-process benchmark puts the gateway's own overhead at p95 0.409 ms (`docs/perf/bench.txt`). NFR-7's "at 2,000 calls/s" was therefore measured at 642.8 calls/s. NFR-2 needs a re-run on an 8-vCPU machine, ideally with the load generator on a separate host. This is listed under "Needs the maintainer".

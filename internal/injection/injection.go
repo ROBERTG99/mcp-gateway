@@ -68,38 +68,37 @@ func New(opts Options) *Scorer {
 }
 
 var (
-	overridePhrases = []*regexp.Regexp{
-		regexp.MustCompile(`\b(ignore|disregard|forget|skip|bypass|override)\s+(all\s+|any\s+|the\s+|your\s+|my\s+|of\s+)*(previous|prior|above|earlier|preceding|existing|original|system|current)\s+(instructions?|rules?|guidance|guidelines|messages?|prompts?|directions?|context|policies|policy)\b`),
-		regexp.MustCompile(`\b(ignore|disregard|forget)\s+(all|everything)\s+(above|before|previous(ly)?|prior)\b`),
-		regexp.MustCompile(`\b(ignore|disregard)\s+the\s+above\b`),
-		regexp.MustCompile(`\b(forget|disregard)\s+(your|all)\s+(previous\s+)?(guidance|instructions|rules|training)\b`),
-		regexp.MustCompile(`\bnew\s+(system\s+)?instructions?\s*:`),
-		regexp.MustCompile(`\byou\s+are\s+(now\s+)?(in\s+)?(an?\s+)?(admin|developer|debug|god|unrestricted|jailbreak|dan)\b`),
+	overridePhrases = []rule{
+		{re: regexp.MustCompile(`\b(ignore|disregard|forget|skip|bypass|override)\s+(all\s+|any\s+|the\s+|your\s+|my\s+|of\s+)*(previous|prior|above|earlier|preceding|existing|original|system|current)\s+(instructions?|rules?|guidance|guidelines|messages?|prompts?|directions?|context|policies|policy)\b`), any: []string{"ignore", "disregard", "forget", "skip", "bypass", "override"}},
+		{re: regexp.MustCompile(`\b(ignore|disregard|forget)\s+(all|everything)\s+(above|before|previous(ly)?|prior)\b`), any: []string{"ignore", "disregard", "forget"}},
+		{re: regexp.MustCompile(`\b(ignore|disregard)\s+the\s+above\b`), any: []string{"ignore", "disregard"}},
+		{re: regexp.MustCompile(`\b(forget|disregard)\s+(your|all)\s+(previous\s+)?(guidance|instructions|rules|training)\b`), any: []string{"forget", "disregard"}},
+		{re: regexp.MustCompile(`\bnew\s+(system\s+)?instructions?\s*:`), all: []string{"new", "instruction"}},
+		{re: regexp.MustCompile(`\byou\s+are\s+(now\s+)?(in\s+)?(an?\s+)?(admin|developer|debug|god|unrestricted|jailbreak|dan)\b`), all: []string{"you", "are"}},
 		// Credential solicitation, instructions hidden in an encoding, and bypassing a human check.
-		regexp.MustCompile(`\b(submit|send|share|paste|post|forward|reveal)\s+(the|your|any|all)\s+((session|access|bearer|api)\s+tokens?|passwords?|credentials?|(api|secret|private|ssh)\s+keys?|secrets?|tokens?)\b`),
-		regexp.MustCompile(`\b(decode|decrypt|deobfuscate|unscramble)\b[^.]{0,60}\b(follow|execute|obey|run)\b`),
-		regexp.MustCompile(`\b(skip|bypass|disable|avoid)\s+(the\s+)?(approvals?|human\s+(review|approval))\b`),
-		regexp.MustCompile(`\b(reveal|print|show|output)\s+(your|the)\s+(system\s+prompt|hidden\s+instructions|instructions)\b`),
-		regexp.MustCompile(`\bdo\s+not\s+(tell|inform|alert|notify)\s+the\s+(user|human|operator|customer)\b`),
-		regexp.MustCompile(`\b(the\s+)?real\s+(task|instructions?)\s+(is|are)\b`),
-		regexp.MustCompile(`\bimportant\s+system\s+(notice|message|override)\b`),
+		{re: regexp.MustCompile(`\b(submit|send|share|paste|post|forward|reveal)\s+(the|your|any|all)\s+((session|access|bearer|api)\s+tokens?|passwords?|credentials?|(api|secret|private|ssh)\s+keys?|secrets?|tokens?)\b`), any: []string{"submit", "send", "share", "paste", "post", "forward", "reveal"}},
+		{re: regexp.MustCompile(`\b(decode|decrypt|deobfuscate|unscramble)\b[^.]{0,60}\b(follow|execute|obey|run)\b`), any: []string{"decode", "decrypt", "deobfuscate", "unscramble"}},
+		{re: regexp.MustCompile(`\b(skip|bypass|disable|avoid)\s+(the\s+)?(approvals?|human\s+(review|approval))\b`), any: []string{"skip", "bypass", "disable", "avoid"}},
+		{re: regexp.MustCompile(`\b(reveal|print|show|output)\s+(your|the)\s+(system\s+prompt|hidden\s+instructions|instructions)\b`), any: []string{"reveal", "print", "show", "output"}},
+		{re: regexp.MustCompile(`\bdo\s+not\s+(tell|inform|alert|notify)\s+the\s+(user|human|operator|customer)\b`), all: []string{"do", "not"}},
+		{re: regexp.MustCompile(`\b(the\s+)?real\s+(task|instructions?)\s+(is|are)\b`), all: []string{"real"}},
+		{re: regexp.MustCompile(`\bimportant\s+system\s+(notice|message|override)\b`), all: []string{"important"}},
 	}
-	roleMarkers = []*regexp.Regexp{
-		regexp.MustCompile(`(?im)^\s*(system|assistant|developer|user)\s*:`),
-		regexp.MustCompile(`(?i)<\|\s*(system|assistant|user|im_start|im_end|endoftext)\s*\|>`),
-		regexp.MustCompile(`(?i)\[/?(inst|sys)\]|<<\s*sys\s*>>`),
-		regexp.MustCompile(`(?im)^\s*#{2,}\s*(system|instruction|instructions)\b`),
+	roleMarkers = []rule{
+		{re: regexp.MustCompile(`(?im)^\s*(system|assistant|developer|user)\s*:`), any: []string{"system", "assistant", "developer", "user"}, all: []string{":"}},
+		{re: regexp.MustCompile(`(?i)<\|\s*(system|assistant|user|im_start|im_end|endoftext)\s*\|>`), all: []string{"<|"}},
+		{re: regexp.MustCompile(`(?i)\[/?(inst|sys)\]|<<\s*sys\s*>>`), any: []string{"inst]", "sys]", "<<"}},
+		{re: regexp.MustCompile(`(?im)^\s*#{2,}\s*(system|instruction|instructions)\b`), all: []string{"##"}},
 		// A speaker label after a sentence ("... on Monday. SYSTEM: ..."), a "system instructions:"
 		// header, or text addressed to the model ("To the AI:", "for the assistant:").
-		regexp.MustCompile(`(?i)[.!?]\s+(system|assistant|developer)\s*:`),
-		regexp.MustCompile(`(?i)\b(system|developer)\s+(prompt|instructions?|message)\s*:`),
-		regexp.MustCompile(`(?i)\b(to|for)\s+(the|any|all)\s+(ai|assistant|llm|language\s+model|ai\s+agents?)(\s+reading\s+this)?\s*:`),
+		{re: regexp.MustCompile(`(?i)[.!?]\s+(system|assistant|developer)\s*:`), any: []string{"system", "assistant", "developer"}, all: []string{":"}},
+		{re: regexp.MustCompile(`(?i)\b(system|developer)\s+(prompt|instructions?|message)\s*:`), any: []string{"system", "developer"}, all: []string{":"}},
+		{re: regexp.MustCompile(`(?i)\b(to|for)\s+(the|any|all)\s+(ai|assistant|llm|language\s+model|ai\s+agents?)(\s+reading\s+this)?\s*:`), any: []string{"ai", "assistant", "llm", "language"}, all: []string{":"}},
 	}
 	genericTool = regexp.MustCompile(`\b[a-z][a-z0-9_]{1,31}\.(get|add|record|issue|refund|create|delete|update|send|list|call|transfer|approve)_[a-z_]+\b`)
 	urlRe       = regexp.MustCompile(`(?i)\bhttps?://\S+`)
 	linkQuery   = regexp.MustCompile(`(?i)\bhttps?://[^\s"'<>]+\?[^\s"'<>]*=`)
 	base64Blob  = regexp.MustCompile(`[A-Za-z0-9+/]{40,}={0,2}`)
-	tokenRe     = regexp.MustCompile(`[\p{L}\p{N}_.]+`)
 	spacedRe    = regexp.MustCompile(`\b(?:[a-z][ ._\-]){2,}[a-z]\b`)
 	sentenceRe  = regexp.MustCompile(`[.!?\n]+`)
 	imperatives = map[string]bool{
@@ -113,6 +112,37 @@ var (
 	fillers     = map[string]bool{"please": true, "now": true, "immediately": true, "also": true, "just": true}
 	leet        = strings.NewReplacer("0", "o", "1", "i", "3", "e", "4", "a", "5", "s", "7", "t", "@", "a", "$", "s")
 )
+
+// rule is a pattern with literal prefilters: text that contains none of any (when set) or misses
+// one of all cannot match, so the regexp runs only on candidates (TestRulePrefiltersAreExact).
+// Variants are lower-case, so the literals are too.
+type rule struct {
+	re       *regexp.Regexp
+	any, all []string
+}
+
+func (r rule) match(v string) bool {
+	for _, s := range r.all {
+		if !strings.Contains(v, s) {
+			return false
+		}
+	}
+	if len(r.any) > 0 && !slices.ContainsFunc(r.any, func(s string) bool { return strings.Contains(v, s) }) {
+		return false
+	}
+	return r.re.MatchString(v)
+}
+
+func matchAny(rules []rule, variants []string) bool {
+	for _, v := range variants {
+		for _, r := range rules {
+			if r.match(v) {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 // confusables maps common Cyrillic and Greek look-alikes to Latin letters.
 var confusables = map[rune]rune{
@@ -156,13 +186,42 @@ func (s *Scorer) Score(text string) Result { return s.score(text, 0) }
 // dense reports whether text of at least minTokens tokens has more clause-initial imperatives per
 // 100 tokens than the threshold.
 func (s *Scorer) dense(text string, minTokens int) bool {
-	tokens := tokenRe.FindAllString(text, -1)
-	return len(tokens) >= minTokens && float64(countImperatives(text))*100/float64(len(tokens)) > s.opts.ImperativesPer100
+	n := len(tokens(text, -1))
+	return n >= minTokens && float64(countImperatives(text))*100/float64(n) > s.opts.ImperativesPer100
 }
 
-func (s *Scorer) score(text string, depth int) Result {
-	norm, hidden := normalize(text)
-	// Variants for phrase matching: spaced-out letters joined, and leetspeak folded.
+// tokens returns up to limit (all when negative) maximal runs of letters, digits, '_' and '.',
+// the same as regexp `[\p{L}\p{N}_.]+` FindAllString(text, limit) without the regexp engine
+// (TestTokensMatchRegexp).
+func tokens(text string, limit int) []string {
+	if limit == 0 {
+		return nil
+	}
+	var out []string
+	start := -1
+	for i, r := range text {
+		if r == '_' || r == '.' || unicode.IsLetter(r) || unicode.IsNumber(r) {
+			if start < 0 {
+				start = i
+			}
+			continue
+		}
+		if start >= 0 {
+			if out = append(out, text[start:i]); len(out) == limit {
+				return out
+			}
+			start = -1
+		}
+	}
+	if start >= 0 && len(out) != limit {
+		out = append(out, text[start:])
+	}
+	return out
+}
+
+// variantsOf returns the distinct variants of normalised text used for phrase matching: as is,
+// with spaced-out letters joined, and with leetspeak folded on top.
+func variantsOf(norm string) []string {
 	despaced := spacedRe.ReplaceAllStringFunc(norm, func(m string) string {
 		return strings.Map(func(r rune) rune {
 			if r == ' ' || r == '.' || r == '_' || r == '-' {
@@ -171,25 +230,28 @@ func (s *Scorer) score(text string, depth int) Result {
 			return r
 		}, m)
 	})
-	variants := []string{norm, despaced, leet.Replace(despaced)}
+	variants := []string{norm}
+	for _, v := range []string{despaced, leet.Replace(despaced)} {
+		if !slices.Contains(variants, v) {
+			variants = append(variants, v)
+		}
+	}
+	return variants
+}
+
+func (s *Scorer) score(text string, depth int) Result {
+	norm, hidden := normalize(text)
+	variants := variantsOf(norm)
 
 	fired := map[string]bool{}
 	if hidden {
 		fired[SignalHidden] = true
 	}
-	for _, v := range variants {
-		for _, re := range overridePhrases {
-			if re.MatchString(v) {
-				fired[SignalOverride] = true
-			}
-		}
+	if matchAny(overridePhrases, variants) {
+		fired[SignalOverride] = true
 	}
-	for _, v := range variants {
-		for _, re := range roleMarkers {
-			if re.MatchString(v) {
-				fired[SignalRole] = true
-			}
-		}
+	if matchAny(roleMarkers, variants) {
+		fired[SignalRole] = true
 	}
 	if s.mentionsTool(norm) {
 		fired[SignalTool] = true
@@ -236,7 +298,7 @@ func (s *Scorer) score(text string, depth int) Result {
 func countImperatives(prose string) int {
 	n := 0
 	for _, clause := range clauseSplit.Split(prose, -1) {
-		words := tokenRe.FindAllString(clause, 3)
+		words := tokens(clause, 3)
 		for len(words) > 0 && fillers[words[0]] {
 			words = words[1:]
 		}
