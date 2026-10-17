@@ -13,9 +13,18 @@ refund if {
 	args_present
 }
 
+# Whole cents only: 0.5 is not an amount.
 valid_amount if {
 	is_number(input.args.amount_cents)
 	input.args.amount_cents > 0
+	input.args.amount_cents == round(input.args.amount_cents)
+}
+
+# Arguments that are present but not an object never reach the argument rules, so they are denied
+# here (the pipeline also rejects them; this protects /admin/policy/evaluate and other callers).
+deny contains "invalid_args" if {
+	input.args != null
+	not is_object(input.args)
 }
 
 # orders.refund_order: <= 10,000 cents allow, <= 100,000 hold for approval, above deny.

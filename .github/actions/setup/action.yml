@@ -25,3 +25,6 @@ runs:
     - name: make bootstrap
       shell: bash
       run: make bootstrap
+    - name: Put the pinned tools on PATH for later steps
+      shell: bash
+      run: echo "$GITHUB_WORKSPACE/bin" >> "$GITHUB_PATH"

@@ -1,6 +1,7 @@
 {{- if .Values.networkPolicy.enabled }}
-# Ingress only: agents and operators reach 8210 and 8200, Prometheus reaches 8211. Egress stays open
-# because the gateway calls configurable upstreams, the issuer's JWKS, Postgres, Redis and DynamoDB.
+# Ingress only, one rule per port: agents reach MCP (8210), operators and approvers the admin API
+# and console (8200), Prometheus the metrics (8211). Egress stays open because the gateway calls
+# configurable upstreams, the issuer's JWKS, Postgres, Redis and DynamoDB.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -15,10 +16,17 @@ spec:
   ingress:
     - ports:
         - { port: mcp, protocol: TCP }
+      from:
+        {{- if .Values.networkPolicy.mcpFrom }}
+        {{- toYaml .Values.networkPolicy.mcpFrom | nindent 8 }}
+        {{- else }}
+        - podSelector: {}
+        {{- end }}
+    - ports:
         - { port: admin, protocol: TCP }
       from:
-        {{- if .Values.networkPolicy.ingressFrom }}
-        {{- toYaml .Values.networkPolicy.ingressFrom | nindent 8 }}
+        {{- if .Values.networkPolicy.adminFrom }}
+        {{- toYaml .Values.networkPolicy.adminFrom | nindent 8 }}
         {{- else }}
         - podSelector: {}
         {{- end }}
@@ -28,4 +36,18 @@ spec:
       from:
         {{- toYaml . | nindent 8 }}
     {{- end }}
+---
+# The migrate Job serves nothing: no ingress at all.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "mcpgw.fullname" . }}-migrate
+  labels:
+    {{- include "mcpgw.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "mcpgw.name" . }}-migrate
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes: ["Ingress"]
 {{- end }}

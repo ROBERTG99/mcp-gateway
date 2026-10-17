@@ -31,7 +31,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end -}}
 
 {{- define "mcpgw.image" -}}
-{{ printf "%s:%s" .Values.image.repository .Values.image.tag }}
+{{ printf "%s:%s" .Values.image.repository (.Values.image.tag | default .Chart.AppVersion) }}
 {{- end -}}
 
 {{/* Pod-level hardening shared by the Deployment and the migrate Job (distroless nonroot UID). */}}

@@ -65,6 +65,8 @@ jobs:
       dynamodb:
         image: amazon/dynamodb-local:3.3.2
         ports: ["8240:8000"]
+        options: >-
+          --health-cmd "curl -s -o /dev/null http://localhost:8000 || exit 1" --health-interval 2s --health-timeout 3s --health-retries 30
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup

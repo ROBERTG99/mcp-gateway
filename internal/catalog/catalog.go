@@ -34,6 +34,9 @@ type UpstreamConfig struct {
 	Name    string        `yaml:"name" json:"name"`
 	URL     string        `yaml:"url" json:"url"`
 	Timeout time.Duration `yaml:"timeout" json:"timeout"`
+	// WriteTools are tools the gateway always treats as writes, whatever readOnlyHint the upstream
+	// declares (annotations are hints from the upstream, not trusted facts).
+	WriteTools []string `yaml:"write_tools" json:"write_tools,omitempty"`
 }
 
 // Tool is an upstream tool exposed by the gateway.
@@ -309,6 +312,12 @@ func (c *Catalog) refreshUpstream(ctx context.Context, u *upstream) error {
 	for _, d := range defs {
 		def := *d // shallow copy: schemas and annotations are shared, unchanged
 		def.Name = u.cfg.Name + "." + d.Name
+		if slices.Contains(u.cfg.WriteTools, d.Name) && def.Annotations != nil && def.Annotations.ReadOnlyHint {
+			a := *def.Annotations
+			a.ReadOnlyHint = false
+			def.Annotations = &a
+			c.opts.Logger.Warn("upstream declares a configured write tool read-only; treating it as a write", "tool", def.Name)
+		}
 		tools = append(tools, Tool{Server: u.cfg.Name, Name: d.Name, Def: &def})
 	}
 	u.mu.Lock()

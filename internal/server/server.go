@@ -257,7 +257,11 @@ func (a *App) Run(ctx context.Context) error {
 // approval maintenance and policy watch. Tests use it with MCPHandler and AdminHandler.
 func (a *App) RunBackground(ctx context.Context) error {
 	// Seqs first: a refreshed catalog makes tools callable, and every call needs a seq.
-	if err := a.seq.Warm(ctx); err != nil {
+	// Bounded: an unreachable Postgres must not stall start-up; /readyz keeps retrying (Warmed).
+	wctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	err := a.seq.Warm(wctx)
+	cancel()
+	if err != nil {
 		a.logger.Error("audit sequence unavailable; calls fail with -32048 until Postgres is reachable", "error", err)
 	}
 	if err := a.catalog.Refresh(ctx); err != nil {
@@ -334,7 +338,8 @@ func (a *App) maintain(ctx context.Context) error {
 }
 
 func (a *App) serve(g *errgroup.Group, ctx context.Context, addr string, h http.Handler) {
-	srv := &http.Server{Addr: addr, Handler: h, ReadHeaderTimeout: 10 * time.Second}
+	// No ReadTimeout or WriteTimeout: MCP keeps server-to-client SSE streams open (docs/security.md).
+	srv := &http.Server{Addr: addr, Handler: h, ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 2 * time.Minute}
 	g.Go(func() error {
 		ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", addr)
 		if err != nil {

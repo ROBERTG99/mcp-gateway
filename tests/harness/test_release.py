@@ -28,7 +28,8 @@ def test_versions_agree() -> None:
     chart = yaml.safe_load((ROOT / "deploy/helm/mcp-gateway/Chart.yaml").read_text(encoding="utf-8"))
     assert chart["version"] == VERSION and chart["appVersion"] == VERSION
     values = yaml.safe_load((ROOT / "deploy/helm/mcp-gateway/values.yaml").read_text(encoding="utf-8"))
-    assert values["image"]["tag"] == VERSION
+    # The image tag follows the chart's appVersion unless overridden.
+    assert values["image"]["tag"] in ("", VERSION)
     release = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
     assert 'tags: ["v*"]' in release
     # The release notes step extracts the section by the same heading format.

@@ -213,6 +213,12 @@ func TestHelmRenderObjects(t *testing.T) {
 			if get(c, "readinessProbe", "httpGet", "path") != "/readyz" || get(c, "livenessProbe", "httpGet", "path") != "/healthz" {
 				t.Error("probes must use /readyz and /healthz")
 			}
+			// The migrate Job's pod must not match the Deployment selector (PDB, HPA).
+			sel := get(dep, "spec", "selector", "matchLabels").(map[string]any)
+			jobLabels := get(k["Job"][0], "spec", "template", "metadata", "labels").(map[string]any)
+			if jobLabels["app.kubernetes.io/name"] == sel["app.kubernetes.io/name"] {
+				t.Error("migrate Job pod carries the Deployment's selector labels")
+			}
 			if get(k["HorizontalPodAutoscaler"][0], "spec", "minReplicas") != 2 {
 				t.Error("HPA minReplicas must be 2 so the PDB allows a voluntary disruption")
 			}
@@ -226,6 +232,7 @@ func TestHelmValuesSchemaRejects(t *testing.T) {
 		{"--set", "replicaCount=two"},
 		{"--set", "idempotency.store=memcached"},
 		{"--set", "image.tag=latest"},
+		{"--set", "image.repository="},
 		{"--set", "existingSecret="},
 		{"--set", "unknownKey=1"},
 	} {

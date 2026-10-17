@@ -155,9 +155,14 @@ func (s *Service) Decide(ctx context.Context, id string, approver authn.Principa
 	if !approver.HasScope(ScopeApprove) || approver.Tenant == "*" || approver.Tenant == "" {
 		return Approval{}, ErrForbidden
 	}
-	// The binding never changes after Hold, so reading it before the atomic decision is safe.
-	if cur, err := s.store.Get(ctx, id); err == nil && cur.Tenant == approver.Tenant && cur.Agent == approver.Agent {
+	// The binding never changes after Hold, so reading it before the atomic decision is safe. A read
+	// that fails for any reason but not-found refuses the decision (the check fails closed).
+	cur, err := s.store.Get(ctx, id)
+	switch {
+	case err == nil && cur.Tenant == approver.Tenant && cur.Agent == approver.Agent:
 		return Approval{}, ErrForbidden
+	case err != nil && !errors.Is(err, ErrNotFound):
+		return Approval{}, fmt.Errorf("read approval: %w", err)
 	}
 	if !approve && note == "" {
 		return Approval{}, ErrReasonRequired

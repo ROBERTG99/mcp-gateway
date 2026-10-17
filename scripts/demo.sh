@@ -27,7 +27,7 @@ status=0
 go run ./cmd/demo-agent --scenario --gateway "$GATEWAY_URL" --admin "$ADMIN_URL" --issuer "$DEV_ISSUER_URL" \
   --webhook-admin "$WEBHOOK_ADMIN_URL" \
   --on-timeout-cmd "$COMPOSE restart upstream-orders && $COMPOSE up -d --wait upstream-orders" \
-  --tamper-cmd "scripts/tamper_audit.sh | tee $tamper_log" || status=$?
+  --tamper-cmd "scripts/tamper_audit.sh | tee $(printf %q "$tamper_log")" || status=$?
 
 if [[ -s "$tamper_log" ]]; then
   seq=$(tail -n1 "$tamper_log")

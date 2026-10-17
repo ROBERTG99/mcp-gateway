@@ -170,3 +170,31 @@ func TestCatalogUpstreamDown(t *testing.T) {
 		t.Fatal("tools listed for a down upstream")
 	}
 }
+
+// TestWriteToolsOverrideReadOnlyHint: annotations are hints from the upstream. A tool the operator
+// lists under write_tools is a write (scope <server>:write, idempotency key required) even when the
+// upstream claims readOnlyHint, so a misconfigured or compromised upstream cannot downgrade it.
+func TestWriteToolsOverrideReadOnlyHint(t *testing.T) {
+	url := serve(t, testupstream.EchoServer("echoer")) // "echo" declares readOnlyHint: true
+	cat := catalog.New([]catalog.UpstreamConfig{{Name: "echoer", URL: url, Timeout: 5 * time.Second, WriteTools: []string{"echo"}}},
+		catalog.Options{})
+	t.Cleanup(cat.Close)
+	if err := cat.Refresh(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	tool, ok := cat.Lookup("echoer.echo")
+	if !ok {
+		t.Fatal("echoer.echo not listed")
+	}
+	if tool.ReadOnly() || tool.Annotations()["readOnlyHint"] != false {
+		t.Fatalf("write_tools entry still read-only: %+v", tool.Annotations())
+	}
+	plain := catalog.New([]catalog.UpstreamConfig{{Name: "echoer", URL: url, Timeout: 5 * time.Second}}, catalog.Options{})
+	t.Cleanup(plain.Close)
+	if err := plain.Refresh(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if tool, _ := plain.Lookup("echoer.echo"); !tool.ReadOnly() {
+		t.Fatal("without write_tools the upstream's hint applies")
+	}
+}

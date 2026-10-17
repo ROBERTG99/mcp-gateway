@@ -7,9 +7,11 @@
 set -euo pipefail
 COMPOSE=${COMPOSE:-docker compose}
 psql() { $COMPOSE exec -T postgres psql -U postgres -d mcpgw -v ON_ERROR_STOP=1 -At "$@"; }
+digits() { [[ "$1" =~ ^[0-9]+$ ]] || { echo "tamper_audit.sh: seq must be digits, got '$1'" >&2; exit 2; }; }
 if [[ "${1:-}" == "--restore" ]]; then
   seq=${2:?usage: tamper_audit.sh --restore seq}
-  psql -c "SET session_replication_role = replica; UPDATE audit_events SET agent = left(agent, -length('-tampered')) WHERE seq = ${seq//[^0-9]/} AND agent LIKE '%-tampered';" >/dev/null
+  digits "$seq"
+  psql -c "SET session_replication_role = replica; UPDATE audit_events SET agent = left(agent, -length('-tampered')) WHERE seq = $seq AND agent LIKE '%-tampered';" >/dev/null
   echo "$seq"
   exit 0
 fi
@@ -18,5 +20,6 @@ if [[ -z "$seq" ]]; then
   echo "no audit events to tamper with" >&2
   exit 1
 fi
-psql -c "SET session_replication_role = replica; UPDATE audit_events SET agent = agent || '-tampered' WHERE seq = ${seq//[^0-9]/};" >/dev/null
+digits "$seq"
+psql -c "SET session_replication_role = replica; UPDATE audit_events SET agent = agent || '-tampered' WHERE seq = $seq;" >/dev/null
 echo "$seq"

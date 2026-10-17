@@ -35,3 +35,21 @@ test_approval_does_not_grant_missing_scope if {
 	not d.allow
 	d.reasons == ["missing_scope"]
 }
+
+test_missing_scope_cannot_create_a_hold if {
+	d := authz.decision with input as object.union(held, {"scopes": ["orders:read"]})
+	not d.allow
+	not d.require_approval
+	d.reasons == ["missing_scope"]
+}
+
+test_approved_credit_note_allowed if {
+	note := {
+		"tenant": "t_alpha", "agent": "agent-support", "scopes": ["ledger:write"],
+		"server": "ledger", "tool": "issue_credit_note", "annotations": {"readOnlyHint": false},
+		"args": {"account_id": "A-0001", "amount_cents": 500, "reason": "r"}, "approval": {"id": "a1", "status": "approved"},
+	}
+	d := authz.decision with input as note
+	d.allow
+	d.reasons == ["approval_granted", "scope_granted"]
+}

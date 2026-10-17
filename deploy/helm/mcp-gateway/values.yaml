@@ -5,7 +5,8 @@ replicaCount: 2
 
 image:
   repository: ghcr.io/robertg99/mcp-gateway
-  tag: "0.1.0"
+  # Empty: the chart's appVersion, so a chart released as vX.Y.Z deploys image X.Y.Z.
+  tag: ""
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -51,13 +52,17 @@ logLevel: info
 extraEnv: {}
 
 # Rendered into upstreams.yaml (same format as config/upstreams.yaml).
+# write_tools are always treated as writes, whatever readOnlyHint the upstream declares.
 upstreams:
   - name: ledger
     url: http://upstream-ledger:8213/mcp
+    write_tools: [record_promise_to_pay, issue_credit_note]
   - name: crm
     url: http://upstream-crm:8214/mcp
+    write_tools: [add_note]
   - name: orders
     url: http://upstream-orders:8215/mcp
+    write_tools: [refund_order]
 
 # Rendered into tenants.yaml (same format as config/tenants.yaml).
 tenants:
@@ -104,9 +109,10 @@ podDisruptionBudget:
 
 networkPolicy:
   enabled: true
-  # Peers allowed to reach the MCP (8210) and admin (8200) ports; empty allows pods in the release
-  # namespace only.
-  ingressFrom: []
+  # Peers allowed to reach the MCP port (8210) and the admin API and console (8200); empty allows
+  # pods in the release namespace only. Keep admin narrower than MCP.
+  mcpFrom: []
+  adminFrom: []
   # Peers allowed to scrape metrics (8211).
   metricsFrom:
     - namespaceSelector:

@@ -101,6 +101,9 @@ func (p *PostgresSink) storedSame(ctx context.Context, events []Event) (map[int6
 	return have, nil
 }
 
+// sameEvent compares the fields that identify a call's event. args_redacted (stored as jsonb, so
+// re-serialised) and latency_ms are not compared: the arguments hash and the microsecond timestamp
+// already bind the event, and a sequence reset cannot reproduce both for a different call.
 func sameEvent(stored, e Event) bool {
 	return stored.Tenant == e.Tenant && stored.Agent == e.Agent && stored.Server == e.Server && stored.Tool == e.Tool &&
 		stored.ArgsSHA256 == e.ArgsSHA256 && stored.Decision == e.Decision && stored.Status == e.Status &&

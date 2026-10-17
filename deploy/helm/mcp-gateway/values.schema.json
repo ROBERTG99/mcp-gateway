@@ -12,7 +12,7 @@
       "required": ["repository", "tag"],
       "properties": {
         "repository": { "type": "string", "minLength": 1 },
-        "tag": { "type": "string", "minLength": 1, "not": { "const": "latest" } },
+        "tag": { "type": "string", "not": { "const": "latest" } },
         "pullPolicy": { "enum": ["Always", "IfNotPresent", "Never"] }
       }
     },
@@ -32,7 +32,7 @@
       "additionalProperties": false,
       "required": ["jwksURL", "issuer", "audience"],
       "properties": {
-        "jwksURL": { "type": "string", "pattern": "^https?://" },
+        "jwksURL": { "type": "string", "pattern": "^https://" },
         "issuer": { "type": "string", "minLength": 1 },
         "audience": { "type": "string", "minLength": 1 }
       }
@@ -91,7 +91,8 @@
         "properties": {
           "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,31}$" },
           "url": { "type": "string", "pattern": "^https?://" },
-          "timeout": { "type": "string", "pattern": "^[0-9]+(ms|s|m)$" }
+          "timeout": { "type": "string", "pattern": "^[0-9]+(ms|s|m)$" },
+          "write_tools": { "type": "array", "items": { "type": "string", "minLength": 1 } }
         }
       }
     },
@@ -169,7 +170,8 @@
       "additionalProperties": false,
       "properties": {
         "enabled": { "type": "boolean" },
-        "ingressFrom": { "type": "array", "items": { "type": "object" } },
+        "mcpFrom": { "type": "array", "items": { "type": "object" } },
+        "adminFrom": { "type": "array", "items": { "type": "object" } },
         "metricsFrom": { "type": "array", "items": { "type": "object" } }
       }
     },

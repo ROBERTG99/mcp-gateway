@@ -15,7 +15,9 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "mcpgw.selectorLabels" . | nindent 8 }}
+        # Not the Deployment's selector labels: the PDB and the HPA must not count this pod.
+        app.kubernetes.io/name: {{ include "mcpgw.name" . }}-migrate
+        app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/component: migrate
     spec:
       restartPolicy: Never

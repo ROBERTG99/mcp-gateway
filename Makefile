@@ -173,14 +173,14 @@ coverage: ## Coverage report with thresholds (85% core, 70% overall)
 	$(UV) run python scripts/coverage_check.py coverage.out
 
 .PHONY: test-docker
-# Runs next to a running stack (only postgres, redis and dynamodb are needed; tests use their own
-# databases), so `make verify` can call it between `up` and `down`.
+# Runs next to a running stack: the tests use their own postgres-test and redis-test (role
+# passwords are cluster-wide), so `make verify` can call it between `up` and `down`.
 COMPOSE_TEST = $(COMPOSE) -f compose.yaml -f compose.test.yaml --profile dynamodb --profile test
 test-docker: ## Full test suite inside containers
 	$(COMPOSE_TEST) build go-tests
-	$(COMPOSE_TEST) up -d --wait postgres redis dynamodb
-	$(COMPOSE_TEST) run --rm go-tests
-	$(COMPOSE_TEST) run --rm harness-tests
+	$(COMPOSE_TEST) up -d --wait postgres-test redis-test dynamodb
+	$(COMPOSE_TEST) run --rm go-tests && $(COMPOSE_TEST) run --rm harness-tests; \
+	  status=$$?; $(COMPOSE_TEST) rm -sfv postgres-test redis-test; exit $$status
 
 .PHONY: image-size
 image-size: ## Gateway image size: compressed (budget < 40 MB) and unpacked

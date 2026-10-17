@@ -104,3 +104,27 @@ def test_repository_integrations() -> None:
     dev = yaml.safe_load((ROOT / ".devcontainer" / "devcontainer.json").read_text(encoding="utf-8"))
     assert "make bootstrap" in dev["postCreateCommand"]
     assert (ROOT / ".github" / "dependabot.yml").exists()
+
+
+# Tools installed into ./bin by make bootstrap; workflows may call them directly only if the setup
+# action puts ./bin on GITHUB_PATH.
+BIN_TOOLS = {
+    "hadolint",
+    "trivy",
+    "actionlint",
+    "golangci-lint",
+    "helm",
+    "kubeconform",
+    "promtool",
+    "gitleaks",
+}
+
+
+def test_bin_tools_reachable_in_workflows() -> None:
+    setup = (ROOT / ".github" / "actions" / "setup" / "action.yml").read_text(encoding="utf-8")
+    on_path = '"$GITHUB_WORKSPACE/bin" >> "$GITHUB_PATH"' in setup
+    for p in WF.glob("*.y*ml"):
+        for line in run_lines(load(p.name)).splitlines():
+            words = line.strip().split()
+            if words and words[0] in BIN_TOOLS:
+                assert on_path, f"{p.name}: '{words[0]}' is called directly but ./bin is not on PATH"

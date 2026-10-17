@@ -33,3 +33,15 @@ test_other_tools_unaffected if {
 	count(limits.hold) == 0 with input as {"server": "crm", "tool": "add_note", "args": {"customer_id": "C-1", "text": "x"}}
 	count(limits.deny) == 0 with input as {"server": "crm", "tool": "add_note", "args": {"customer_id": "C-1", "text": "x"}}
 }
+
+test_fractional_cents_denied if {
+	limits.deny == {"invalid_amount"} with input as refund(0.5)
+	limits.deny == {"invalid_amount"} with input as refund(10000.5)
+}
+
+test_non_object_args_denied if {
+	limits.deny == {"invalid_args"} with input as {"server": "orders", "tool": "refund_order", "args": [1]}
+	limits.deny == {"invalid_args"} with input as {"server": "ledger", "tool": "issue_credit_note", "args": "x"}
+	limits.deny == {"invalid_args"} with input as {"server": "crm", "tool": "add_note", "args": 3}
+	count(limits.deny) == 0 with input as {"server": "crm", "tool": "add_note", "args": null}
+}

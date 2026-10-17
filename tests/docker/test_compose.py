@@ -103,7 +103,13 @@ def test_compose_test_runs_suites_in_containers() -> None:
     assert go["environment"]["MCPGW_TEST_USE_COMPOSE"] == "1"
     cmd = " ".join(go["command"])
     assert "-race" in cmd and "-tags=integration" in cmd and "./..." in cmd
-    assert set(go["depends_on"]) >= {"postgres", "redis", "dynamodb"}
+    # Own Postgres and Redis: the tests set role passwords and flush databases, which must never
+    # touch a stack running next to them (make verify runs test-docker between up and down).
+    assert set(go["depends_on"]) >= {"postgres-test", "redis-test", "dynamodb"}
+    assert "postgres-test:5432" in go["environment"]["MCPGW_TEST_DATABASE_URL"]
+    assert "redis-test:6379" in go["environment"]["MCPGW_TEST_REDIS_URL"]
+    for name in ("postgres-test", "redis-test"):
+        assert "test" in test[name].get("profiles", []) and not test[name].get("ports"), name
     assert "pytest" in " ".join(test["harness-tests"]["command"])
 
 

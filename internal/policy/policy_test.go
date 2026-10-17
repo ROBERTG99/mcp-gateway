@@ -251,7 +251,15 @@ func TestWatchReloadsChangedBundle(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	errs := make(chan error, 16)
 	done := make(chan error, 1)
-	go func() { done <- e.Watch(ctx, 5*time.Millisecond, func(err error) { errs <- err }) }()
+	// Non-blocking: while the broken bundle is on disk every tick reports it, and a full channel
+	// must not stall the watcher before the test cancels it.
+	report := func(err error) {
+		select {
+		case errs <- err:
+		default:
+		}
+	}
+	go func() { done <- e.Watch(ctx, 5*time.Millisecond, report) }()
 	reason := func() string {
 		d, _ := e.Evaluate(context.Background(), policy.Input{Tenant: "t_alpha"})
 		return strings.Join(d.Reasons, ",")
@@ -294,5 +302,31 @@ func TestRunTestsReportsBrokenTestModule(t *testing.T) {
 	}
 	if _, err := policy.RunTests(context.Background(), t.TempDir()); err == nil {
 		t.Fatal("RunTests accepted an empty directory")
+	}
+}
+
+// TestNonDeterministicBuiltinsRejected: a bundle that calls the network, the clock or a random
+// source does not compile, so a hot reload of such a bundle fails and the last good one keeps
+// serving (.claude/rules/rego.md: decisions depend on the input only).
+func TestNonDeterministicBuiltinsRejected(t *testing.T) {
+	for name, body := range map[string]string{
+		"http.send":   `x := http.send({"method": "get", "url": "http://example.invalid"})`,
+		"time.now_ns": `x := time.now_ns()`,
+		"rand.intn":   `x := rand.intn("k", 10)`,
+		"uuid":        `x := uuid.rfc4122("k")`,
+		"opa.runtime": `x := opa.runtime()`,
+		"net":         `x := net.lookup_ip_addr("example.invalid")`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			src := "package mcpgw.authz\n\n" + body + "\n\ndecision := {\"allow\": false, \"require_approval\": false, \"reasons\": [\"x\"]}\n"
+			if err := os.WriteFile(filepath.Join(dir, "authz.rego"), []byte(src), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			e, err := policy.New(context.Background(), policy.Options{Dir: dir})
+			if err == nil && e.Ready() {
+				t.Fatalf("bundle using %s compiled", name)
+			}
+		})
 	}
 }

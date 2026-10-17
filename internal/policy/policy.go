@@ -303,8 +303,21 @@ func (b *Bundle) store() storage.Store {
 	return inmem.NewFromObject(map[string]any{"mcpgw": b.Data})
 }
 
+// nonDeterministic are builtin prefixes a policy may not call: decisions must depend on the input
+// and the bundle only (.claude/rules/rego.md), so a bundle that uses them fails to compile.
+var nonDeterministic = []string{"http.send", "net.", "opa.runtime", "time.now_ns", "rand.", "uuid.", "trace", "print"}
+
+// capabilities are OPA's builtins minus the non-deterministic ones.
+func capabilities() *ast.Capabilities {
+	c := ast.CapabilitiesForThisVersion()
+	c.Builtins = slices.DeleteFunc(slices.Clone(c.Builtins), func(b *ast.Builtin) bool {
+		return slices.ContainsFunc(nonDeterministic, func(p string) bool { return b.Name == p || strings.HasPrefix(b.Name, p) })
+	})
+	return c
+}
+
 func (b *Bundle) prepare(ctx context.Context) (rego.PreparedEvalQuery, error) {
-	opts := []func(*rego.Rego){rego.Query(Query), rego.Store(b.store()), rego.StrictBuiltinErrors(true)}
+	opts := []func(*rego.Rego){rego.Query(Query), rego.Store(b.store()), rego.StrictBuiltinErrors(true), rego.Capabilities(capabilities())}
 	for name, src := range b.Modules {
 		opts = append(opts, rego.Module(name, src))
 	}

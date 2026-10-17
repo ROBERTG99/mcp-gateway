@@ -56,11 +56,11 @@ test_missing_annotations_treated_as_write if {
 	d.reasons == ["missing_scope"]
 }
 
-test_empty_input_default_deny if {
+test_empty_input_denied if {
 	d := authz.decision with input as {}
 	not d.allow
 	not d.require_approval
-	d.reasons != []
+	d.reasons == ["missing_scope", "tenant_not_allowed"]
 }
 
 test_refund_small_allowed if {
