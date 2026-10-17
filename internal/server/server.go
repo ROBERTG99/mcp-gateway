@@ -10,11 +10,16 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"time"
 
+	"github.com/exaring/otelpgx"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/extra/redisotel/v9"
 	"github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ROBERTG99/mcp-gateway/internal/admin"
@@ -33,6 +38,7 @@ import (
 	"github.com/ROBERTG99/mcp-gateway/internal/ratelimit"
 	"github.com/ROBERTG99/mcp-gateway/internal/redact"
 	"github.com/ROBERTG99/mcp-gateway/internal/store"
+	"github.com/ROBERTG99/mcp-gateway/internal/telemetry"
 )
 
 // App is an assembled gateway.
@@ -67,10 +73,16 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			upstreams[i].Timeout = cfg.UpstreamTimeout
 		}
 	}
+	if cfg.Node == "" {
+		cfg.Node, _ = os.Hostname() // app.node on spans and step records
+	}
 	a := &App{cfg: cfg, logger: logger}
 	a.verifier = authn.NewVerifier(authn.Options{JWKSURL: cfg.JWKSURL, Issuer: cfg.JWTIssuer, Audience: cfg.JWTAudience,
 		CacheTTL: cfg.JWKSCacheTTL, StaleLimit: cfg.JWKSStaleLimit})
-	a.catalog = catalog.New(upstreams, catalog.Options{Logger: logger, ReadRetries: 1})
+	// Upstream MCP requests carry W3C trace headers (the pipeline also forwards them in _meta).
+	upstreamHTTP := &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
+	a.catalog = catalog.New(upstreams, catalog.Options{Logger: logger, ReadRetries: 1, HTTPClient: upstreamHTTP,
+		BreakerThreshold: cfg.BreakerThreshold, BreakerCooldown: cfg.BreakerCooldown})
 	a.policy, err = policy.New(ctx, policy.Options{Dir: cfg.PolicyDir})
 	if err != nil {
 		logger.Error("policy bundle failed to load; denying all calls", "error", err)
@@ -80,12 +92,20 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		return nil, fmt.Errorf("MCPGW_REDIS_URL: %w", err)
 	}
 	a.redis = redis.NewClient(redisOpts)
+	if err := redisotel.InstrumentTracing(a.redis); err != nil {
+		return nil, fmt.Errorf("redis tracing: %w", err)
+	}
 	idem, err := idempotency.Open(ctx, idempotency.OpenOptions{Backend: cfg.IdempotencyStore, Redis: a.redis,
 		DynamoDBEndpoint: cfg.DynamoDBEndpoint, DynamoDBTable: cfg.DynamoDBTable, DynamoDBRegion: cfg.DynamoDBRegion})
 	if err != nil {
 		return nil, fmt.Errorf("idempotency store: %w", err)
 	}
-	a.db, err = pgxpool.New(ctx, cfg.DatabaseURL) // connects lazily; readiness pings it
+	poolCfg, err := pgxpool.ParseConfig(cfg.DatabaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("MCPGW_DATABASE_URL: %w", err)
+	}
+	poolCfg.ConnConfig.Tracer = otelpgx.NewTracer()
+	a.db, err = pgxpool.NewWithConfig(ctx, poolCfg) // connects lazily; readiness pings it
 	if err != nil {
 		return nil, fmt.Errorf("MCPGW_DATABASE_URL: %w", err)
 	}
@@ -118,7 +138,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		Audit: a.audit, Redactor: a.redactor, Approvals: a.approvals,
 		Limiter: ratelimit.NewRedis(a.redis, tenants, nil), LocalLimiter: ratelimit.NewMemory(tenants, nil),
 		Scorer: injection.New(injection.Options{}), Findings: store.NewFindings(a.db)},
-		pipeline.Options{IdempotencyTTL: cfg.IdempotencyTTL, IdempotencyLockTTL: cfg.IdempotencyLockTTL,
+		pipeline.Options{Node: cfg.Node, IdempotencyTTL: cfg.IdempotencyTTL, IdempotencyLockTTL: cfg.IdempotencyLockTTL,
 			MaxStoredResult: int(cfg.MaxStoredResultBytes), InjectionThreshold: cfg.InjectionThreshold,
 			InjectionMode: cfg.InjectionMode})
 	a.proxy = proxy.New(proxy.Options{Catalog: a.catalog, Caller: a.pipeline, Logger: logger,
@@ -131,7 +151,12 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 // MCPHandler serves /mcp (authenticated).
 func (a *App) MCPHandler() http.Handler {
 	mux := http.NewServeMux()
-	mux.Handle("/mcp", a.verifier.Middleware(a.proxy))
+	node := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		trace.SpanFromContext(r.Context()).SetAttributes(telemetry.AttrNode.String(a.cfg.Node))
+		a.verifier.Middleware(a.proxy).ServeHTTP(w, r)
+	})
+	mux.Handle("/mcp", otelhttp.NewHandler(node, "mcp.request",
+		otelhttp.WithSpanNameFormatter(func(string, *http.Request) string { return "mcp.request" })))
 	return mux
 }
 

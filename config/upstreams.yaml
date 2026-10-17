@@ -1,13 +1,11 @@
 # Upstream MCP servers aggregated by the gateway. Tools are exposed as <name>.<tool>.
 # name must match ^[a-z][a-z0-9_]{1,31}$. Adding a server here plus a tenant allowlist entry in
-# policies/data/tenants.json is all it takes to connect a new system.
+# policies/data/tenants.json is all it takes to connect a new system. Per-upstream `timeout:` overrides
+# MCPGW_UPSTREAM_TIMEOUT (10 s) when set.
 upstreams:
   - name: ledger
     url: http://upstream-ledger:8213/mcp
-    timeout: 10s
   - name: crm
     url: http://upstream-crm:8214/mcp
-    timeout: 10s
   - name: orders
     url: http://upstream-orders:8215/mcp
-    timeout: 10s

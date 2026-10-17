@@ -14,7 +14,7 @@ x-db-env: &db-env
   MCPGW_UPSTREAM_DB_PASSWORD: ${MCPGW_UPSTREAM_DB_PASSWORD:-mcpgw_upstream}
 
 x-upstream-env: &upstream-env
-  MCPGW_UPSTREAM_DATABASE_URL: postgres://mcpgw_upstream:${MCPGW_UPSTREAM_DB_PASSWORD:-mcpgw_upstream}@postgres:5432/mcpgw?sslmode=disable
+  MCPGW_UPSTREAM_DATABASE_URL: postgres://mcpgw_upstream:${MCPGW_UPSTREAM_DB_PASSWORD:-mcpgw_upstream}@postgres:5432/mcpgw?sslmode=disable&pool_max_conns=32
   MCPGW_FAULT_TIMEOUT_RATE: ${MCPGW_FAULT_TIMEOUT_RATE:-0}
   MCPGW_FAULT_STALL: ${MCPGW_FAULT_STALL:-12s}
   MCPGW_FAULT_STALL_KEY_PREFIX: ${MCPGW_FAULT_STALL_KEY_PREFIX:-demo-stall-}
@@ -147,13 +147,15 @@ services:
     build: { <<: *build, target: gateway }
     image: mcp-gateway:dev
     environment:
-      MCPGW_DATABASE_URL: postgres://mcpgw_app:${MCPGW_APP_DB_PASSWORD:-mcpgw_app}@postgres:5432/mcpgw?sslmode=disable
+      MCPGW_DATABASE_URL: postgres://mcpgw_app:${MCPGW_APP_DB_PASSWORD:-mcpgw_app}@postgres:5432/mcpgw?sslmode=disable&pool_max_conns=32
       MCPGW_UPSTREAMS_FILE: /config/upstreams.yaml
       MCPGW_JWKS_URL: http://dev-issuer:8212/.well-known/jwks.json
       MCPGW_DEV_ISSUER_URL: http://dev-issuer:8212
       MCPGW_REDIS_URL: redis://redis:6379/0
       MCPGW_APPROVAL_WEBHOOK_URL: http://approval-sink:8080/approvals
       MCPGW_APPROVAL_WEBHOOK_SECRET: ${MCPGW_APPROVAL_WEBHOOK_SECRET:-dev-webhook-secret-change-me}
+      MCPGW_UPSTREAM_TIMEOUT: ${MCPGW_UPSTREAM_TIMEOUT:-10s}
+      MCPGW_BREAKER_COOLDOWN: ${MCPGW_BREAKER_COOLDOWN:-30s}
     ports: ["127.0.0.1:8200:8200", "127.0.0.1:8210:8210", "127.0.0.1:8211:8211"]
     depends_on:
       migrate: { condition: service_completed_successfully }

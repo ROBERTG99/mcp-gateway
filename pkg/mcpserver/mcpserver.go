@@ -17,6 +17,10 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/ROBERTG99/mcp-gateway/pkg/canonicaljson"
 )
 
@@ -118,6 +122,8 @@ func ReadTool[In, Out any](s *Server, tool *mcp.Tool, h func(ctx context.Context
 	t.Annotations = withReadOnly(t.Annotations, true)
 	mcp.AddTool(s.mcp, &t, func(ctx context.Context, req *mcp.CallToolRequest, in In) (*mcp.CallToolResult, Out, error) {
 		var zero Out
+		ctx, span := startSpan(ctx, req, t.Name)
+		defer span.End()
 		info := CallInfoFrom(req)
 		if info.Tenant == "" {
 			return nil, zero, invalidParams("missing _meta.mcpgw.tenant")
@@ -133,6 +139,8 @@ func WriteTool[In, Out any](s *Server, tool *mcp.Tool, h func(ctx context.Contex
 	t.Annotations = withReadOnly(t.Annotations, false)
 	mcp.AddTool(s.mcp, &t, func(ctx context.Context, req *mcp.CallToolRequest, in In) (*mcp.CallToolResult, Out, error) {
 		var zero Out
+		ctx, span := startSpan(ctx, req, t.Name)
+		defer span.End()
 		info := CallInfoFrom(req)
 		if info.Tenant == "" {
 			return nil, zero, invalidParams("missing _meta.mcpgw.tenant")
@@ -168,6 +176,22 @@ func WriteTool[In, Out any](s *Server, tool *mcp.Tool, h func(ctx context.Contex
 		}
 		return nil, out, nil
 	})
+}
+
+// startSpan continues the caller's W3C trace from _meta ("traceparent", "tracestate") and starts a
+// server span for the tool, so one trace covers gateway and upstream.
+func startSpan(ctx context.Context, req *mcp.CallToolRequest, tool string) (context.Context, trace.Span) {
+	carrier := propagation.MapCarrier{}
+	if req != nil && req.Params != nil {
+		for _, k := range []string{"traceparent", "tracestate"} {
+			if v, ok := req.Params.Meta[k].(string); ok {
+				carrier[k] = v
+			}
+		}
+	}
+	ctx = propagation.TraceContext{}.Extract(ctx, carrier)
+	return otel.Tracer("github.com/ROBERTG99/mcp-gateway/pkg/mcpserver").Start(ctx, "mcpserver.tool "+tool,
+		trace.WithSpanKind(trace.SpanKindServer))
 }
 
 func argsSHA256(req *mcp.CallToolRequest) (string, error) {

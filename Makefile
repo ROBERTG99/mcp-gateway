@@ -187,8 +187,13 @@ loadtest: ## Load test against the stack (NFR-2, NFR-7)
 	$(GO) run ./cmd/loadgen --mode load --gateway $(GATEWAY_URL) --issuer $(DEV_ISSUER_URL) --admin $(ADMIN_URL)
 
 .PHONY: chaos
-chaos: ## Chaos eval against the stack (10,000 calls)
-	$(GO) run ./cmd/loadgen --mode chaos --gateway $(GATEWAY_URL) --issuer $(DEV_ISSUER_URL) --admin $(ADMIN_URL) --calls 10000
+# 10% of refund keys stall 3 s inside the orders upstream, past a 2 s gateway timeout; the breaker
+# cooldown is 5 s so the run is not dominated by waits. The stack is restored afterwards.
+CHAOS_ENV = MCPGW_FAULT_TIMEOUT_RATE=0.1 MCPGW_FAULT_STALL=3s MCPGW_UPSTREAM_TIMEOUT=2s MCPGW_BREAKER_COOLDOWN=5s
+chaos: ## Chaos eval against the stack (10,000 calls); writes evals/reports/chaos.v1.json
+	$(CHAOS_ENV) $(COMPOSE) up -d --wait upstream-orders gateway
+	$(CHAOS_ENV) $(GO) run ./cmd/loadgen --mode chaos --gateway $(GATEWAY_URL) --issuer $(DEV_ISSUER_URL) --admin $(ADMIN_URL) --calls 10000; \
+	  status=$$?; $(COMPOSE) up -d --wait upstream-orders gateway; exit $$status
 
 ##@ Evals
 .PHONY: eval

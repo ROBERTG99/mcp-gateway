@@ -29,6 +29,10 @@ type Config struct {
 	PolicyReload      time.Duration `env:"MCPGW_POLICY_RELOAD_INTERVAL" default:"5s" desc:"How often the policy directory is checked for changes (0 disables)"`
 	CatalogRefresh    time.Duration `env:"MCPGW_CATALOG_REFRESH" default:"30s" desc:"Upstream tool catalog refresh interval"`
 	UpstreamTimeout   time.Duration `env:"MCPGW_UPSTREAM_TIMEOUT" default:"10s" desc:"Timeout of one upstream call"`
+	OTelEndpoint      string        `env:"MCPGW_OTEL_ENDPOINT" default:"" desc:"OTLP/HTTP trace endpoint (host:port or URL); empty records spans without exporting"`
+	Node              string        `env:"MCPGW_NODE" default:"" desc:"app.node attribute on spans and step records (default: hostname)"`
+	BreakerThreshold  int           `env:"MCPGW_BREAKER_THRESHOLD" default:"5" desc:"Consecutive upstream failures that open its circuit breaker"`
+	BreakerCooldown   time.Duration `env:"MCPGW_BREAKER_COOLDOWN" default:"30s" desc:"How long an open breaker rejects calls before one probe"`
 	PrincipalCacheTTL time.Duration `env:"MCPGW_PRINCIPAL_CACHE_TTL" default:"60s" desc:"Cache lifetime of a per-principal MCP server"`
 
 	JWKSURL        string        `env:"MCPGW_JWKS_URL" default:"http://localhost:8212/.well-known/jwks.json" desc:"JWKS URL of the token issuer"`

@@ -12,11 +12,15 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/ROBERTG99/mcp-gateway/internal/audit"
 	"github.com/ROBERTG99/mcp-gateway/internal/authn"
@@ -28,6 +32,7 @@ import (
 	"github.com/ROBERTG99/mcp-gateway/internal/proxy"
 	"github.com/ROBERTG99/mcp-gateway/internal/ratelimit"
 	"github.com/ROBERTG99/mcp-gateway/internal/redact"
+	"github.com/ROBERTG99/mcp-gateway/internal/telemetry"
 	"github.com/ROBERTG99/mcp-gateway/pkg/canonicaljson"
 )
 
@@ -59,8 +64,10 @@ type Deps struct {
 	Redactor *redact.Redactor
 	// Approvals holds calls that need a human decision (nil: such calls are denied).
 	Approvals Approvals
-	Clock     clock.Clock
-	Logger    *slog.Logger
+	// Metrics records Prometheus metrics (nil: none).
+	Metrics *telemetry.Metrics
+	Clock   clock.Clock
+	Logger  *slog.Logger
 }
 
 // Auditor reserves audit slots (audit.Writer).
@@ -75,6 +82,7 @@ type Options struct {
 	MaxStoredResult    int           // bytes; larger results are not stored for replay (default 256 KiB)
 	InjectionThreshold float64       // score at or above which output is flagged (default 0.5)
 	InjectionMode      string        // "mark" (default) or "block"
+	Node               string        // app.node on spans and step records (default: hostname)
 }
 
 // Pipeline executes governed tool calls. It implements proxy.Caller.
@@ -105,6 +113,9 @@ func New(deps Deps, opts Options) *Pipeline {
 	if opts.InjectionThreshold == 0 {
 		opts.InjectionThreshold = 0.5
 	}
+	if opts.Node == "" {
+		opts.Node, _ = os.Hostname()
+	}
 	if opts.InjectionMode == "" {
 		opts.InjectionMode = "mark"
 	}
@@ -130,8 +141,9 @@ type call struct {
 	idemKey  string
 	acquired bool
 	replayed bool
-	decision string // allow | require_approval | deny | none
-	status   string // ok | replayed | held | denied | rejected | error
+	upstream time.Duration // time spent in the upstream call (excluded from overhead)
+	decision string        // allow | require_approval | deny | none
+	status   string        // ok | replayed | held | denied | rejected | error
 }
 
 // CallTool runs one tools/call through every stage.
@@ -144,13 +156,23 @@ func (p *Pipeline) CallTool(ctx context.Context, pc proxy.Call) (*mcp.CallToolRe
 		t, err := p.deps.Audit.Reserve(ctx)
 		if err != nil {
 			p.deps.Logger.Error("audit saturated; rejecting call", "request_id", c.requestID, "error", err)
+			p.deps.Metrics.AuditRejected()
 			return nil, mcperr.New(mcperr.CodeAuditBackpressure, nil)
 		}
 		ticket, c.auditSeq = t, t.Seq()
 	}
 	res, err := p.run(ctx, c)
 	if ticket != nil {
+		_, span := p.stage(ctx, c, telemetry.SpanAudit, attribute.Int64("mcpgw.audit_seq", c.auditSeq),
+			attribute.String("mcpgw.status", c.status))
 		ticket.Commit(p.auditEvent(c))
+		span.End()
+	}
+	p.logStep(ctx, c, err)
+	p.deps.Metrics.ToolCall(c.principal.Tenant, c.tool.Server, c.tool.Name, c.status)
+	p.deps.Metrics.Overhead(p.deps.Clock.Now().Sub(c.start) - c.upstream)
+	if c.replayed {
+		p.deps.Metrics.Replay()
 	}
 	if err != nil {
 		var je *jsonrpc.Error
@@ -179,30 +201,75 @@ func (p *Pipeline) run(ctx context.Context, c *call) (*mcp.CallToolResult, error
 		}
 		c.idemKey = key
 	}
-	if res, done, err := p.authorize(ctx, c); done || err != nil {
+	pctx, span := p.stage(ctx, c, telemetry.SpanPolicy)
+	res, done, err := p.authorize(pctx, c)
+	span.SetAttributes(attribute.String("mcpgw.decision", c.decision))
+	span.End()
+	if c.decision != "none" {
+		p.deps.Metrics.PolicyDecision(c.decision)
+	}
+	if done || err != nil {
 		return res, err
 	}
 	if !c.tool.ReadOnly() {
-		res, done, err := p.acquire(ctx, c)
+		ictx, span := p.stage(ctx, c, telemetry.SpanIdempotency, attribute.String("mcpgw.op", "acquire"))
+		res, done, err := p.acquire(ictx, c)
+		span.SetAttributes(attribute.Bool("mcpgw.replayed", c.replayed))
+		span.End()
 		if done || err != nil {
 			return res, err
 		}
 	}
-	res, err := p.forward(ctx, c)
+	uctx, span := p.stage(ctx, c, telemetry.SpanUpstream, attribute.String("mcpgw.server", c.tool.Server),
+		attribute.String("mcpgw.upstream_tool", c.tool.Name))
+	upStart := p.deps.Clock.Now()
+	res, err = p.forward(uctx, c)
+	c.upstream = p.deps.Clock.Now().Sub(upStart)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "upstream call failed")
+	}
+	span.End()
 	if err != nil {
 		p.release(ctx, c)
 		c.status = "error"
 		return nil, err
 	}
 	if c.acquired {
+		ictx, span := p.stage(ctx, c, telemetry.SpanIdempotency, attribute.String("mcpgw.op", "complete"))
 		if res.IsError {
-			p.release(ctx, c) // a tool error is not a completed side effect: the key may be retried
+			p.release(ictx, c) // a tool error is not a completed side effect: the key may be retried
 		} else {
-			p.complete(ctx, c, res)
+			p.complete(ictx, c, res)
 		}
+		span.End()
 	}
 	c.status = "ok"
 	return p.finish(ctx, c, res), nil
+}
+
+// stage starts a child span of the request for one pipeline stage.
+func (p *Pipeline) stage(ctx context.Context, c *call, name string, attrs ...attribute.KeyValue) (context.Context, trace.Span) {
+	attrs = append(attrs, telemetry.AttrTenant.String(c.principal.Tenant), telemetry.AttrNode.String(p.opts.Node))
+	if c.runID != "" {
+		attrs = append(attrs, telemetry.AttrRunID.String(c.runID))
+	}
+	return telemetry.Tracer().Start(ctx, name, trace.WithAttributes(attrs...))
+}
+
+// logStep logs the shared step record for the call (kind "tool", no model, zero tokens and cost).
+func (p *Pipeline) logStep(ctx context.Context, c *call, err error) {
+	rec := telemetry.StepRecord{RunID: c.runID, TaskID: c.requestID, Node: p.opts.Node, Kind: "tool", Status: c.status,
+		LatencyMS: float64(p.deps.Clock.Now().Sub(c.start).Microseconds()) / 1000, StartedAt: c.start.UTC()}
+	if err != nil {
+		msg := err.Error()
+		var je *jsonrpc.Error
+		if errors.As(err, &je) {
+			msg = fmt.Sprintf("%d %s", je.Code, je.Message)
+		}
+		rec.Error = &msg
+	}
+	telemetry.LogStep(ctx, p.deps.Logger, rec)
 }
 
 func (p *Pipeline) parseArgs(c *call) error {
@@ -333,6 +400,7 @@ func (p *Pipeline) forward(ctx context.Context, c *call) (*mcp.CallToolResult, e
 	if c.runID != "" {
 		meta["run_id"] = c.runID
 	}
+	telemetry.InjectMeta(ctx, meta) // W3C trace context for the upstream
 	res, err := p.deps.Upstream.Call(ctx, c.tool, c.args, meta)
 	if err != nil {
 		if errors.Is(err, catalog.ErrUpstreamUnavailable) || errors.Is(err, context.DeadlineExceeded) {

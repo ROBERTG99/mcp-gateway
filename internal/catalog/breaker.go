@@ -64,10 +64,14 @@ func (b *Breaker) Success() {
 	b.mu.Unlock()
 }
 
-// Failure records a failed call; the breaker opens at the threshold or when a probe fails.
+// Failure records a failed call; the breaker opens at the threshold or when a probe fails. While
+// open, failures of calls admitted earlier (slow calls timing out late) do not restart the cooldown.
 func (b *Breaker) Failure() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if b.state == BreakerOpen {
+		return
+	}
 	b.failures++
 	b.probing = false
 	if b.state == BreakerHalfOpen || b.failures >= b.threshold {

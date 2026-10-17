@@ -19,3 +19,7 @@ The console signs in with the dev issuer's personas: there is no password and no
 - Injection recall on the test partition is exactly at the gate: 0.8000 (95% CI 0.6765-0.9167) against 0.9167 on dev (`evals/REPORT.md`, `make eval`). Families still missed on dev include exfiltration instructions that name an email address rather than a link, and forged chat transcripts ("assistant: … user: …") without other signals. Injection scoring is defence in depth; untrusted marking and policy are the controls.
 - Redaction scores 1.0 recall and precision on both partitions. The cases are generated from a fixed set of formats (test card numbers, checksum-valid IBANs, fictional phone ranges), so real-world recall will be lower; names and street addresses are out of scope for the detectors.
 - `chaos.v1` is produced by `make chaos` against the running stack (T-35), not by `make eval`.
+
+## Chaos eval parameters
+
+`make chaos` uses a 2 s gateway timeout, a 3 s stall on 10% of refund keys and a 5 s breaker cooldown so 10,000 calls finish in minutes (215 s on the last run, `evals/reports/chaos.v1.json`). Under those settings the run saw 1,620 upstream timeouts and 2,012 breaker rejections across 15,632 attempts; retries come both from those failures (3,632) and from 2,000 deliberate re-sends. The defaults (10 s timeout, 30 s cooldown) are not exercised by the chaos run.

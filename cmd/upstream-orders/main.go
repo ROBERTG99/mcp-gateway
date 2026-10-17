@@ -28,6 +28,6 @@ func build(pool *pgxpool.Pool) (*mcpserver.Server, error) {
 		return nil, err
 	}
 	s := mcpserver.New("orders", version.Version(), dedup)
-	upstreams.RegisterOrders(s, pool, upstreams.OrdersOptions{AfterRefund: faultHook()})
+	upstreams.RegisterOrders(s, pool, upstreams.OrdersOptions{BeforeRefund: faultHook()})
 	return s, nil
 }

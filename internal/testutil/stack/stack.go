@@ -118,7 +118,7 @@ func Start(t testing.TB, opts Options) *Stack {
 			}
 			srv = mcpserver.New("orders", version.Version(), dedup)
 			upstreams.RegisterOrders(srv, upPool, upstreams.OrdersOptions{
-				AfterRefund: upstreams.StallFault(opts.FaultRate, opts.StallPrefix, opts.Stall)})
+				BeforeRefund: upstreams.StallFault(opts.FaultRate, opts.StallPrefix, opts.Stall)})
 		} else if srv, err = upstreams.New(name, upPool); err != nil {
 			t.Fatal(err)
 		}

@@ -40,12 +40,13 @@ type refundOut struct {
 	Currency    string `json:"currency"`
 }
 
-// RefundHook runs inside the refund transaction after the insert (the chaos fault injector uses it).
+// RefundHook runs inside the refund transaction, after the idempotency key is claimed and before the
+// order row is locked and the refund inserted (the chaos fault injector uses it).
 type RefundHook func(ctx context.Context, tenant, key string) error
 
 // OrdersOptions customise the orders upstream.
 type OrdersOptions struct {
-	AfterRefund RefundHook
+	BeforeRefund RefundHook
 }
 
 func registerOrders(s *mcpserver.Server, pool *pgxpool.Pool) {
@@ -76,13 +77,13 @@ func RegisterOrders(s *mcpserver.Server, pool *pgxpool.Pool, opts OrdersOptions)
 			if in.AmountCents <= 0 {
 				return out, errors.New("amount_cents must be positive")
 			}
-			if err := InsertRefund(ctx, w.Tx, w.Tenant, w.IdempotencyKey, in.OrderID, in.AmountCents, in.Reason, &out); err != nil {
-				return out, err
-			}
-			if opts.AfterRefund != nil {
-				if err := opts.AfterRefund(ctx, w.Tenant, w.IdempotencyKey); err != nil {
+			if opts.BeforeRefund != nil {
+				if err := opts.BeforeRefund(ctx, w.Tenant, w.IdempotencyKey); err != nil {
 					return out, err
 				}
+			}
+			if err := InsertRefund(ctx, w.Tx, w.Tenant, w.IdempotencyKey, in.OrderID, in.AmountCents, in.Reason, &out); err != nil {
+				return out, err
 			}
 			return out, nil
 		})

@@ -18,6 +18,11 @@ import (
 	"golang.org/x/sync/singleflight"
 
 	"github.com/ROBERTG99/mcp-gateway/internal/clock"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // Contract limits (spec §4.4).
@@ -236,6 +241,9 @@ func (v *Verifier) fetch(ctx context.Context) (map[string]*rsa.PublicKey, error)
 // Middleware authenticates requests with a bearer token and stores the principal in the
 // context. Failures get 401 with `WWW-Authenticate: Bearer error="invalid_token"`; the token is
 // never echoed or logged.
+// telemetryScope matches internal/telemetry.ScopeName (authn does not import telemetry).
+const telemetryScope = "github.com/ROBERTG99/mcp-gateway"
+
 func (v *Verifier) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token, ok := BearerToken(r)
@@ -244,7 +252,15 @@ func (v *Verifier) Middleware(next http.Handler) http.Handler {
 			http.Error(w, "missing bearer token", http.StatusUnauthorized)
 			return
 		}
-		p, err := v.Verify(r.Context(), token)
+		ctx, span := otel.Tracer(telemetryScope).Start(r.Context(), "mcpgw.authn")
+		p, err := v.Verify(ctx, token)
+		if err == nil {
+			span.SetAttributes(attribute.String("app.tenant_id", p.Tenant), attribute.String("mcpgw.agent", p.Agent))
+			trace.SpanFromContext(r.Context()).SetAttributes(attribute.String("app.tenant_id", p.Tenant)) // mcp.request
+		} else {
+			span.SetStatus(codes.Error, "invalid token")
+		}
+		span.End()
 		if err != nil {
 			w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token"`)
 			http.Error(w, "invalid token", http.StatusUnauthorized)

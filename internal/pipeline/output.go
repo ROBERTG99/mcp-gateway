@@ -44,6 +44,9 @@ func (p *Pipeline) mark(ctx context.Context, c *call, res *mcp.CallToolResult) (
 		score = p.deps.Scorer.Score(outputText(res))
 	}
 	flagged := p.deps.Scorer != nil && score.Score >= p.opts.InjectionThreshold
+	if flagged {
+		p.deps.Metrics.InjectionFlag(c.tool.Server)
+	}
 	out := *res
 	out.Content = make([]mcp.Content, 0, len(res.Content))
 	withhold := flagged && p.opts.InjectionMode == "block"
