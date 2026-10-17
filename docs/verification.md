@@ -53,7 +53,7 @@ The four runs before this one failed. Each failure was fixed at its cause:
 3. A line too long in a new test.
 4. A row link whose nested screen-reader span intercepted a click.
 
-Each is described in `docs/DECISIONS.md`.
+Each is described in its commit message; the first two are also in `docs/DECISIONS.md`.
 
 ### Demo transcript (`make demo`, inside `make verify-clean`)
 
@@ -70,8 +70,9 @@ PASS restore: seq 8 restored; mcp-gateway audit verify passes again
 
 ## §19 step 3: reviews
 
-- `reviewer`: the final pass over the release found no code blockers. The milestone verdicts and what each
-  review caught are in the `PROGRESS.md` milestone table.
+- `reviewer`: the pass after this run found no code blockers, only overstated boxes in `PROGRESS.md` and
+  wording in this file, which were fixed; a further pass gave the verdict recorded in the `PROGRESS.md`
+  milestone table ("Final (T-49)"), with what every review caught.
 - `security-auditor`: no critical or high findings.
 - `security-review` skill (whole branch against `origin/main`): one medium finding, fixed. A consumed
   approval could re-authorise a held write after the idempotency TTL;
@@ -93,7 +94,7 @@ evals were not run.
 $ git log --format='%an <%ae> | %cn <%ce>' | sort -u
 ROBERTG99 <54124633+ROBERTG99@users.noreply.github.com> | ROBERTG99 <54124633+ROBERTG99@users.noreply.github.com>
 $ git log --format=%B | grep -E 'Co-Authored-By|Claude-Session|Generated with Claude Code'
-(no output; grep exit status 1; 81 commits at the time of the check, repeated before the final push)
+(no output; grep exit status 1; last run on d8db090, 83 commits)
 ```
 
 ## NFR budgets
@@ -101,11 +102,11 @@ $ git log --format=%B | grep -E 'Co-Authored-By|Claude-Session|Generated with Cl
 | NFR | Budget | Result | Source |
 |---|---|---|---|
 | NFR-1 overhead p95 | < 5 ms | 0.398 ms (`docs/perf/bench.txt`); 0.508 ms in the verify run | `make bench` |
-| NFR-2 throughput | ≥ 2,000 calls/s on 8 vCPUs (CI ≥ 500) | 630.0 calls/s on 4 vCPUs: **not met** (CI budget met) | `make loadtest-profile`, `docs/perf/loadtest.json` |
+| NFR-2 throughput | ≥ 2,000 calls/s on 8 vCPUs (CI ≥ 500) | 630.0 calls/s on 4 vCPUs: **not met** (above the CI budget of 500; measured locally, not in CI) | `make loadtest-profile`, `docs/perf/loadtest.json` |
 | NFR-5 startup | < 2 s | 22.2 ms | `go test -tags=integration -run TestStartupUnder2s -v ./internal/server`, `docs/perf/startup.txt` |
 | NFR-7 RSS | < 128 MB at 2,000 calls/s | 93.9 MB at 630 calls/s: **not verified** at 2,000 calls/s | `make loadtest-profile`, `docs/perf/loadtest.json` |
 | NFR-8 console | < 300 ms p95 at 100,000 rows | 11.79 ms (`docs/perf/bench.txt`); 13.15 ms in the verify run | `make bench` |
-| NFR-10 image and start | < 40 MB; `make up` < 5 min | 17.6 MB compressed (57.6 MB unpacked); `make up` 119 s from an empty build cache | `make image-size`, `make up` |
+| NFR-10 image and start | < 40 MB; `make up` < 5 min | 17.6 MB compressed (57.6 MB unpacked); `make up` 119 s from an empty build cache (T-41 run, `PROGRESS.md`) | `make image-size`, `make up` |
 
 Why NFR-2 and NFR-7 fall short, and what it would take, is in `docs/KNOWN_LIMITATIONS.md`.
 `make loadtest` is not part of `make verify`.
