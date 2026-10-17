@@ -45,6 +45,12 @@ func dynamoEndpoint(t *testing.T) string {
 	return ep
 }
 
+// liveStart is the fake clock's start for DynamoDB tests: the current time, not a fixed date. The
+// table enables DynamoDB TTL on expires_at, and dynamodb-local's sweeper deletes items whose
+// expires_at is in the real past; with a fixed past date it deleted live locks mid-test, letting a
+// second caller acquire the same key (the "concurrent acquire" case failed with 2 winners of 24).
+func liveStart() time.Time { return time.Now().UTC().Truncate(time.Second) }
+
 func TestDynamoDBStore(t *testing.T) {
 	endpoint := dynamoEndpoint(t)
 	client := dynamodb.New(dynamodb.Options{
@@ -53,7 +59,7 @@ func TestDynamoDBStore(t *testing.T) {
 	})
 	var n atomic.Int32
 	storetest.Run(t, func(t *testing.T) storetest.Harness {
-		c := clock.NewFake(time.Date(2026, 10, 16, 0, 0, 0, 0, time.UTC))
+		c := clock.NewFake(liveStart())
 		s := idempotency.NewDynamoDB(client, fmt.Sprintf("mcpgw_idempotency_%d", n.Add(1)), c)
 		if err := s.EnsureTable(t.Context()); err != nil {
 			t.Fatal(err)
@@ -65,7 +71,7 @@ func TestDynamoDBStore(t *testing.T) {
 // TestOpenDynamoDBLocalCreatesTable: with an endpoint override (dynamodb-local), Open uses static
 // local credentials and creates the table, and the store then works.
 func TestOpenDynamoDBLocalCreatesTable(t *testing.T) {
-	c := clock.NewFake(time.Date(2026, 10, 16, 0, 0, 0, 0, time.UTC))
+	c := clock.NewFake(liveStart())
 	s, err := idempotency.Open(t.Context(), idempotency.OpenOptions{Backend: "dynamodb", DynamoDBEndpoint: dynamoEndpoint(t),
 		DynamoDBTable: "mcpgw_idempotency_open", DynamoDBRegion: "us-east-1", Clock: c})
 	if err != nil {

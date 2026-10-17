@@ -64,6 +64,7 @@ chore: configure commit attribution
 - `make eval` rewrites `evals/reports/*` and `evals/REPORT.md` with the current git SHA: commit code first, then run it and commit the reports separately so the SHA is not `-dirty`.
 - `pkill -f <name>` from the Bash tool can kill the tool's own shell (the pattern matches its command line): use `pgrep -x`.
 - Playwright 1.64 runs against the preinstalled `/opt/pw-browsers/chromium-1194` (`e2e/playwright.config.ts`); never `playwright install` in the cloud. Video (make docs) needs `/opt/pw-browsers/ffmpeg-1013/ffmpeg-linux` as a wrapper around `/usr/bin/ffmpeg` (`docs/DEVELOPMENT.md`).
+- DynamoDB tests: never use a fixed past date on the fake clock; the table has TTL on `expires_at` and dynamodb-local deletes "expired" items in real time.
 - `ghcr.io` blob downloads are refused by the proxy (403): use Docker Hub copies (`astral/uv`, `alpine/helm`).
 - Never run `make test-docker` against the stack's Postgres: it now has its own `postgres-test`; older images of the stack need `make migrate` to restore role passwords.
 
