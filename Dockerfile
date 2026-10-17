@@ -13,16 +13,22 @@ COPY . .
 RUN go build -ldflags "-s -w -X github.com/ROBERTG99/mcp-gateway/internal/version.version=${VERSION} -X github.com/ROBERTG99/mcp-gateway/internal/version.commit=${COMMIT}" \
       -o /out/ ./cmd/...
 
-# Test image: full source and toolchain, used by compose.test.yaml (make test-docker).
+# Test image: full source, the Go toolchain (with gcc for -race), helm (tests/helm) and the Python
+# test environment (uv.lock, system Python 3.13), used by compose.test.yaml (make test-docker).
+# Test binaries are compiled at build time so the containers only run them.
 FROM golang:1.27 AS test
 ARG HTTPS_PROXY
-ENV GOTOOLCHAIN=local
+ENV GOTOOLCHAIN=local UV_PYTHON_DOWNLOADS=never UV_PROJECT_ENVIRONMENT=/opt/venv
+COPY --from=astral/uv:0.11.32 /uv /usr/local/bin/uv
+COPY --from=alpine/helm:3.22.1 /usr/bin/helm /usr/local/bin/helm
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-install-project
 COPY . .
-RUN go build ./... && go test -count=1 -run '^$' ./... > /dev/null
-CMD ["go", "test", "-race", "-count=1", "./..."]
+RUN go test -race -count=1 -tags=integration -run '^$' ./... > /dev/null
+CMD ["go", "test", "-race", "-count=1", "-tags=integration", "./..."]
 
 # Example upstreams, demo agent and generators.
 FROM gcr.io/distroless/static-debian12:nonroot AS examples

@@ -160,6 +160,11 @@ services:
       MCPGW_OTEL_ENDPOINT: ${MCPGW_OTEL_ENDPOINT:-}
       MCPGW_BREAKER_COOLDOWN: ${MCPGW_BREAKER_COOLDOWN:-30s}
     ports: ["127.0.0.1:8200:8200", "127.0.0.1:8210:8210", "127.0.0.1:8211:8211"]
+    healthcheck:
+      test: ["CMD", "/mcp-gateway", "healthcheck", "http://127.0.0.1:8200/readyz"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
     depends_on:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }

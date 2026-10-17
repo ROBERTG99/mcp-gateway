@@ -54,3 +54,4 @@ e2e/playwright-report/
 /upstream-*
 /bench.out
 /loadtest.json
+/cpu.txt

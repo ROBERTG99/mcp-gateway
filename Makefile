@@ -109,7 +109,7 @@ fmt: ## Format Go, Rego and Python sources
 	gofmt -w $$(git ls-files '*.go')
 	goimports -local github.com/ROBERTG99/mcp-gateway -w $$(git ls-files '*.go')
 	$(GO) run ./cmd/mcp-gateway policy fmt policies
-	$(UV) run ruff format .claude/hooks scripts tests/harness
+	$(UV) run ruff format .claude/hooks scripts tests
 
 .PHONY: fmt-check
 fmt-check:
@@ -126,8 +126,8 @@ golangci:
 .PHONY: lint
 lint: fmt-check golangci ## All linters (Go, Rego, Python, TS, Markdown, Actions)
 	$(GO) run ./cmd/mcp-gateway policy fmt --check policies
-	$(UV) run ruff check .claude/hooks scripts tests/harness
-	$(UV) run ruff format --check .claude/hooks scripts tests/harness
+	$(UV) run ruff check .claude/hooks scripts tests
+	$(UV) run ruff format --check .claude/hooks scripts tests
 	cd e2e && $(PNPM) exec eslint . && $(PNPM) exec prettier --check .
 	e2e/node_modules/.bin/markdownlint-cli2
 	actionlint
@@ -135,7 +135,7 @@ lint: fmt-check golangci ## All linters (Go, Rego, Python, TS, Markdown, Actions
 .PHONY: typecheck
 typecheck: vet ## go vet, tsc --noEmit, mypy --strict
 	cd e2e && $(PNPM) exec tsc --noEmit
-	$(UV) run mypy --strict .claude/hooks scripts tests/harness
+	$(UV) run mypy --strict .claude/hooks scripts tests
 
 .PHONY: security
 security: ## gitleaks, gosec, govulncheck, trivy, hadolint, actionlint, pnpm audit, go-licenses
@@ -161,8 +161,8 @@ policy-test: ## Rego unit tests and golden decisions
 	$(GO) test -count=1 ./internal/policy/...
 
 .PHONY: hooks-test
-hooks-test: ## Claude Code hook tests
-	$(UV) run pytest tests/harness tests/evals
+hooks-test: ## Claude Code hook tests and the other Python tests (eval gate, budgets, Docker setup)
+	$(UV) run pytest
 
 .PHONY: test
 test: unit integration contract policy-test hooks-test ## Unit, integration, contract, policy and hook tests on the host
@@ -173,10 +173,18 @@ coverage: ## Coverage report with thresholds (85% core, 70% overall)
 	$(UV) run python scripts/coverage_check.py coverage.out
 
 .PHONY: test-docker
+# Runs next to a running stack (only postgres, redis and dynamodb are needed; tests use their own
+# databases), so `make verify` can call it between `up` and `down`.
+COMPOSE_TEST = $(COMPOSE) -f compose.yaml -f compose.test.yaml --profile dynamodb --profile test
 test-docker: ## Full test suite inside containers
-	$(COMPOSE) -f compose.yaml -f compose.test.yaml up -d --build --wait postgres redis dynamodb approval-sink
-	$(COMPOSE) -f compose.yaml -f compose.test.yaml run --rm go-tests
-	$(COMPOSE) -f compose.yaml -f compose.test.yaml run --rm harness-tests
+	$(COMPOSE_TEST) build go-tests
+	$(COMPOSE_TEST) up -d --wait postgres redis dynamodb
+	$(COMPOSE_TEST) run --rm go-tests
+	$(COMPOSE_TEST) run --rm harness-tests
+
+.PHONY: image-size
+image-size: ## Gateway image size: compressed (budget < 40 MB) and unpacked
+	./scripts/image_size.sh mcp-gateway:dev 40
 
 .PHONY: e2e
 e2e: ## Playwright and axe against the running stack
@@ -197,6 +205,16 @@ loadtest: ## Load test against the stack (NFR-2, NFR-7); writes loadtest.json an
 	$(GO) run ./cmd/loadgen --mode load --gateway $(GATEWAY_URL) --issuer $(DEV_ISSUER_URL) --metrics $(METRICS_URL) \
 	  --report loadtest.json $(LOADTEST_ARGS) && $(UV) run python scripts/bench_budget.py --load loadtest.json; \
 	  status=$$?; $(COMPOSE) up -d --wait gateway; exit $$status
+
+.PHONY: loadtest-profile
+# make loadtest with scripts/cpu_usage.py sampling the measured window (5-30 s after start): average
+# cores per compose service and host process (loadgen, docker-proxy), written to cpu.txt.
+loadtest-profile: ## Load test plus CPU per service and process (cpu.txt)
+	$(GO) build -o $(BIN)/loadgen ./cmd/loadgen
+	$(LOADTEST_ENV) $(COMPOSE) up -d --wait gateway
+	( $(UV) run python scripts/cpu_usage.py --delay 5 --seconds 25 > cpu.txt ) & \
+	  $(BIN)/loadgen --mode load --gateway $(GATEWAY_URL) --issuer $(DEV_ISSUER_URL) --metrics $(METRICS_URL) \
+	  --report loadtest.json $(LOADTEST_ARGS); status=$$?; wait; cat cpu.txt; $(COMPOSE) up -d --wait gateway; exit $$status
 
 .PHONY: chaos
 # 10% of refund keys stall 3 s inside the orders upstream, past a 2 s gateway timeout; the breaker
@@ -236,6 +254,7 @@ kind-smoke: ## Optional chart install on kind (outside make verify)
 .PHONY: verify
 verify: lint typecheck security test coverage policy-test hooks-test helm-check promtool eval bench ## The single gate (everything except eval-live)
 	$(MAKE) up
+	$(MAKE) image-size
 	$(MAKE) seed
 	$(MAKE) demo
 	$(MAKE) e2e
@@ -255,5 +274,5 @@ docs: ## Regenerate diagrams, OpenAPI checks, frontend types and screenshots
 .PHONY: clean
 clean: ## Remove containers, volumes, caches and build outputs
 	-$(COMPOSE) --profile tools --profile dynamodb --profile observability --profile chaos down -v --remove-orphans
-	rm -rf dist coverage*.out coverage.html bench.out loadtest.json e2e/test-results e2e/playwright-report
+	rm -rf dist coverage*.out coverage.html bench.out loadtest.json cpu.txt e2e/test-results e2e/playwright-report
 	$(GO) clean -testcache

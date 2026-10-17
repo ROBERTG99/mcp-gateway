@@ -1,0 +1,40 @@
+# make test-docker: the full test suite inside containers, on top of compose.yaml. go-tests runs
+# the Go unit and integration tests with the race detector against the compose postgres, redis and
+# dynamodb services (MCPGW_TEST_USE_COMPOSE=1); harness-tests runs the Python tests (hooks, harness
+# files, eval gate, bench budgets, Docker setup). Both use the Dockerfile `test` target and the
+# profile `test`, so a plain `docker compose up` never starts them.
+services:
+  go-tests:
+    profiles: ["test"]
+    build:
+      context: .
+      network: host
+      target: test
+      args:
+        HTTPS_PROXY: "${HTTPS_PROXY:-}"
+    image: mcp-gateway-test:dev
+    command: ["go", "test", "-race", "-count=1", "-tags=integration", "./..."]
+    environment:
+      MCPGW_TEST_USE_COMPOSE: "1"
+      MCPGW_TEST_DATABASE_URL: postgres://postgres:postgres@postgres:5432/postgres?sslmode=disable
+      MCPGW_TEST_REDIS_URL: redis://redis:6379/0
+      MCPGW_TEST_DYNAMODB_ENDPOINT: http://dynamodb:8000
+    healthcheck:
+      disable: true
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      dynamodb: { condition: service_healthy }
+
+  harness-tests:
+    profiles: ["test"]
+    build:
+      context: .
+      network: host
+      target: test
+      args:
+        HTTPS_PROXY: "${HTTPS_PROXY:-}"
+    image: mcp-gateway-test:dev
+    command: ["uv", "run", "--frozen", "--no-sync", "pytest"]
+    healthcheck:
+      disable: true
