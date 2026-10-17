@@ -18,7 +18,7 @@ dev = [
 package = false
 
 [tool.pytest.ini_options]
-testpaths = ["tests/harness", "tests/evals", "tests/bench", "tests/docker"]
+testpaths = ["tests/harness", "tests/evals", "tests/bench", "tests/docker", "tests/scripts"]
 addopts = "-q"
 
 [tool.ruff]

@@ -203,3 +203,96 @@ func TestLoadBundleConfigMapLayout(t *testing.T) {
 		t.Fatalf("engine hash %q, want %q", e.BundleHash(), b.Hash)
 	}
 }
+
+// TestMalformedDecisionDenies: a bundle whose decision does not have the contract shape
+// {allow, require_approval, reasons} denies with policy_error instead of guessing.
+func TestMalformedDecisionDenies(t *testing.T) {
+	for name, rule := range map[string]string{
+		"not an object":           `decision := "allow"`,
+		"missing reasons":         `decision := {"allow": true, "require_approval": false}`,
+		"extra key":               `decision := {"allow": true, "require_approval": false, "reasons": [], "x": 1}`,
+		"reason not a string":     `decision := {"allow": true, "require_approval": false, "reasons": [1]}`,
+		"allow and hold together": `decision := {"allow": true, "require_approval": true, "reasons": []}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, "authz.rego"), []byte("package mcpgw.authz\n\n"+rule+"\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			e, err := policy.New(context.Background(), policy.Options{Dir: dir})
+			if err != nil {
+				t.Fatal(err)
+			}
+			d, err := e.Evaluate(context.Background(), policy.Input{Tenant: "t_alpha", Agent: "a", Server: "crm", Tool: "get_customer"})
+			if err == nil || d.Allow || d.RequireApproval || !slices.Equal(d.Reasons, []string{"policy_error"}) {
+				t.Fatalf("decision %+v, err %v: want a policy_error denial", d, err)
+			}
+		})
+	}
+}
+
+// TestWatchReloadsChangedBundle: Watch reloads when the bundle's content changes and reports a
+// broken bundle through onError while the last good one keeps serving; it stops with ctx.
+func TestWatchReloadsChangedBundle(t *testing.T) {
+	dir := t.TempDir()
+	write := func(src string) {
+		if err := os.WriteFile(filepath.Join(dir, "authz.rego"), []byte(src), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("package mcpgw.authz\n\ndecision := {\"allow\": false, \"require_approval\": false, \"reasons\": [\"v1\"]}\n")
+	e, err := policy.New(context.Background(), policy.Options{Dir: dir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.Watch(context.Background(), 0, nil); err != nil {
+		t.Fatalf("Watch with interval 0 = %v, want nil (disabled)", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	errs := make(chan error, 16)
+	done := make(chan error, 1)
+	go func() { done <- e.Watch(ctx, 5*time.Millisecond, func(err error) { errs <- err }) }()
+	reason := func() string {
+		d, _ := e.Evaluate(context.Background(), policy.Input{Tenant: "t_alpha"})
+		return strings.Join(d.Reasons, ",")
+	}
+	write("package mcpgw.authz\n\ndecision := {\"allow\": false, \"require_approval\": false, \"reasons\": [\"v2\"]}\n")
+	for deadline := time.Now().Add(5 * time.Second); reason() != "v2"; {
+		if time.Now().After(deadline) {
+			t.Fatal("changed bundle not reloaded")
+		}
+		time.Sleep(5 * time.Millisecond) //nolint:forbidigo // polling the watcher with a deadline
+	}
+	write("package mcpgw.authz\n\ndecision := {")
+	select {
+	case err := <-errs:
+		if err == nil {
+			t.Fatal("onError called with nil")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("broken bundle not reported")
+	}
+	if reason() != "v2" {
+		t.Fatal("the last good bundle stopped serving")
+	}
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatalf("Watch = %v after cancel", err)
+	}
+}
+
+func TestRunTestsReportsBrokenTestModule(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "authz.rego"), []byte("package mcpgw.authz\n\nx := 1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "authz_test.rego"), []byte("package mcpgw.authz_test\n\ntest_x if {"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := policy.RunTests(context.Background(), dir); err == nil {
+		t.Fatal("RunTests accepted a test module that does not parse")
+	}
+	if _, err := policy.RunTests(context.Background(), t.TempDir()); err == nil {
+		t.Fatal("RunTests accepted an empty directory")
+	}
+}

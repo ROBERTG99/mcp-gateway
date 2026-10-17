@@ -61,3 +61,21 @@ func TestDynamoDBStore(t *testing.T) {
 		return storetest.Harness{Store: s, Advance: c.Advance}
 	})
 }
+
+// TestOpenDynamoDBLocalCreatesTable: with an endpoint override (dynamodb-local), Open uses static
+// local credentials and creates the table, and the store then works.
+func TestOpenDynamoDBLocalCreatesTable(t *testing.T) {
+	c := clock.NewFake(time.Date(2026, 10, 16, 0, 0, 0, 0, time.UTC))
+	s, err := idempotency.Open(t.Context(), idempotency.OpenOptions{Backend: "dynamodb", DynamoDBEndpoint: dynamoEndpoint(t),
+		DynamoDBTable: "mcpgw_idempotency_open", DynamoDBRegion: "us-east-1", Clock: c})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Ping(t.Context()); err != nil {
+		t.Fatalf("ping: %v", err)
+	}
+	a, err := s.Acquire(t.Context(), "t_alpha", "key-00000001", "h", time.Minute)
+	if err != nil || a.Outcome != idempotency.Acquired {
+		t.Fatalf("acquire = %+v, %v", a, err)
+	}
+}
