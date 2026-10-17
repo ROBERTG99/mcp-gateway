@@ -40,7 +40,7 @@ duration of the whole run.
 | `make up` | every service healthy |
 | `make image-size` | 17.6 MB compressed (budget < 40 MB), 57.6 MB unpacked |
 | `make seed` | synthetic dataset loaded (seed 20260) |
-| `make contract` | golden contract tests ok; Schemathesis: 833 generated, 833 passed, 12 skipped |
+| `make contract` | golden contract tests ok; Schemathesis summary: 833 test cases generated and 833 passed (it also printed "12 skipped", its own count of cases it did not run) |
 | `make demo` | PASS steps 1-7 and the restore (transcript below) |
 | `make e2e` | 50 Playwright tests passed, axe included |
 | `make test-docker` | in containers: 31 Go packages ok, 0 failed (`go test -race -tags=integration ./...`), 107 Python tests passed |
@@ -94,7 +94,7 @@ evals were not run.
 $ git log --format='%an <%ae> | %cn <%ce>' | sort -u
 ROBERTG99 <54124633+ROBERTG99@users.noreply.github.com> | ROBERTG99 <54124633+ROBERTG99@users.noreply.github.com>
 $ git log --format=%B | grep -E 'Co-Authored-By|Claude-Session|Generated with Claude Code'
-(no output; grep exit status 1; last run on d8db090, 83 commits)
+(no output; grep exit status 1; last run on the tagged commit 77ae29c, 84 commits)
 ```
 
 ## NFR budgets
