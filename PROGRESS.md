@@ -8,6 +8,8 @@ Build tracker for `docs/specs/000-build-spec.md` (originally `BUILD.md`). Tasks 
 
 - **Maintainer review of 40 injection cases (spec §11).** The injection suite is labelled by construction from attack and benign templates in `internal/datagen/evals.go`; please read 40 cases (for example the first 20 of `evals/datasets/dev/injection.v1.jsonl` and the first 20 of `evals/datasets/test/injection.v1.jsonl`) and confirm the labels. Not done by the agent.
 
+- **A 29.7 MB build artifact is in history.** Commit 6af1610 accidentally added the compiled `loadgen` binary at the repository root; it was untracked again in the following commit and the root binary names are now in `.gitignore`. Removing it from history needs a rewrite and a force-push, which the agent must not do; decide whether to rewrite before publishing.
+
 ## Identity evidence (§1.1)
 
 `.claude/settings.json` and `.claude/rules/git-commits.md` were not pre-seeded (the initial commit contains only `BUILD.md`, `README.md`, `LICENSE`, `.gitignore`). The rule file was created and committed alone; see the item above for the settings file.

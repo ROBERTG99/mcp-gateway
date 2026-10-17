@@ -36,6 +36,7 @@ type ChaosConfig struct {
 	Sessions                        int           // MCP sessions shared by the workers (default 8)
 	RetryShare                      float64       // share of keys sent a second time on purpose (default 0.2)
 	KeyBudget                       time.Duration // how long a key is retried on timeouts, in-progress and an open breaker (default 2 min)
+	SettleWait                      time.Duration // wait after the last call before reading the orders (>= the upstream stall; default 15 s)
 	Orders                          int           // t_alpha orders the refunds are spread over (default: all eligible)
 	RunID                           string
 	HTTP                            *http.Client
@@ -59,6 +60,7 @@ type ChaosResult struct {
 	Replayed        int64         `json:"replayed"`
 	Duplicates      int64         `json:"duplicates"`
 	Lost            int64         `json:"lost"`
+	Unanswered      int64         `json:"unanswered"` // keys (and re-sends) that never got a success within the key budget
 	AuditEvents     int64         `json:"audit_events"`
 	AuditedRatio    float64       `json:"audited_ratio"`
 	ChainOK         bool          `json:"chain_ok"`
@@ -90,6 +92,9 @@ func (c *ChaosConfig) defaults() {
 	}
 	if c.KeyBudget <= 0 {
 		c.KeyBudget = 2 * time.Minute
+	}
+	if c.SettleWait <= 0 {
+		c.SettleWait = 15 * time.Second
 	}
 	if c.Orders <= 0 {
 		c.Orders = 1 << 30
@@ -292,8 +297,11 @@ func Chaos(ctx context.Context, cfg ChaosConfig) (ChaosResult, error) {
 	wg.Wait()
 	res.Duration = time.Since(start)
 
-	// Stalled transactions commit after the stall; wait for the upstream to settle by polling the
-	// orders until two consecutive reads agree (bounded).
+	// Stalled transactions commit after the stall: wait at least the stall, then poll the orders
+	// until two consecutive reads agree. Not settling within the deadline is an error.
+	if !pause(ctx, cfg.SettleWait) {
+		return res, ctx.Err()
+	}
 	after := map[string]int64{}
 	deadline := time.Now().Add(2 * time.Minute)
 	for {
@@ -309,8 +317,11 @@ func Chaos(ctx context.Context, cfg ChaosConfig) (ChaosResult, error) {
 			}
 			after[o] = v
 		}
-		if !changed || time.Now().After(deadline) {
+		if !changed {
 			break
+		}
+		if time.Now().After(deadline) {
+			return res, errors.New("orders did not settle within 2 minutes after the run")
 		}
 	}
 	for _, o := range orders {
@@ -325,6 +336,7 @@ func Chaos(ctx context.Context, cfg ChaosConfig) (ChaosResult, error) {
 	res.Timeouts, res.FastFails, res.InProgress, res.OtherErrors = timeouts.Load(), fastFails.Load(), inProgress.Load(), other.Load()
 	res.Succeeded, res.Replayed, res.FirstOtherError = ok.Load(), replayed.Load(), firstOther
 	res.TimeoutShare = float64(res.Timeouts) / float64(max(1, res.Attempts))
+	res.Unanswered = int64(cfg.Calls) + res.DeliberateDups - res.Succeeded
 	slices.Sort(latencies)
 	res.LatencyP50MS, res.LatencyP95MS = pct(latencies, 50), pct(latencies, 95)
 

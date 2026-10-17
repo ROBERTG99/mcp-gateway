@@ -1,6 +1,8 @@
 package evals
 
 import (
+	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -8,10 +10,28 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
 )
+
+// GitSHA returns GIT_SHA or `git rev-parse HEAD`, with "-dirty" when the working tree has
+// uncommitted changes (the report then does not describe a commit exactly), or "unknown".
+func GitSHA(ctx context.Context) string {
+	if s := os.Getenv("GIT_SHA"); s != "" {
+		return s
+	}
+	out, err := exec.CommandContext(ctx, "git", "rev-parse", "HEAD").Output()
+	if err != nil {
+		return "unknown"
+	}
+	sha := strings.TrimSpace(string(out))
+	if st, err := exec.CommandContext(ctx, "git", "status", "--porcelain", "--untracked-files=no").Output(); err == nil && len(bytes.TrimSpace(st)) > 0 {
+		sha += "-dirty"
+	}
+	return sha
+}
 
 // FileSHA256 returns the hex SHA-256 of a file (prompt_hashes of detector pattern files).
 func FileSHA256(path string) (string, error) {
@@ -148,6 +168,12 @@ func Markdown(reportsDir, baselineDir string) (string, error) {
 	if len(missing) > 0 {
 		fmt.Fprintf(&b, "\nNot run in this report: %s.\n", strings.Join(missing, ", "))
 	}
+	b.WriteString("\n## Caveats\n\n")
+	b.WriteString("- `injection.v1`: dev and test are split per case, not per template, so every attack template in test also occurs in dev with " +
+		"different fills; the detector was tuned on dev, and one rule matches the generator's base64 wrapper text. Test recall " +
+		"therefore measures new fills of known phrasings, not new phrasings (docs/KNOWN_LIMITATIONS.md).\n")
+	b.WriteString("- `redaction.v1`: cases use a fixed set of formats; real-world recall will be lower.\n")
+	b.WriteString("- Graders are deterministic, so a delta against the baseline is a real change; the gate fails any regression beyond 1.0 pp.\n")
 	b.WriteString("\nInjection scoring is defence in depth, not a solution: see `docs/evaluation.md`.\n")
 	return b.String(), nil
 }

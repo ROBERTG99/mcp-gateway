@@ -76,9 +76,9 @@ var (
 		regexp.MustCompile(`\bnew\s+(system\s+)?instructions?\s*:`),
 		regexp.MustCompile(`\byou\s+are\s+(now\s+)?(in\s+)?(an?\s+)?(admin|developer|debug|god|unrestricted|jailbreak|dan)\b`),
 		// Credential solicitation, instructions hidden in an encoding, and bypassing a human check.
-		regexp.MustCompile(`\b(submit|send|share|paste|post|forward|reveal)\s+(the|your|any|all)\s+(session\s+|access\s+|api\s+|bearer\s+)?(tokens?|passwords?|credentials?|keys?|secrets?)\b`),
+		regexp.MustCompile(`\b(submit|send|share|paste|post|forward|reveal)\s+(the|your|any|all)\s+((session|access|bearer|api)\s+tokens?|passwords?|credentials?|(api|secret|private|ssh)\s+keys?|secrets?|tokens?)\b`),
 		regexp.MustCompile(`\b(decode|decrypt|deobfuscate|unscramble)\b[^.]{0,60}\b(follow|execute|obey|run)\b`),
-		regexp.MustCompile(`\b(skip|bypass|disable|avoid)\s+(the\s+)?(approval|human\s+review|review|verification|confirmation)\b`),
+		regexp.MustCompile(`\b(skip|bypass|disable|avoid)\s+(the\s+)?(approvals?|human\s+(review|approval))\b`),
 		regexp.MustCompile(`\b(reveal|print|show|output)\s+(your|the)\s+(system\s+prompt|hidden\s+instructions|instructions)\b`),
 		regexp.MustCompile(`\bdo\s+not\s+(tell|inform|alert|notify)\s+the\s+(user|human|operator|customer)\b`),
 		regexp.MustCompile(`\b(the\s+)?real\s+(task|instructions?)\s+(is|are)\b`),
@@ -93,7 +93,7 @@ var (
 		// header, or text addressed to the model ("To the AI:", "for the assistant:").
 		regexp.MustCompile(`(?i)[.!?]\s+(system|assistant|developer)\s*:`),
 		regexp.MustCompile(`(?i)\b(system|developer)\s+(prompt|instructions?|message)\s*:`),
-		regexp.MustCompile(`(?i)\b(to|for)\s+(the|any|all)\s+(ai|assistant|llm|model|ai\s+agents?|agents?)(\s+reading\s+this)?\s*:`),
+		regexp.MustCompile(`(?i)\b(to|for)\s+(the|any|all)\s+(ai|assistant|llm|language\s+model|ai\s+agents?)(\s+reading\s+this)?\s*:`),
 	}
 	genericTool = regexp.MustCompile(`\b[a-z][a-z0-9_]{1,31}\.(get|add|record|issue|refund|create|delete|update|send|list|call|transfer|approve)_[a-z_]+\b`)
 	urlRe       = regexp.MustCompile(`(?i)\bhttps?://\S+`)

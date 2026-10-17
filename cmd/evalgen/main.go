@@ -12,8 +12,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
-	"strings"
 	"time"
 
 	"github.com/ROBERTG99/mcp-gateway/internal/config"
@@ -67,7 +65,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		hashes[name] = h
 	}
 	r := &evals.Runner{Policy: engine, Scorer: injection.New(injection.Options{}), Redactor: redact.New(),
-		InjectionThreshold: cfg.InjectionThreshold, GitSHA: gitSHA(ctx), Now: time.Now(), PromptHashes: hashes}
+		InjectionThreshold: cfg.InjectionThreshold, GitSHA: evals.GitSHA(ctx), Now: time.Now(), PromptHashes: hashes}
 	failed := false
 	for _, split := range []string{"dev", "test"} {
 		ds, err := evals.LoadDatasets(*datasets, split)
@@ -109,15 +107,4 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	return 0
-}
-
-func gitSHA(ctx context.Context) string {
-	if s := os.Getenv("GIT_SHA"); s != "" {
-		return s
-	}
-	out, err := exec.CommandContext(ctx, "git", "rev-parse", "HEAD").Output()
-	if err != nil {
-		return "unknown"
-	}
-	return strings.TrimSpace(string(out))
 }

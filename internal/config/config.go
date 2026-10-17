@@ -130,6 +130,11 @@ func Load(getenv func(string) string) (Config, error) {
 	if cfg.JWTIssuer == "" || cfg.JWTAudience == "" {
 		errs = append(errs, errors.New("MCPGW_JWT_ISSUER and MCPGW_JWT_AUDIENCE must not be empty (an empty value would skip the check)"))
 	}
+	if cfg.BreakerCooldown <= cfg.UpstreamTimeout {
+		// A late failure of a call admitted before the breaker opened must not reach a half-open
+		// breaker and be taken for the probe's result.
+		errs = append(errs, fmt.Errorf("MCPGW_BREAKER_COOLDOWN (%s) must be longer than MCPGW_UPSTREAM_TIMEOUT (%s)", cfg.BreakerCooldown, cfg.UpstreamTimeout))
+	}
 	if cfg.ApprovalWebhookURL != "" && len(cfg.ApprovalWebhookSecret) < MinWebhookSecret {
 		errs = append(errs, fmt.Errorf("MCPGW_APPROVAL_WEBHOOK_SECRET: must be at least %d bytes when MCPGW_APPROVAL_WEBHOOK_URL is set", MinWebhookSecret))
 	}

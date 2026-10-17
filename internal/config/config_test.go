@@ -91,6 +91,10 @@ func TestEnvValidation(t *testing.T) {
 			t.Errorf("%s=%s: err = %v, want error naming the variable", k, v, err)
 		}
 	}
+	if _, err := config.Load(env(map[string]string{"MCPGW_UPSTREAM_TIMEOUT": "30s", "MCPGW_BREAKER_COOLDOWN": "10s"})); err == nil ||
+		!strings.Contains(err.Error(), "MCPGW_BREAKER_COOLDOWN") {
+		t.Errorf("breaker cooldown shorter than the upstream timeout: %v", err)
+	}
 	// A webhook URL needs a real HMAC key: an empty or short secret would sign with a guessable key.
 	for _, secret := range []string{"", "short"} {
 		_, err := config.Load(env(map[string]string{"MCPGW_APPROVAL_WEBHOOK_URL": "http://sink/approvals", "MCPGW_APPROVAL_WEBHOOK_SECRET": secret}))

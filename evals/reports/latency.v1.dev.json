@@ -1,31 +1,31 @@
 {
   "schema": "evalgate.report.v1",
   "suite": "latency.v1",
-  "run_id": "latency.v1-dev-20261017T005354Z",
-  "created_at": "2026-10-17T00:53:54Z",
-  "git_sha": "df2b022f4e1a2a8f9f21545260d20db481269694",
+  "run_id": "latency.v1-dev-20261017T011534Z",
+  "created_at": "2026-10-17T01:15:34Z",
+  "git_sha": "6af16104a6470316950738028d1f59675d359755-dirty",
   "mode": "offline",
   "models": [],
   "prompt_hashes": {
-    "injection_detector": "a27d94e8612e26f9e9584587f5175c51e97d4ac466ce3468ea083e1e1e4bd457",
+    "injection_detector": "1146e33e9f13d8044c0fc037894789e5ce3a2b2d9140eac1605e1fa87067d55c",
     "policy_bundle": "81993332a611147cc767b8b11b9748eb7a09b9a072accfee9b68c01cc9170e2c",
     "redaction_detector": "dd5e1b871be5ed4306866ca273051e19110c9a08d898243931747d2a33bfa9cc"
   },
   "n_cases": 90,
   "metrics": {
     "policy_eval_p95_ms": {
-      "value": 0.234,
+      "value": 0.212,
       "threshold": 1,
       "direction": "lower",
       "passed": true,
-      "ci_low": 0.211,
-      "ci_high": 0.255
+      "ci_low": 0.2,
+      "ci_high": 0.232
     }
   },
   "cost_usd_total": 0,
   "cost_usd_per_case": 0,
-  "latency_p50_ms": 0.052,
-  "latency_p95_ms": 0.234,
+  "latency_p50_ms": 0.053,
+  "latency_p95_ms": 0.212,
   "cases": [
     {
       "id": "pol-dev-001",
@@ -42,11 +42,11 @@
       "id": "pol-dev-002",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.044
+        "latency_ms": 0.047
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.044,
+      "latency_ms": 0.047,
       "error": null
     },
     {
@@ -64,11 +64,11 @@
       "id": "pol-dev-004",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.05
+        "latency_ms": 0.044
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.05,
+      "latency_ms": 0.044,
       "error": null
     },
     {
@@ -86,17 +86,6 @@
       "id": "pol-dev-006",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.048
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.048,
-      "error": null
-    },
-    {
-      "id": "pol-dev-007",
-      "split": "dev",
-      "scores": {
         "latency_ms": 0.049
       },
       "passed": true,
@@ -105,18 +94,18 @@
       "error": null
     },
     {
-      "id": "pol-dev-008",
+      "id": "pol-dev-007",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.046
+        "latency_ms": 0.051
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.046,
+      "latency_ms": 0.051,
       "error": null
     },
     {
-      "id": "pol-dev-009",
+      "id": "pol-dev-008",
       "split": "dev",
       "scores": {
         "latency_ms": 0.045
@@ -127,14 +116,25 @@
       "error": null
     },
     {
-      "id": "pol-dev-010",
+      "id": "pol-dev-009",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.048
+        "latency_ms": 0.044
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.048,
+      "latency_ms": 0.044,
+      "error": null
+    },
+    {
+      "id": "pol-dev-010",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.045
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.045,
       "error": null
     },
     {
@@ -163,125 +163,48 @@
       "id": "pol-dev-013",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.049
+        "latency_ms": 0.05
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.049,
+      "latency_ms": 0.05,
       "error": null
     },
     {
       "id": "pol-dev-014",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.043
+        "latency_ms": 0.045
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.043,
+      "latency_ms": 0.045,
       "error": null
     },
     {
       "id": "pol-dev-015",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.046
+        "latency_ms": 0.047
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.046,
+      "latency_ms": 0.047,
       "error": null
     },
     {
       "id": "pol-dev-016",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.037
+        "latency_ms": 0.04
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.037,
+      "latency_ms": 0.04,
       "error": null
     },
     {
       "id": "pol-dev-017",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.036
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.036,
-      "error": null
-    },
-    {
-      "id": "pol-dev-018",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.04
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.04,
-      "error": null
-    },
-    {
-      "id": "pol-dev-019",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.036
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.036,
-      "error": null
-    },
-    {
-      "id": "pol-dev-020",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.035
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.035,
-      "error": null
-    },
-    {
-      "id": "pol-dev-021",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.04
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.04,
-      "error": null
-    },
-    {
-      "id": "pol-dev-022",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.035
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.035,
-      "error": null
-    },
-    {
-      "id": "pol-dev-023",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.065
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.065,
-      "error": null
-    },
-    {
-      "id": "pol-dev-024",
       "split": "dev",
       "scores": {
         "latency_ms": 0.038
@@ -292,25 +215,102 @@
       "error": null
     },
     {
-      "id": "pol-dev-025",
+      "id": "pol-dev-018",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.04
+        "latency_ms": 0.044
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.04,
+      "latency_ms": 0.044,
+      "error": null
+    },
+    {
+      "id": "pol-dev-019",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.037
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.037,
+      "error": null
+    },
+    {
+      "id": "pol-dev-020",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.036
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.036,
+      "error": null
+    },
+    {
+      "id": "pol-dev-021",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.038
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.038,
+      "error": null
+    },
+    {
+      "id": "pol-dev-022",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.037
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.037,
+      "error": null
+    },
+    {
+      "id": "pol-dev-023",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.082
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.082,
+      "error": null
+    },
+    {
+      "id": "pol-dev-024",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.044
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.044,
+      "error": null
+    },
+    {
+      "id": "pol-dev-025",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.041
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.041,
       "error": null
     },
     {
       "id": "pol-dev-026",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.039
+        "latency_ms": 0.037
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.039,
+      "latency_ms": 0.037,
       "error": null
     },
     {
@@ -328,6 +328,17 @@
       "id": "pol-dev-028",
       "split": "dev",
       "scores": {
+        "latency_ms": 0.035
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.035,
+      "error": null
+    },
+    {
+      "id": "pol-dev-029",
+      "split": "dev",
+      "scores": {
         "latency_ms": 0.034
       },
       "passed": true,
@@ -336,7 +347,18 @@
       "error": null
     },
     {
-      "id": "pol-dev-029",
+      "id": "pol-dev-030",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.033
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.033,
+      "error": null
+    },
+    {
+      "id": "pol-dev-031",
       "split": "dev",
       "scores": {
         "latency_ms": 0.032
@@ -347,58 +369,36 @@
       "error": null
     },
     {
-      "id": "pol-dev-030",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.034
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.034,
-      "error": null
-    },
-    {
-      "id": "pol-dev-031",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.034
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.034,
-      "error": null
-    },
-    {
       "id": "pol-dev-032",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.042
+        "latency_ms": 0.041
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.042,
+      "latency_ms": 0.041,
       "error": null
     },
     {
       "id": "pol-dev-033",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.038
+        "latency_ms": 0.035
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.038,
+      "latency_ms": 0.035,
       "error": null
     },
     {
       "id": "pol-dev-034",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.055
+        "latency_ms": 0.05
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.055,
+      "latency_ms": 0.05,
       "error": null
     },
     {
@@ -416,22 +416,22 @@
       "id": "pol-dev-036",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.037
+        "latency_ms": 0.04
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.037,
+      "latency_ms": 0.04,
       "error": null
     },
     {
       "id": "pol-dev-037",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.067
+        "latency_ms": 0.069
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.067,
+      "latency_ms": 0.069,
       "error": null
     },
     {
@@ -449,55 +449,55 @@
       "id": "pol-dev-039",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.052
+        "latency_ms": 0.055
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.052,
+      "latency_ms": 0.055,
       "error": null
     },
     {
       "id": "pol-dev-040",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.05
+        "latency_ms": 0.049
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.05,
+      "latency_ms": 0.049,
       "error": null
     },
     {
       "id": "pol-dev-041",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.059
+        "latency_ms": 0.056
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.059,
+      "latency_ms": 0.056,
       "error": null
     },
     {
       "id": "pol-dev-042",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.051
+        "latency_ms": 0.049
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.051,
+      "latency_ms": 0.049,
       "error": null
     },
     {
       "id": "pol-dev-043",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.06
+        "latency_ms": 0.063
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.06,
+      "latency_ms": 0.063,
       "error": null
     },
     {
@@ -515,92 +515,15 @@
       "id": "pol-dev-045",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.047
+        "latency_ms": 0.054
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.047,
+      "latency_ms": 0.054,
       "error": null
     },
     {
       "id": "pol-dev-046",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.059
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.059,
-      "error": null
-    },
-    {
-      "id": "pol-dev-047",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.055
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.055,
-      "error": null
-    },
-    {
-      "id": "pol-dev-048",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.062
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.062,
-      "error": null
-    },
-    {
-      "id": "pol-dev-049",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.063
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.063,
-      "error": null
-    },
-    {
-      "id": "pol-dev-050",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.065
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.065,
-      "error": null
-    },
-    {
-      "id": "pol-dev-051",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.055
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.055,
-      "error": null
-    },
-    {
-      "id": "pol-dev-052",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.051
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.051,
-      "error": null
-    },
-    {
-      "id": "pol-dev-053",
       "split": "dev",
       "scores": {
         "latency_ms": 0.058
@@ -611,18 +534,7 @@
       "error": null
     },
     {
-      "id": "pol-dev-054",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.055
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.055,
-      "error": null
-    },
-    {
-      "id": "pol-dev-055",
+      "id": "pol-dev-047",
       "split": "dev",
       "scores": {
         "latency_ms": 0.061
@@ -633,7 +545,62 @@
       "error": null
     },
     {
-      "id": "pol-dev-056",
+      "id": "pol-dev-048",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.061
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.061,
+      "error": null
+    },
+    {
+      "id": "pol-dev-049",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.065
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.065,
+      "error": null
+    },
+    {
+      "id": "pol-dev-050",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.064
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.064,
+      "error": null
+    },
+    {
+      "id": "pol-dev-051",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.054
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.054,
+      "error": null
+    },
+    {
+      "id": "pol-dev-052",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.052
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.052,
+      "error": null
+    },
+    {
+      "id": "pol-dev-053",
       "split": "dev",
       "scores": {
         "latency_ms": 0.059
@@ -644,106 +611,95 @@
       "error": null
     },
     {
-      "id": "pol-dev-057",
+      "id": "pol-dev-054",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.05
+        "latency_ms": 0.061
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.05,
+      "latency_ms": 0.061,
+      "error": null
+    },
+    {
+      "id": "pol-dev-055",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.062
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.062,
+      "error": null
+    },
+    {
+      "id": "pol-dev-056",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.056
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.056,
+      "error": null
+    },
+    {
+      "id": "pol-dev-057",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.056
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.056,
       "error": null
     },
     {
       "id": "pol-dev-058",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.061
+        "latency_ms": 0.063
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.061,
+      "latency_ms": 0.063,
       "error": null
     },
     {
       "id": "pol-dev-059",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.05
+        "latency_ms": 0.047
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.05,
+      "latency_ms": 0.047,
       "error": null
     },
     {
       "id": "pol-dev-060",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.061
+        "latency_ms": 0.062
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.061,
+      "latency_ms": 0.062,
       "error": null
     },
     {
       "id": "pol-dev-061",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.05
+        "latency_ms": 0.049
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.05,
+      "latency_ms": 0.049,
       "error": null
     },
     {
       "id": "pol-dev-062",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.049
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.049,
-      "error": null
-    },
-    {
-      "id": "pol-dev-063",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.049
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.049,
-      "error": null
-    },
-    {
-      "id": "pol-dev-064",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.049
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.049,
-      "error": null
-    },
-    {
-      "id": "pol-dev-065",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.045
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.045,
-      "error": null
-    },
-    {
-      "id": "pol-dev-066",
       "split": "dev",
       "scores": {
         "latency_ms": 0.048
@@ -751,6 +707,50 @@
       "passed": true,
       "cost_usd": 0,
       "latency_ms": 0.048,
+      "error": null
+    },
+    {
+      "id": "pol-dev-063",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.05
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.05,
+      "error": null
+    },
+    {
+      "id": "pol-dev-064",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.047
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.047,
+      "error": null
+    },
+    {
+      "id": "pol-dev-065",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.046
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.046,
+      "error": null
+    },
+    {
+      "id": "pol-dev-066",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.046
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.046,
       "error": null
     },
     {
@@ -768,224 +768,15 @@
       "id": "pol-dev-068",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.045
+        "latency_ms": 0.049
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.045,
+      "latency_ms": 0.049,
       "error": null
     },
     {
       "id": "pol-dev-069",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.048
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.048,
-      "error": null
-    },
-    {
-      "id": "pol-dev-070",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.067
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.067,
-      "error": null
-    },
-    {
-      "id": "pol-dev-071",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.08
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.08,
-      "error": null
-    },
-    {
-      "id": "pol-dev-072",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.082
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.082,
-      "error": null
-    },
-    {
-      "id": "pol-dev-073",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.061
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.061,
-      "error": null
-    },
-    {
-      "id": "pol-dev-074",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.063
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.063,
-      "error": null
-    },
-    {
-      "id": "pol-dev-075",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.058
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.058,
-      "error": null
-    },
-    {
-      "id": "pol-dev-076",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.064
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.064,
-      "error": null
-    },
-    {
-      "id": "pol-dev-077",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.07
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.07,
-      "error": null
-    },
-    {
-      "id": "pol-dev-078",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.058
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.058,
-      "error": null
-    },
-    {
-      "id": "pol-dev-079",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.049
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.049,
-      "error": null
-    },
-    {
-      "id": "pol-dev-080",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.052
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.052,
-      "error": null
-    },
-    {
-      "id": "pol-dev-081",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.058
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.058,
-      "error": null
-    },
-    {
-      "id": "pol-dev-082",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.049
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.049,
-      "error": null
-    },
-    {
-      "id": "pol-dev-083",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.038
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.038,
-      "error": null
-    },
-    {
-      "id": "pol-dev-084",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.037
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.037,
-      "error": null
-    },
-    {
-      "id": "pol-dev-085",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.047
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.047,
-      "error": null
-    },
-    {
-      "id": "pol-dev-086",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.037
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.037,
-      "error": null
-    },
-    {
-      "id": "pol-dev-087",
-      "split": "dev",
-      "scores": {
-        "latency_ms": 0.047
-      },
-      "passed": true,
-      "cost_usd": 0,
-      "latency_ms": 0.047,
-      "error": null
-    },
-    {
-      "id": "pol-dev-088",
       "split": "dev",
       "scores": {
         "latency_ms": 0.046
@@ -996,7 +787,150 @@
       "error": null
     },
     {
-      "id": "pol-dev-089",
+      "id": "pol-dev-070",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.064
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.064,
+      "error": null
+    },
+    {
+      "id": "pol-dev-071",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.076
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.076,
+      "error": null
+    },
+    {
+      "id": "pol-dev-072",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.071
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.071,
+      "error": null
+    },
+    {
+      "id": "pol-dev-073",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.054
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.054,
+      "error": null
+    },
+    {
+      "id": "pol-dev-074",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.061
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.061,
+      "error": null
+    },
+    {
+      "id": "pol-dev-075",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.063
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.063,
+      "error": null
+    },
+    {
+      "id": "pol-dev-076",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.067
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.067,
+      "error": null
+    },
+    {
+      "id": "pol-dev-077",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.071
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.071,
+      "error": null
+    },
+    {
+      "id": "pol-dev-078",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.069
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.069,
+      "error": null
+    },
+    {
+      "id": "pol-dev-079",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.057
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.057,
+      "error": null
+    },
+    {
+      "id": "pol-dev-080",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.054
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.054,
+      "error": null
+    },
+    {
+      "id": "pol-dev-081",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.059
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.059,
+      "error": null
+    },
+    {
+      "id": "pol-dev-082",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.051
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.051,
+      "error": null
+    },
+    {
+      "id": "pol-dev-083",
       "split": "dev",
       "scores": {
         "latency_ms": 0.037
@@ -1007,14 +941,80 @@
       "error": null
     },
     {
-      "id": "pol-dev-090",
+      "id": "pol-dev-084",
       "split": "dev",
       "scores": {
-        "latency_ms": 0.037
+        "latency_ms": 0.04
       },
       "passed": true,
       "cost_usd": 0,
-      "latency_ms": 0.037,
+      "latency_ms": 0.04,
+      "error": null
+    },
+    {
+      "id": "pol-dev-085",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.054
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.054,
+      "error": null
+    },
+    {
+      "id": "pol-dev-086",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.041
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.041,
+      "error": null
+    },
+    {
+      "id": "pol-dev-087",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.048
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.048,
+      "error": null
+    },
+    {
+      "id": "pol-dev-088",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.048
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.048,
+      "error": null
+    },
+    {
+      "id": "pol-dev-089",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.038
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.038,
+      "error": null
+    },
+    {
+      "id": "pol-dev-090",
+      "split": "dev",
+      "scores": {
+        "latency_ms": 0.038
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.038,
       "error": null
     }
   ],

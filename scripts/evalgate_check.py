@@ -6,9 +6,12 @@ Used by `make eval` and CI because the evalgate action tag `v0.1.0` does not exi
 
 - a metric fails `threshold` if its value misses the threshold in its direction;
 - with a baseline report of the same name, a metric fails `regression` if its delta is worse than
-  --max-regression-pp AND the 95% paired-bootstrap CI of the delta excludes 0 on the worse side.
-  Cases are paired by id; the metric is recomputed from per-case scores (METRICS below).
-  Metrics without a per-case definition (latencies, chaos counts) are gated on threshold only.
+  --max-regression-pp. The graders are deterministic (same cases, same grading), so a delta is a
+  real change, not sampling noise: the 95% paired-bootstrap CI (cases paired by id) is reported
+  for information but does not excuse a regression (docs/DECISIONS.md, 2026-10-17).
+- a metric present in the baseline must exist in the report, and a baseline suite must have a
+  report (`missing`); a reported value must equal the value recomputed from its cases
+  (`inconsistent`, METRICS below). Latencies and chaos counts are gated on threshold only.
 
 Exit codes: 0 passed, 1 gate failed, 2 invalid input. --out-json writes an evalgate.check.v1 document.
 """
@@ -115,6 +118,20 @@ def check_report(
                 }
             )
         fn = METRICS.get((suite, name))
+        if fn is not None:
+            recomputed = ratio([c["scores"] for c in doc["cases"]], fn)
+            if abs(recomputed - value) > 1e-3:
+                failures.append(
+                    {
+                        "metric": f"{suite}:{name}",
+                        "reason": "inconsistent",
+                        "value": value,
+                        "threshold": threshold,
+                        "delta_pp": round((recomputed - value) * 100, 4),
+                        "ci_low_pp": None,
+                        "ci_high_pp": None,
+                    }
+                )
         if base is None or fn is None or name not in base["metrics"]:
             continue
         b_cases = {c["id"]: c["scores"] for c in base["cases"]}
@@ -133,10 +150,7 @@ def check_report(
                 "n_paired": n,
             }
         )
-        if direction == "lower":
-            regressed = delta_pp > max_pp and lo > 0
-        else:
-            regressed = delta_pp < -max_pp and hi < 0
+        regressed = delta_pp > max_pp if direction == "lower" else delta_pp < -max_pp
         if regressed:
             failures.append(
                 {
@@ -147,6 +161,19 @@ def check_report(
                     "delta_pp": round(delta_pp, 4),
                     "ci_low_pp": round(lo, 4),
                     "ci_high_pp": round(hi, 4),
+                }
+            )
+    if base is not None:
+        for name in sorted(set(base["metrics"]) - set(doc["metrics"])):
+            failures.append(
+                {
+                    "metric": f"{suite}:{name}",
+                    "reason": "missing",
+                    "value": None,
+                    "threshold": base["metrics"][name]["threshold"],
+                    "delta_pp": None,
+                    "ci_low_pp": None,
+                    "ci_high_pp": None,
                 }
             )
     return failures, comparisons, sha256(base_path) if base else None
@@ -163,6 +190,11 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     reports = sorted(p for p in args.reports.glob("*.json") if not p.name.endswith(".dev.json"))
+    missing = sorted(
+        p.name
+        for p in args.baseline.glob("*.json")
+        if not p.name.endswith(".dev.json") and not (args.reports / p.name).exists()
+    )
     if not reports:
         print(f"evalgate_check: no reports in {args.reports}", file=sys.stderr)
         return 2
@@ -196,6 +228,10 @@ def main(argv: list[str] | None = None) -> int:
     except InvalidInput as err:
         print(f"evalgate_check: {err}", file=sys.stderr)
         return 2
+    for name in missing:
+        all_failures.append(
+            {"metric": name, "reason": "missing", "value": None, "threshold": None, "delta_pp": None}
+        )
     if args.out_json:
         args.out_json.write_text(json.dumps(checks, indent=2) + "\n", encoding="utf-8")
     for f in all_failures:

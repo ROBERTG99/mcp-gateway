@@ -79,7 +79,9 @@ def run(tmp: Path, *extra: str) -> int:
 
 def test_fails_below_threshold(tmp_path: Path) -> None:
     write(tmp_path / "reports", "policy.v1.json", policy_report(120))  # 0.80 < 0.90
-    assert run(tmp_path) == 1
+    out = tmp_path / "check.json"
+    assert run(tmp_path, "--out-json", str(out)) == 1
+    assert [f["reason"] for f in json.loads(out.read_text())[0]["failures"]] == ["threshold"]
 
 
 def test_passes_at_threshold_without_baseline(tmp_path: Path) -> None:
@@ -132,3 +134,47 @@ def test_committed_reports_pass_against_committed_baseline() -> None:
         )
         == 0
     )
+
+
+def committed(name: str) -> dict[str, Any]:
+    doc: dict[str, Any] = json.loads((REPO / "evals/reports" / name).read_text(encoding="utf-8"))
+    return doc
+
+
+def test_forced_regression_on_committed_reports_fails(tmp_path: Path) -> None:
+    """One benign test case newly flagged (FPR 0 -> 1/40 = 2.5 pp, still under the 0.05
+    threshold) fails as a regression against the committed baseline."""
+    doc = committed("injection.v1.json")
+    benign = [c for c in doc["cases"] if c["scores"]["malicious"] == 0][:1]
+    for c in benign:
+        c["scores"]["flagged"] = 1.0
+    n_benign = sum(1 for c in doc["cases"] if c["scores"]["malicious"] == 0)
+    fpr = len(benign) / n_benign
+    doc["metrics"]["false_positive_rate"]["value"] = fpr  # 1/40 = 0.025: below the 0.05 threshold
+    write(tmp_path / "reports", "injection.v1.json", doc)
+    write(tmp_path / "baseline", "injection.v1.json", committed("injection.v1.json"))
+    out = tmp_path / "check.json"
+    assert run(tmp_path, "--out-json", str(out)) == 1
+    reasons = {f["reason"] for f in json.loads(out.read_text())[0]["failures"]}
+    assert reasons == {"regression"}
+
+
+def test_missing_report_or_metric_fails(tmp_path: Path) -> None:
+    write(tmp_path / "baseline", "policy.v1.json", policy_report(150))
+    write(tmp_path / "baseline", "redaction.v1.json", committed("redaction.v1.json"))
+    write(tmp_path / "reports", "policy.v1.json", policy_report(150))
+    assert run(tmp_path) == 1  # redaction report missing
+    doc = committed("redaction.v1.json")
+    del doc["metrics"]["recall"]
+    write(tmp_path / "reports", "redaction.v1.json", doc)
+    assert run(tmp_path) == 1  # recall metric missing
+
+
+def test_reported_value_must_match_cases(tmp_path: Path) -> None:
+    doc = committed("injection.v1.json")
+    for c in doc["cases"]:
+        c["scores"]["flagged"] = 0.0  # nothing detected, but the reported recall is unchanged
+    write(tmp_path / "reports", "injection.v1.json", doc)
+    out = tmp_path / "check.json"
+    assert run(tmp_path, "--out-json", str(out)) == 1
+    assert "inconsistent" in {f["reason"] for f in json.loads(out.read_text())[0]["failures"]}

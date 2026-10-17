@@ -19,13 +19,13 @@ func TestChaosSmall(t *testing.T) {
 	st := stack.Start(t, stack.Options{FaultRate: 0.1, Stall: 1500 * time.Millisecond, UpstreamTimeout: time.Second,
 		Configure: func(c *config.Config) { c.BreakerCooldown = 2 * time.Second }})
 	res, err := loadgen.Chaos(t.Context(), loadgen.ChaosConfig{GatewayURL: st.MCPURL, IssuerURL: st.IssuerURL, AdminURL: st.AdminURL,
-		Calls: 300, Concurrency: 16, Sessions: 4, RunID: "small"})
+		Calls: 300, Concurrency: 16, Sessions: 4, Orders: 30, RunID: "small", SettleWait: 2 * time.Second})
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("%+v", res)
-	if res.Duplicates != 0 || res.Lost != 0 {
-		t.Fatalf("duplicates %d, lost %d", res.Duplicates, res.Lost)
+	if res.Duplicates != 0 || res.Lost != 0 || res.Unanswered != 0 {
+		t.Fatalf("duplicates %d, lost %d, unanswered %d", res.Duplicates, res.Lost, res.Unanswered)
 	}
 	if res.AuditedRatio != 1 || !res.ChainOK {
 		t.Fatalf("audited ratio %.4f (events %d), chain ok %v", res.AuditedRatio, res.AuditEvents, res.ChainOK)

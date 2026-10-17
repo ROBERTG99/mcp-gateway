@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -54,8 +53,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 			return 1
 		}
 	}
-	if res.Duplicates != 0 || res.AuditedRatio != 1 || !res.ChainOK {
-		_, _ = fmt.Fprintln(stderr, "chaos: gate failed (want 0 duplicates, audited ratio 1.0, chain ok)")
+	if res.Duplicates != 0 || res.Lost != 0 || res.Unanswered != 0 || res.AuditedRatio != 1 || !res.ChainOK {
+		_, _ = fmt.Fprintln(stderr, "chaos: gate failed (want 0 duplicates, 0 lost, 0 unanswered, audited ratio 1.0, chain ok)")
 		return 1
 	}
 	return 0
@@ -71,23 +70,15 @@ func chaosReport(ctx context.Context, r loadgen.ChaosResult) evals.Report {
 	}
 	now := time.Now().UTC()
 	return evals.Report{Schema: evals.ReportSchema, Suite: "chaos.v1", RunID: "chaos-" + r.RunID, CreatedAt: now.Format(time.RFC3339),
-		GitSHA: gitSHA(ctx), Mode: "live", Models: []string{}, PromptHashes: map[string]string{}, NCases: len(cases),
+		GitSHA: evals.GitSHA(ctx), Mode: "live", Models: []string{}, PromptHashes: map[string]string{}, NCases: len(cases),
 		Metrics: map[string]evals.Metric{
 			"duplicates":    {Value: float64(r.Duplicates), Threshold: 0, Direction: evals.Lower, Passed: r.Duplicates == 0, CILow: float64(r.Duplicates), CIHigh: float64(r.Duplicates)},
-			"audited_ratio": {Value: r.AuditedRatio, Threshold: 1, Direction: evals.Higher, Passed: r.AuditedRatio >= 1, CILow: r.AuditedRatio, CIHigh: r.AuditedRatio},
+			"audited_ratio": {Value: r.AuditedRatio, Threshold: 1, Direction: evals.Higher, Passed: r.AuditedRatio == 1, CILow: r.AuditedRatio, CIHigh: r.AuditedRatio},
 		},
 		LatencyP50MS: r.LatencyP50MS, LatencyP95MS: r.LatencyP95MS, Cases: cases,
 		Extensions: map[string]any{"calls": r.Calls, "attempts": r.Attempts, "retries": r.Retries, "deliberate_duplicates": r.DeliberateDups,
 			"timeouts": r.Timeouts, "breaker_rejects": r.FastFails, "in_progress": r.InProgress, "other_errors": r.OtherErrors,
-			"lost": r.Lost, "audit_events": r.AuditEvents, "chain_ok": r.ChainOK, "duration_s": r.Duration.Seconds(),
+			"lost": r.Lost, "unanswered": r.Unanswered, "audit_events": r.AuditEvents, "chain_ok": r.ChainOK, "duration_s": r.Duration.Seconds(),
 			"fault_timeout_rate": os.Getenv("MCPGW_FAULT_TIMEOUT_RATE")},
 	}
-}
-
-func gitSHA(ctx context.Context) string {
-	b, err := exec.CommandContext(ctx, "git", "rev-parse", "HEAD").Output()
-	if err != nil {
-		return "unknown"
-	}
-	return strings.TrimSpace(string(b))
 }
