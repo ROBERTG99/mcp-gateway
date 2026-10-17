@@ -193,6 +193,21 @@ func (s *Service) Consume(ctx context.Context, id string, b Binding) (Approval, 
 	return s.store.Consume(ctx, id, b, s.opts.Clock.Now().UTC())
 }
 
+// PendingStats returns the number of pending approvals and the age of the oldest one (metrics
+// mcpgw_approvals_pending and mcpgw_approvals_oldest_pending_seconds; 0 when none).
+func (s *Service) PendingStats(ctx context.Context) (int64, time.Duration, error) {
+	now := s.opts.Clock.Now().UTC()
+	n, err := s.store.CountPending(ctx, now)
+	if err != nil {
+		return 0, 0, err
+	}
+	oldest, ok, err := s.store.OldestPending(ctx, now)
+	if err != nil || !ok {
+		return n, 0, err
+	}
+	return n, now.Sub(oldest), nil
+}
+
 // PendingCount is the number of pending approvals (metric mcpgw_approvals_pending).
 func (s *Service) PendingCount(ctx context.Context) (int64, error) {
 	return s.store.CountPending(ctx, s.opts.Clock.Now().UTC())

@@ -248,6 +248,12 @@ func Run(t *testing.T, newStore func(t *testing.T) approvals.Store) {
 		if n, _ := s.CountPending(ctx, now); n != 2 {
 			t.Fatalf("pending = %d", n)
 		}
+		if oldest, ok, err := s.OldestPending(ctx, now.Add(5*time.Second)); err != nil || !ok || !oldest.Equal(a.CreatedAt) {
+			t.Fatalf("oldest pending = %v %v %v, want %v", oldest, ok, err, a.CreatedAt)
+		}
+		if _, ok, _ := s.OldestPending(ctx, now.Add(16*time.Minute)); ok {
+			t.Fatal("expired approvals counted as pending")
+		}
 		list, err := s.List(ctx, approvals.ListFilter{Tenant: "t_alpha"})
 		if err != nil || len(list) != 1 || list[0].ID != a.ID {
 			t.Fatalf("list t_alpha: %+v %v", list, err)

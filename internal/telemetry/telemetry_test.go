@@ -73,3 +73,17 @@ func TestMetaPropagation(t *testing.T) {
 	}
 	child.End()
 }
+
+func TestOTLPTracesURL(t *testing.T) {
+	for in, want := range map[string]string{
+		"http://jaeger:4318":          "http://jaeger:4318/v1/traces",
+		"http://jaeger:4318/":         "http://jaeger:4318/v1/traces",
+		"https://otel.example/custom": "https://otel.example/custom",
+		"otel-collector:4318":         "",
+		"":                            "",
+	} {
+		if got := telemetry.OTLPTracesURL(in); got != want {
+			t.Errorf("OTLPTracesURL(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

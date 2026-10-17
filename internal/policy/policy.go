@@ -67,6 +67,8 @@ func Denied(reason string) Decision { return Decision{Reasons: []string{reason}}
 type Options struct {
 	Dir   string
 	Clock clock.Clock // fills Input.Now when unset (default: wall clock)
+	// OnFailure is called for every failed load or reload, the initial one included (metrics).
+	OnFailure func(error)
 }
 
 type compiled struct {
@@ -144,6 +146,9 @@ func (e *Engine) Reload(ctx context.Context) error {
 	e.mu.Lock()
 	e.lastErr = err.Error()
 	e.mu.Unlock()
+	if e.opts.OnFailure != nil {
+		e.opts.OnFailure(err)
+	}
 	return fmt.Errorf("policy reload: %w", err)
 }
 

@@ -67,6 +67,10 @@ build: ## Build all binaries into ./bin
 up: ## Start the full stack in Docker Compose (healthchecks)
 	$(COMPOSE) up -d --build --wait
 
+.PHONY: observability
+observability: ## Stack plus Prometheus (8250), Grafana (8251) and Jaeger (8253); traces exported to Jaeger
+	MCPGW_OTEL_ENDPOINT=http://jaeger:4318 $(COMPOSE) --profile observability up -d --build --wait
+
 .PHONY: down
 down: ## Stop the stack
 	$(COMPOSE) --profile tools --profile dynamodb --profile observability --profile chaos down

@@ -3,6 +3,9 @@
 package telemetry_test
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -107,6 +110,53 @@ func TestSpanTreeForToolCall(t *testing.T) {
 	for _, name := range []string{telemetry.SpanPolicy, telemetry.SpanIdempotency, telemetry.SpanUpstream, telemetry.SpanAudit} {
 		if a := attrs(inTrace[name]); a["app.tenant_id"] != "t_alpha" || a["app.run_id"] != "run-trace-1" || a["app.node"] == "" {
 			t.Fatalf("%s attributes = %v", name, a)
+		}
+	}
+}
+
+// TestMetricsAfterToolCalls (spec §14): after a write, its replay and a flagged CRM read, the
+// metrics endpoint exposes every gateway metric with the expected series.
+func TestMetricsAfterToolCalls(t *testing.T) {
+	st := stack.Start(t, stack.Options{})
+	sess, err := demo.Connect(t.Context(), st.MCPURL, st.Token(t, "t_alpha", "agent-support", "orders:read", "orders:write", "crm:read"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = sess.Close() }()
+	refund := &mcp.CallToolParams{Name: "orders.refund_order", Arguments: map[string]any{"order_id": "O-00007", "amount_cents": 500, "reason": "metrics"},
+		Meta: mcp.Meta{"idempotency_key": "metrics-test-0001"}}
+	for range 2 { // the second call is a replay
+		if res, err := sess.CallTool(t.Context(), refund); err != nil || res.IsError {
+			t.Fatalf("refund: %v %+v", err, res)
+		}
+	}
+	if _, err := sess.CallTool(t.Context(), &mcp.CallToolParams{Name: "crm.get_customer", Arguments: map[string]any{"customer_id": "C-0042"}}); err != nil {
+		t.Fatal(err)
+	}
+	rec := httptest.NewRecorder()
+	st.App.MetricsHandler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	body := rec.Body.String()
+	for _, want := range []string{
+		`mcpgw_tool_calls_total{server="orders",status="ok",tenant="t_alpha",tool="refund_order"} 1`,
+		`mcpgw_tool_calls_total{server="orders",status="replayed",tenant="t_alpha",tool="refund_order"} 1`,
+		`mcpgw_idempotency_replays_total 1`,
+		`mcpgw_policy_decisions_total{decision="allow"}`,
+		`mcpgw_injection_flags_total{server="crm"} 1`,
+		`mcpgw_overhead_seconds_bucket`,
+		`mcpgw_audit_buffer_depth`, `mcpgw_audit_buffer_capacity 10000`,
+		`mcpgw_approvals_pending 0`, `mcpgw_approvals_oldest_pending_seconds 0`,
+		`mcpgw_upstream_up{upstream="orders"} 1`,
+		`mcpgw_policy_loaded 1`, `mcpgw_policy_reload_failures_total 0`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("metrics lack %s", want)
+		}
+	}
+	for _, banned := range []string{"token", "cost_usd"} {
+		for _, line := range strings.Split(body, "\n") {
+			if strings.HasPrefix(line, "mcpgw_") && strings.Contains(strings.SplitN(line, "{", 2)[0], banned) {
+				t.Errorf("model-style metric %q (the gateway calls no model)", line)
+			}
 		}
 	}
 }

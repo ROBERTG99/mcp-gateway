@@ -69,6 +69,20 @@ func (m *Memory) FindPending(_ context.Context, b Binding, now time.Time) (Appro
 	return Approval{}, false, nil
 }
 
+// OldestPending implements Store.
+func (m *Memory) OldestPending(_ context.Context, now time.Time) (time.Time, bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var oldest time.Time
+	found := false
+	for _, a := range m.approvals {
+		if a.Status == StatusPending && now.Before(a.ExpiresAt) && (!found || a.CreatedAt.Before(oldest)) {
+			oldest, found = a.CreatedAt, true
+		}
+	}
+	return oldest, found, nil
+}
+
 // List implements Store.
 func (m *Memory) List(_ context.Context, f ListFilter) ([]Approval, error) {
 	m.mu.Lock()

@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"time"
 
@@ -77,10 +78,23 @@ func Setup(ctx context.Context, opts Options) (func(context.Context) error, erro
 }
 
 func otlpEndpoint(e string) []otlptracehttp.Option {
-	if len(e) > 7 && (e[:7] == "http://" || (len(e) > 8 && e[:8] == "https://")) {
-		return []otlptracehttp.Option{otlptracehttp.WithEndpointURL(e)}
+	if u := OTLPTracesURL(e); u != "" {
+		return []otlptracehttp.Option{otlptracehttp.WithEndpointURL(u)}
 	}
 	return []otlptracehttp.Option{otlptracehttp.WithEndpoint(e), otlptracehttp.WithInsecure()}
+}
+
+// OTLPTracesURL returns the traces URL for an endpoint given as a URL ("http://jaeger:4318" →
+// "http://jaeger:4318/v1/traces"; an explicit path is kept), or "" for a bare host:port.
+func OTLPTracesURL(e string) string {
+	u, err := url.Parse(e)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return ""
+	}
+	if u.Path == "" || u.Path == "/" {
+		u.Path = "/v1/traces"
+	}
+	return u.String()
 }
 
 // SetPropagators installs W3C trace context and baggage.

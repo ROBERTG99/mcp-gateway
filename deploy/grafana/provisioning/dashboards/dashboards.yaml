@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: mcp-gateway
+    folder: mcp-gateway
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards

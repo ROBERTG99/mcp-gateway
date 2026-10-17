@@ -59,6 +59,7 @@ type App struct {
 	approvalStore *approvals.Postgres
 	approvals     *approvals.Service
 	console       *console.Console
+	metrics       *telemetry.Metrics
 }
 
 // New wires the gateway components. A policy bundle that fails to compile does not stop the
@@ -77,13 +78,27 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		cfg.Node, _ = os.Hostname() // app.node on spans and step records
 	}
 	a := &App{cfg: cfg, logger: logger}
+	// Metrics probes read the components at scrape time, so they may be wired after this point.
+	a.metrics = telemetry.NewMetrics(telemetry.Probes{
+		AuditDepth:      func() int { return a.audit.Depth() },
+		AuditCapacity:   func() int { return a.audit.Capacity() },
+		PendingApproval: func(ctx context.Context) (int64, time.Duration, error) { return a.approvals.PendingStats(ctx) },
+		PolicyLoaded:    func() bool { return a.policy.Ready() },
+		Upstreams: func() map[string]bool {
+			up := map[string]bool{}
+			for _, u := range a.catalog.Status() {
+				up[u.Name] = u.Up && u.Breaker != catalog.BreakerOpen
+			}
+			return up
+		},
+	})
 	a.verifier = authn.NewVerifier(authn.Options{JWKSURL: cfg.JWKSURL, Issuer: cfg.JWTIssuer, Audience: cfg.JWTAudience,
 		CacheTTL: cfg.JWKSCacheTTL, StaleLimit: cfg.JWKSStaleLimit})
 	// Upstream MCP requests carry W3C trace headers (the pipeline also forwards them in _meta).
 	upstreamHTTP := &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
 	a.catalog = catalog.New(upstreams, catalog.Options{Logger: logger, ReadRetries: 1, HTTPClient: upstreamHTTP,
 		BreakerThreshold: cfg.BreakerThreshold, BreakerCooldown: cfg.BreakerCooldown})
-	a.policy, err = policy.New(ctx, policy.Options{Dir: cfg.PolicyDir})
+	a.policy, err = policy.New(ctx, policy.Options{Dir: cfg.PolicyDir, OnFailure: func(error) { a.metrics.PolicyFailure() }})
 	if err != nil {
 		logger.Error("policy bundle failed to load; denying all calls", "error", err)
 	}
@@ -116,7 +131,8 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	a.seq = audit.NewPostgresSeq(a.db, 1024)
 	a.audit = audit.NewWriter(audit.NewPostgresSink(a.db), a.seq, audit.Options{Buffer: cfg.AuditBuffer,
 		FlushInterval: cfg.AuditFlushInterval, Batch: cfg.AuditBatch, EnqueueTimeout: cfg.AuditEnqueueTimeout,
-		ShutdownTimeout: cfg.ShutdownTimeout, Logger: logger})
+		ShutdownTimeout: cfg.ShutdownTimeout, Logger: logger,
+		OnFlush: func(_ []audit.Event, d time.Duration) { a.metrics.AuditFlush(d) }})
 	a.redactor = redact.New()
 	a.approvalStore = approvals.NewPostgres(a.db)
 	a.approvals = approvals.NewService(a.approvalStore, approvals.Options{TTL: cfg.ApprovalTTL, Redactor: a.redactor,
@@ -134,7 +150,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	if err != nil {
 		return nil, fmt.Errorf("console: %w", err)
 	}
-	a.pipeline = pipeline.New(pipeline.Deps{Upstream: a.catalog, Policy: a.policy, Idempotency: idem, Logger: logger,
+	a.pipeline = pipeline.New(pipeline.Deps{Upstream: a.catalog, Policy: a.policy, Idempotency: idem, Logger: logger, Metrics: a.metrics,
 		Audit: a.audit, Redactor: a.redactor, Approvals: a.approvals,
 		Limiter: ratelimit.NewRedis(a.redis, tenants, nil), LocalLimiter: ratelimit.NewMemory(tenants, nil),
 		Scorer: injection.New(injection.Options{}), Findings: store.NewFindings(a.db)},
@@ -215,6 +231,9 @@ func (a *App) Run(ctx context.Context) error {
 	g, gctx := errgroup.WithContext(ctx)
 	a.serve(g, gctx, a.cfg.MCPAddr, a.MCPHandler())
 	a.serve(g, gctx, a.cfg.AdminAddr, a.AdminHandler())
+	if a.cfg.MetricsAddr != "" {
+		a.serve(g, gctx, a.cfg.MetricsAddr, a.MetricsHandler())
+	}
 	g.Go(func() error { return a.RunBackground(gctx) })
 	if err := g.Wait(); err != nil {
 		return fmt.Errorf("gateway: %w", err)
@@ -255,6 +274,13 @@ func (a *App) RunBackground(ctx context.Context) error {
 
 // Upstreams reports upstream health (used by tests to wait for the catalog).
 func (a *App) Upstreams() []catalog.UpstreamStatus { return a.catalog.Status() }
+
+// MetricsHandler serves Prometheus metrics (MCPGW_METRICS_ADDR, 8211).
+func (a *App) MetricsHandler() http.Handler {
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", a.metrics.Handler())
+	return mux
+}
 
 // Close releases the connection pools and upstream sessions.
 func (a *App) Close() {

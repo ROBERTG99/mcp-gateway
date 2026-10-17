@@ -227,6 +227,19 @@ func (p *Postgres) CountPending(ctx context.Context, now time.Time) (int64, erro
 	return n, nil
 }
 
+// OldestPending implements Store.
+func (p *Postgres) OldestPending(ctx context.Context, now time.Time) (time.Time, bool, error) {
+	var oldest *time.Time
+	err := p.pool.QueryRow(ctx, `SELECT min(created_at) FROM approvals WHERE status = 'pending' AND expires_at > $1`, now).Scan(&oldest)
+	if err != nil {
+		return time.Time{}, false, fmt.Errorf("oldest pending: %w", err)
+	}
+	if oldest == nil {
+		return time.Time{}, false, nil
+	}
+	return oldest.UTC(), true, nil
+}
+
 // DueOutbox implements Store.
 func (p *Postgres) DueOutbox(ctx context.Context, now time.Time, limit int) ([]OutboxItem, error) {
 	rows, err := p.pool.Query(ctx, `WITH due AS (SELECT id FROM webhook_outbox

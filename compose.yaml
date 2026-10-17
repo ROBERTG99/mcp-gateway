@@ -18,6 +18,7 @@ x-upstream-env: &upstream-env
   MCPGW_FAULT_TIMEOUT_RATE: ${MCPGW_FAULT_TIMEOUT_RATE:-0}
   MCPGW_FAULT_STALL: ${MCPGW_FAULT_STALL:-12s}
   MCPGW_FAULT_STALL_KEY_PREFIX: ${MCPGW_FAULT_STALL_KEY_PREFIX:-demo-stall-}
+  MCPGW_OTEL_ENDPOINT: ${MCPGW_OTEL_ENDPOINT:-}
 
 services:
   postgres:
@@ -155,6 +156,7 @@ services:
       MCPGW_APPROVAL_WEBHOOK_URL: http://approval-sink:8080/approvals
       MCPGW_APPROVAL_WEBHOOK_SECRET: ${MCPGW_APPROVAL_WEBHOOK_SECRET:-dev-webhook-secret-change-me}
       MCPGW_UPSTREAM_TIMEOUT: ${MCPGW_UPSTREAM_TIMEOUT:-10s}
+      MCPGW_OTEL_ENDPOINT: ${MCPGW_OTEL_ENDPOINT:-}
       MCPGW_BREAKER_COOLDOWN: ${MCPGW_BREAKER_COOLDOWN:-30s}
     ports: ["127.0.0.1:8200:8200", "127.0.0.1:8210:8210", "127.0.0.1:8211:8211"]
     depends_on:
@@ -165,3 +167,52 @@ services:
       upstream-ledger: { condition: service_healthy }
       upstream-crm: { condition: service_healthy }
       upstream-orders: { condition: service_healthy }
+
+  # Profile `observability` (make observability): Prometheus 8250, Grafana 8251, Jaeger UI 8253.
+  # The gateway exports traces to Jaeger's OTLP endpoint when MCPGW_OTEL_ENDPOINT is set.
+  prometheus:
+    profiles: ["observability"]
+    image: prom/prometheus:v3.5.0
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--web.enable-lifecycle"]
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/prometheus/alerts.yaml:/etc/prometheus/alerts.yaml:ro
+    ports: ["127.0.0.1:8250:9090"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9090/-/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    depends_on:
+      gateway: { condition: service_healthy }
+
+  grafana:
+    profiles: ["observability"]
+    image: grafana/grafana:12.1.0
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+    volumes:
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports: ["127.0.0.1:8251:3000"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:3000/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    depends_on:
+      prometheus: { condition: service_healthy }
+
+  jaeger:
+    profiles: ["observability"]
+    image: jaegertracing/jaeger:2.8.0
+    ports: ["127.0.0.1:8253:16686"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:16686/"]
+      interval: 5s
+      timeout: 3s
+      retries: 30

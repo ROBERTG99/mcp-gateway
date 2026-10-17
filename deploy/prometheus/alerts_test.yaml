@@ -1,0 +1,88 @@
+# promtool test rules deploy/prometheus/alerts_test.yaml (make promtool)
+rule_files:
+  - alerts.yaml
+evaluation_interval: 30s
+tests:
+  - name: audit buffer above 80% for a minute fires, 50% does not
+    interval: 30s
+    input_series:
+      - series: 'mcpgw_audit_buffer_depth{instance="gw-1"}'
+        values: "5000 8500 8600 8700 8800"
+      - series: 'mcpgw_audit_buffer_capacity{instance="gw-1"}'
+        values: "10000x4"
+    alert_rule_test:
+      - eval_time: 30s
+        alertname: AuditBufferHigh
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: AuditBufferHigh
+        exp_alerts:
+          - exp_labels: { severity: critical, instance: gw-1 }
+            exp_annotations:
+              summary: "Audit buffer above 80% on gw-1"
+              description: "Calls fail with -32048 when the buffer is full. Check Postgres health and audit flush latency."
+  - name: a failed policy reload fires, a healthy bundle does not
+    interval: 1m
+    input_series:
+      - series: 'mcpgw_policy_reload_failures_total{instance="gw-1"}'
+        values: "0 0 1 1 1"
+      - series: 'mcpgw_policy_loaded{instance="gw-1"}'
+        values: "1x4"
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: PolicyLoadFailure
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: PolicyLoadFailure
+        exp_alerts:
+          - exp_labels: { severity: critical, instance: gw-1 }
+            exp_annotations:
+              summary: "Policy bundle failed to load on gw-1"
+              description: "The previous bundle stays active; with no bundle every call is denied. Run `mcp-gateway policy test policies/`."
+  - name: no bundle loaded fires
+    interval: 1m
+    input_series:
+      - series: 'mcpgw_policy_loaded{instance="gw-2"}'
+        values: "0"
+    alert_rule_test:
+      - eval_time: 0m
+        alertname: PolicyLoadFailure
+        exp_alerts:
+          - exp_labels: { severity: critical, instance: gw-2 }
+            exp_annotations:
+              summary: "Policy bundle failed to load on gw-2"
+              description: "The previous bundle stays active; with no bundle every call is denied. Run `mcp-gateway policy test policies/`."
+  - name: upstream down for two minutes fires
+    interval: 1m
+    input_series:
+      - series: 'mcpgw_upstream_up{upstream="orders",instance="gw-1"}'
+        values: "1 0 0 0"
+      - series: 'mcpgw_upstream_up{upstream="crm",instance="gw-1"}'
+        values: "1 1 1 1"
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: UpstreamDown
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: UpstreamDown
+        exp_alerts:
+          - exp_labels: { severity: warning, upstream: orders, instance: gw-1 }
+            exp_annotations:
+              summary: "Upstream orders is down or its breaker is open"
+              description: "Calls to its tools fail with -32046 until it recovers."
+  - name: approval pending over ten minutes fires
+    interval: 1m
+    input_series:
+      - series: 'mcpgw_approvals_oldest_pending_seconds{instance="gw-1"}'
+        values: "0 120 540 660"
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: ApprovalPendingTooLong
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: ApprovalPendingTooLong
+        exp_alerts:
+          - exp_labels: { severity: warning, instance: gw-1 }
+            exp_annotations:
+              summary: "An approval has been pending for more than 10 minutes"
+              description: "Held calls expire after MCPGW_APPROVAL_TTL (15 min); approvers should decide in the console."

@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/ROBERTG99/mcp-gateway/internal/store"
+	"github.com/ROBERTG99/mcp-gateway/internal/telemetry"
 	"github.com/ROBERTG99/mcp-gateway/pkg/mcpserver"
 )
 
@@ -30,7 +31,14 @@ func Main(ctx context.Context, name, defaultAddr string, args []string, stderr i
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	logger := slog.New(slog.NewJSONHandler(stderr, nil)).With("upstream", name)
+	logger := slog.New(telemetry.TraceHandler{Handler: slog.NewJSONHandler(stderr, nil)}).With("upstream", name)
+	// Spans of the upstream continue the gateway's trace (W3C context in _meta, pkg/mcpserver).
+	shutdown, err := telemetry.Setup(ctx, telemetry.Options{Endpoint: os.Getenv("MCPGW_OTEL_ENDPOINT"), ServiceName: "upstream-" + name})
+	if err != nil {
+		logger.Error("telemetry", "error", err)
+		return 1
+	}
+	defer func() { _ = shutdown(context.WithoutCancel(ctx)) }()
 	pool, err := store.Open(ctx, *dbURL)
 	if err != nil {
 		logger.Error("database", "error", err)

@@ -97,6 +97,8 @@ type Store interface {
 	Expire(ctx context.Context, now time.Time) (int64, error)
 	// CountPending returns the number of pending, unexpired approvals.
 	CountPending(ctx context.Context, now time.Time) (int64, error)
+	// OldestPending returns the creation time of the oldest pending, unexpired approval.
+	OldestPending(ctx context.Context, now time.Time) (time.Time, bool, error)
 
 	// DueOutbox claims up to limit due, undelivered items for OutboxLease: a claimed item is not
 	// due again until the lease ends (or MarkFailed reschedules it), so replicas sharing the store
