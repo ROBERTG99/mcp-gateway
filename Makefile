@@ -199,7 +199,7 @@ bench: ## Benchmarks with budgets (NFR-1 overhead, NFR-8 console)
 .PHONY: loadtest
 # t_alpha's token buckets are raised (config/tenants.loadtest.yaml) so the run measures the gateway,
 # not the configured limit; the stack is restored afterwards. LOADTEST_ARGS: e.g. --duration 60s.
-LOADTEST_ENV = MCPGW_TENANTS_FILE=/config/tenants.loadtest.yaml
+LOADTEST_ENV = MCPGW_STACK_TENANTS_FILE=/config/tenants.loadtest.yaml
 loadtest: ## Load test against the stack (NFR-2, NFR-7); writes loadtest.json and checks budgets
 	$(LOADTEST_ENV) $(COMPOSE) up -d --wait gateway
 	$(GO) run ./cmd/loadgen --mode load --gateway $(GATEWAY_URL) --issuer $(DEV_ISSUER_URL) --metrics $(METRICS_URL) \

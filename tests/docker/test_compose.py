@@ -133,3 +133,19 @@ def test_dockerfile_rules() -> None:
     hc = re.search(r"(?m)^HEALTHCHECK .*CMD (.*)$", names["gateway"][1])
     assert hc and hc.group(1).startswith("["), "gateway HEALTHCHECK must be exec form"
     assert "CGO_ENABLED=0" in names[next(n for n, (b, _) in names.items() if b.startswith("golang:"))][1]
+
+
+def test_env_example_does_not_change_the_stack() -> None:
+    """`make bootstrap` copies .env.example to .env, which Compose reads for ${VAR:-default}
+    substitution. A value set there must equal the compose default, or a fresh clone runs a
+    different stack (MCPGW_TENANTS_FILE=config/tenants.yaml broke the gateway in make verify-clean)."""
+    env = {}
+    for line in (ROOT / ".env.example").read_text(encoding="utf-8").splitlines():
+        if "=" in line and not line.lstrip().startswith("#"):
+            key, value = line.split("=", 1)
+            env[key.strip()] = value.strip()
+    for name in ("compose.yaml", "compose.test.yaml"):
+        text = (ROOT / name).read_text(encoding="utf-8")
+        for var, default in re.findall(r"\$\{([A-Z0-9_]+):-([^}]*)\}", text):
+            if env.get(var):
+                assert env[var] == default, f"{name}: .env.example sets {var}={env[var]!r}, compose default {default!r}"
