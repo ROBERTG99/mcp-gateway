@@ -131,7 +131,7 @@ The "Needs the maintainer" section of `PROGRESS.md` is the list. At the time of 
 
 1. **Install `.claude/settings.json`.** Copy `docs/harness/settings.json` to `.claude/settings.json` and commit it. Until then the hooks and permission lists are not active.
 2. **Review 40 injection cases.** The injection dataset is labelled by construction from templates in `internal/datagen/evals.go`. A person should read about 40 cases from the dev and test files and confirm the labels. The agent did not do this.
-3. **Decide about a large file in history.** A 29.7 MB build artifact (the `loadgen` binary) was committed by accident in commit `6af1610` and untracked in the next commit. Removing it needs a history rewrite and a force-push, which the agent must not do. Decide before publishing further.
+3. **Decide about a large file in history.** A 29.7 MB build artifact (the `loadgen` binary; `git cat-file -s 6af1610:loadgen` prints 29742161 bytes) was committed by accident in commit `6af1610` and untracked in the next commit. Removing it needs a history rewrite and a force-push, which the agent must not do. Decide before publishing further.
 4. **Run the load test on an 8-vCPU machine.** The build machine had 4 vCPUs shared by the whole stack and the load generator. Re-run `make loadtest` on a larger machine, ideally with the load generator elsewhere, and update `docs/perf/`.
 
 Beyond that list, these are open and recorded elsewhere:

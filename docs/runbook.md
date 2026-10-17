@@ -85,7 +85,7 @@ Settings you will usually change:
 - `upstreams` and `tenants` (rendered into a ConfigMap as `upstreams.yaml` and `tenants.yaml`);
 - `approvals.webhookURL`, if approvals should be announced;
 - `otel.endpoint` (becomes `MCPGW_OTEL_ENDPOINT`);
-- `networkPolicy.ingressFrom` and `networkPolicy.metricsFrom`.
+- `networkPolicy.mcpFrom`, `networkPolicy.adminFrom` (keep it narrower than MCP) and `networkPolicy.metricsFrom`.
 
 The chart sets `MCPGW_CONSOLE_SECURE_COOKIES=true` and leaves `MCPGW_DEV_ISSUER_URL` empty, so console sign-in is off (`templates/NOTES.txt`). Use the admin API with tokens from your issuer.
 
@@ -167,7 +167,7 @@ curl -s -X POST -H "Authorization: Bearer $ADMIN_TOKEN" http://127.0.0.1:8200/ad
 
 ### A failed reload keeps the last good bundle
 
-- The previous bundle keeps serving. The gateway logs `policy reload failed; keeping the previous bundle` (`internal/server/server.go:278`).
+- The previous bundle keeps serving. The gateway logs `policy reload failed; keeping the previous bundle` (`internal/server/server.go:282`).
 - `/readyz` stays 200 and reports `"policy": "stale: last reload failed: ..."` (`internal/server/server.go:226-230`).
 - `mcpgw_policy_reload_failures_total` goes up and `mcpgw_policy_stale` is 1 until a reload succeeds. The `PolicyLoadFailure` alert fires.
 - `POST /admin/policy/reload` answers 422 and says that the previous bundle stays active.
@@ -334,7 +334,7 @@ All six rules are in `deploy/prometheus/alerts.yaml` and are tested by `make pro
 - `rate(mcpgw_audit_rejections_total[5m])`: is the gateway already refusing calls?
 - Is `AuditFlushSLO` also firing? That points at slow Postgres writes.
 - `/readyz`: `postgres` unreachable, or `audit: sequence not allocated yet`.
-- Postgres: connections, disk, locks, replication lag. All replicas append to one chain under one advisory lock (`internal/audit/postgres.go:119`).
+- Postgres: connections, disk, locks, replication lag. All replicas append to one chain under one advisory lock (`internal/audit/postgres.go:122`).
 - Pod logs for audit writer errors.
 - A flood from one agent: `mcpgw_tool_calls_total` by `tenant` and `status`. Malformed calls also take audit slots (`docs/security.md`, "Limits and their edges").
 
@@ -422,7 +422,7 @@ All six rules are in `deploy/prometheus/alerts.yaml` and are tested by `make pro
 **First checks.**
 
 - Postgres write latency, CPU, disk and connection counts.
-- Several replicas writing at once: they take turns on one advisory lock (`internal/audit/postgres.go:119`).
+- Several replicas writing at once: they take turns on one advisory lock (`internal/audit/postgres.go:122`).
 - `mcpgw_audit_buffer_depth`: is it growing?
 - Batch settings: `MCPGW_AUDIT_BATCH` (default 500) and `MCPGW_AUDIT_FLUSH_INTERVAL` (default 50ms).
 
@@ -430,6 +430,24 @@ All six rules are in `deploy/prometheus/alerts.yaml` and are tested by `make pro
 
 - Fix the database. This is almost always a Postgres problem.
 - Change the batch settings only after testing them. Check that `mcp-gateway audit verify` still passes afterwards.
+
+## Recovering from a sequence reset
+
+After a database restore, `audit_events_seq` can end up behind the highest stored `seq`. New events
+then collide with stored ones, every call fails with `-32048`, and the logs repeat `audit flush failed;
+will retry` with a unique violation on `audit_events_pkey`. This is deliberate: the sink only accepts a
+colliding row when it is the very same event (a lost commit acknowledgement), never a different one.
+
+1. Move the sequence past the stored rows, as the schema owner:
+
+   ```sql
+   SELECT setval('audit_events_seq', (SELECT max(seq) FROM audit_events));
+   ```
+
+2. Restart the gateway pods (`kubectl -n mcpgw rollout restart deploy/gw-mcp-gateway`). A pod keeps its
+   already reserved seqs in memory, so `setval` alone does not unwedge it. Events still buffered in a pod
+   when it restarts are lost: note the time window from the logs for the incident record.
+3. Run `mcp-gateway audit verify` and confirm calls succeed again.
 
 ## Incident drills
 

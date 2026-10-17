@@ -57,6 +57,9 @@ The gateway is the enforcement point for the tools an LLM agent may use, so most
   - the 4 MiB result check runs after the upstream response has been read and decoded by the MCP client, so a hostile upstream can still make the gateway buffer a larger response once (`docs/KNOWN_LIMITATIONS.md`);
   - a write whose upstream result is over 4 MiB has already taken effect upstream, but the agent gets `-32046` (`result_too_large`) and the call is audited as `error`; a retry with the same key is forwarded to the upstream's own dedup (`internal/pipeline/pipeline.go`, `checkResult`), which keeps the write single but returns the same oversized result, so the agent never receives it;
   - argument, depth and schema rejections happen before the rate limiter (spec order), so they use no tokens; each still takes an audit slot, so one agent sending only malformed calls can add to audit pressure for every tenant until the body limit and the audit buffer bound it (LLM10).
+- **Gateway-side classification:** a tool listed under `write_tools` in `upstreams.yaml` is a write whatever `readOnlyHint` its upstream declares (`TestWriteToolsOverrideReadOnlyHint`), so a misconfigured or compromised upstream cannot turn a refund into a read that skips the write scope and the idempotency key.
+- **Deterministic policy:** bundles compile without `http.send`, `net.*`, `time.now_ns`, `rand.*`, `uuid.*` and `opa.runtime`, so a hot reload that uses them fails and the last good bundle keeps serving (`TestNonDeterministicBuiltinsRejected`). Non-object arguments and fractional amounts are denied by policy itself (`invalid_args`, `invalid_amount`).
+- **Separation of duties:** an approver cannot decide an approval whose held call they made, and a failed read of the approval refuses the decision (`TestDecideRBACAndAudit`).
 - **Ordering of side effects:** an upstream write runs only after the audit slot, policy, approval and idempotency stages have all passed.
 - **Redaction:** applied before the audit log, approval webhooks and logs. Logs go through the redacting handler, and sensitive keys are dropped.
 - **Audit log:** append-only, hash-chained and verified by `mcp-gateway audit verify`.
@@ -85,7 +88,7 @@ The gateway is the enforcement point for the tools an LLM agent may use, so most
 | trivy filesystem (vulnerabilities, secrets, misconfigurations; high and critical) | ok, after upgrading `github.com/moby/go-archive` to v0.3.0 (CVE-2026-17106, a testcontainers dependency) |
 | trivy image `mcp-gateway:dev` (high and critical, fixed only; the script builds the image when it is missing) | ok |
 | hadolint | ok |
-| actionlint | skipped: no workflows yet (T-43) |
+| actionlint | ok |
 | pnpm audit (`e2e/`, high and critical) | ok with one accepted advisory |
 | go-licenses (Apache-2.0, MIT, BSD, ISC, MPL-2.0) | ok with one manual check |
 
@@ -93,7 +96,7 @@ The gateway is the enforcement point for the tools an LLM agent may use, so most
 
 | Finding | Why it is accepted | Where |
 |---|---|---|
-| gitleaks `jwt` in `evals/datasets/*/redaction.v1.jsonl` and `internal/redact/*_test.go` | synthetic tokens the redaction eval and tests must detect; they sign nothing | `.gitleaks.toml` |
+| gitleaks `jwt` and `generic-api-key` in `evals/datasets/*/redaction.v1.jsonl`, `internal/redact/*_test.go`, `internal/telemetry/*_test.go` and `internal/server/logs_integration_test.go` | synthetic tokens that the redaction eval and the log-redaction tests (NFR-4) must detect; they sign nothing | `.gitleaks.toml` |
 | GHSA-vfj7-8cjw-p6xm (`braces`, high) via `markdownlint-cli2` | dev-only lint tool in `e2e/`, runs on repository Markdown, no patched version published | `e2e/package.json` `pnpm.auditConfig.ignoreGhsas` |
 | `github.com/segmentio/asm` license not classified | its `LICENSE` is the MIT license (checked by hand); dependency of the MCP SDK's JSON package | `scripts/security.sh` |
 | `.claude/settings.json` not installed | the guard hooks are not active in this environment (PROGRESS.md, "Needs the maintainer") | — |

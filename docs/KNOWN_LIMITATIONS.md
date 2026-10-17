@@ -19,6 +19,10 @@ What is not done, or done differently from the specification, and why. Each item
 - **The example upstreams' dedup tables are never purged.** `ledger`, `crm` and `orders` keep their `mcp_idempotency` rows forever (`migrations/00004_upstreams.sql`); a real upstream needs a retention job.
 - **Upstreams trust the gateway.** The example upstreams take the tenant from `_meta.mcpgw.tenant` without checking a token; they must be reachable only from the gateway (network policy, mTLS or a service mesh), as `docs/adr/0001-gateway-auth-vs-per-server-auth.md` states.
 - **Adding an upstream needs a restart.** `upstreams.yaml` is read at start-up; policy data hot-reloads, the upstream list does not.
+- **Tool annotations are hints.** A tool listed under `write_tools` in `upstreams.yaml` is always a write (`TestWriteToolsOverrideReadOnlyHint`); a tool not listed there is classified by the upstream's own `readOnlyHint`, so an operator connecting a new upstream should list its write tools.
+- **No cumulative refund limit.** Each refund is checked on its own amount; five refunds of 10,000 cents on one order are each allowed (the example upstream still refuses refunds beyond the order total).
+- **`/readyz` is unauthenticated** and pings Postgres and Redis on every request, returning the policy compile error text; keep the admin port inside the cluster (the chart's NetworkPolicy does) and point probes at it only.
+- **No read or write timeouts on the listeners.** MCP keeps server-to-client SSE streams open, so only a header timeout and an idle timeout are set; a slow authenticated client can hold a connection while sending a body of up to 1 MiB.
 - **A lone override phrase is not flagged.** "Ignore all previous instructions" alone scores 0.35, below the default threshold of 0.5; a second signal is needed. The output is marked untrusted either way (`docs/evaluation.md`).
 
 ## Docker, Helm and CI
@@ -26,7 +30,7 @@ What is not done, or done differently from the specification, and why. Each item
 - **Image size.** The gateway image is 17.6 MB compressed, under the 40 MB budget, but 57.6 MB unpacked (`make image-size`, 2026-10-17). The budget is applied to the compressed size (`docs/DECISIONS.md`); an unpacked budget of 40 MB would need a smaller binary than OPA, the DynamoDB SDK and the rest allow.
 - **DynamoDB emulator under load.** `TestDynamoDBStore`'s "concurrent acquire has exactly one winner" case failed once (2 winners of 24) during a full parallel `make integration` run on 2026-10-17, with a fake clock, so no lock could expire. It passed 18 further runs, 10 of them with the CPU saturated. The store relies on DynamoDB's atomic conditional `PutItem`, which real DynamoDB guarantees; dynamodb-local (`amazon/dynamodb-local:3.3.2`) is the likely cause, but this is not proven. The test is neither retried nor weakened; if it recurs, run the case against real DynamoDB before trusting the DynamoDB store.
 - **Helm.** The NetworkPolicy restricts ingress only; egress stays open because the gateway's targets (upstreams, the issuer's JWKS, Postgres, Redis, DynamoDB) depend on the deployment. `make kind-smoke` (`scripts/kind_smoke.sh`, restricted Pod Security admission on a local kind cluster) was not run: kind is not installed in the build environment. `make helm-check` downloads the Kubernetes JSON schemas for kubeconform from GitHub when it runs.
-- **CI.** The workflows were checked with actionlint and `tests/harness/test_workflows.py`, but no GitHub Actions run was observed from this environment. Actions are pinned to major-version tags, not commit SHAs (`docs/DECISIONS.md`).
+- **CI and release.** The workflows were checked with actionlint and `tests/harness/test_workflows.py`, but no GitHub Actions run was observed from this environment. Actions are pinned to major-version tags, not commit SHAs (`docs/DECISIONS.md`). `release.yml` publishes on any pushed `v*` tag: protect `v*` tags with a ruleset, require a green `ci` run on the tagged commit, and add image signing (cosign) and an SBOM attestation before relying on it.
 
 ## Console sign-in is development-only
 
@@ -60,7 +64,7 @@ The whole machine spent about 5.6 ms of CPU per call (3.52 / 630), or 5.0 ms wit
 What the profiling changed:
 
 - **Refunds index.** Per-order refund sums scanned `orders.refunds` sequentially. Migration 00006 adds an index, and `TestRefundTotalsUseIndex` guards it.
-- **Injection scorer.** Literal prefilters and a hand-written tokenizer give the same results (`TestRulePrefiltersAreExact`, `TestTokensMatchRegexp`, `make eval` metrics unchanged) for less CPU. `BenchmarkScoreToolResult` now takes 0.23-0.24 ms per result with the stack running on the same machine (`docs/perf/scorer.txt`). The pre-change time, 0.77-0.82 ms, was measured by hand with the same benchmark before the change. It cannot be reproduced from a committed command.
+- **Injection scorer.** Literal prefilters and a hand-written tokenizer give the same results (`TestRulePrefiltersAreExact`, `TestTokensMatchRegexp`, `make eval` metrics unchanged) for less CPU. `BenchmarkScoreToolResult` now takes 0.23-0.24 ms per result with the stack running on the same machine (`docs/perf/scorer.txt`). The pre-change time was read by hand and is not kept, so no before/after ratio is claimed.
 
 Where the gateway's remaining CPU goes was read from a pprof profile of a throwaway build that was not committed (`PROGRESS.md`). The main costs were the scorer, OPA evaluation, HTTP and the MCP SDK, the upstream MCP client and GC; the split is not reproducible from the repository and is not quoted here.
 
