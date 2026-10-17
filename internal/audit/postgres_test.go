@@ -26,10 +26,10 @@ func TestAuditChainAppendPostgres(t *testing.T) {
 	if err := store.Migrate(ctx, db.URL, "up", io.Discard); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SetRolePasswords(ctx, db.URL, map[string]string{"mcpgw_app": "pw"}); err != nil {
+	if err := store.SetRolePasswords(ctx, db.URL, map[string]string{"mcpgw_app": pgtest.RolePassword}); err != nil {
 		t.Fatal(err)
 	}
-	pool, err := store.Open(ctx, db.RoleURL("mcpgw_app", "pw"))
+	pool, err := store.Open(ctx, db.RoleURL("mcpgw_app", pgtest.RolePassword))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,10 +83,10 @@ func TestAuditQueryPostgres(t *testing.T) {
 	if err := store.Migrate(ctx, db.URL, "up", io.Discard); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SetRolePasswords(ctx, db.URL, map[string]string{"mcpgw_app": "pw"}); err != nil {
+	if err := store.SetRolePasswords(ctx, db.URL, map[string]string{"mcpgw_app": pgtest.RolePassword}); err != nil {
 		t.Fatal(err)
 	}
-	pool, err := store.Open(ctx, db.RoleURL("mcpgw_app", "pw"))
+	pool, err := store.Open(ctx, db.RoleURL("mcpgw_app", pgtest.RolePassword))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,10 +167,10 @@ func TestAuditUnstorableArgsPostgres(t *testing.T) {
 	if err := store.Migrate(ctx, db.URL, "up", io.Discard); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SetRolePasswords(ctx, db.URL, map[string]string{"mcpgw_app": "pw"}); err != nil {
+	if err := store.SetRolePasswords(ctx, db.URL, map[string]string{"mcpgw_app": pgtest.RolePassword}); err != nil {
 		t.Fatal(err)
 	}
-	pool, err := store.Open(ctx, db.RoleURL("mcpgw_app", "pw"))
+	pool, err := store.Open(ctx, db.RoleURL("mcpgw_app", pgtest.RolePassword))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -266,5 +266,60 @@ func TestAuditVerifyDetectsValueTampers(t *testing.T) {
 				t.Fatalf("tampered chain verified: %+v %v", res, err)
 			}
 		})
+	}
+}
+
+// TestAuditAppendAfterLostCommitAck: when a batch committed but its acknowledgement was lost (the
+// connection broke or the context ended during COMMIT), the writer retries the same events. The
+// retry must succeed without storing them twice, store only the events that are new, and keep the
+// chain valid; a different event that reuses a stored seq (a sequence reset) must still fail.
+func TestAuditAppendAfterLostCommitAck(t *testing.T) {
+	ctx := t.Context()
+	db := pgtest.New(t)
+	if err := store.Migrate(ctx, db.URL, "up", io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SetRolePasswords(ctx, db.URL, map[string]string{"mcpgw_app": pgtest.RolePassword}); err != nil {
+		t.Fatal(err)
+	}
+	pool, err := store.Open(ctx, db.RoleURL("mcpgw_app", pgtest.RolePassword))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	sink := audit.NewPostgresSink(pool)
+	batch := make([]audit.Event, 5)
+	for i := range batch {
+		batch[i] = event("t_alpha")
+		batch[i].Seq = int64(31 + i)
+	}
+	first, err := sink.Append(ctx, batch[:3])
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The retry carries the committed prefix plus events queued since.
+	again, err := sink.Append(ctx, batch)
+	if err != nil {
+		t.Fatalf("retry after a lost acknowledgement: %v", err)
+	}
+	if len(again) != len(batch) {
+		t.Fatalf("retry returned %d events, want %d", len(again), len(batch))
+	}
+	for i, e := range again {
+		if e.Seq != batch[i].Seq {
+			t.Fatalf("retry returned seq %d at %d, want %d", e.Seq, i, batch[i].Seq)
+		}
+		if i < len(first) && (e.Hash != first[i].Hash || e.ChainPos != first[i].ChainPos) {
+			t.Fatalf("seq %d: retry reports hash %s pos %d, stored %s pos %d", e.Seq, e.Hash, e.ChainPos, first[i].Hash, first[i].ChainPos)
+		}
+	}
+	res, err := audit.VerifyPostgres(ctx, pool, 0)
+	if err != nil || !res.OK || res.Checked != len(batch) {
+		t.Fatalf("verify = %+v, %v", res, err)
+	}
+	other := event("t_beta") // same seq as a stored event, different content
+	other.Seq = 31
+	if _, err := sink.Append(ctx, []audit.Event{other}); err == nil {
+		t.Fatal("a different event reusing a stored seq was accepted")
 	}
 }

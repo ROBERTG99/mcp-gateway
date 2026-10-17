@@ -87,7 +87,7 @@ func Start(t testing.TB, opts Options) *Stack {
 	if err := store.Migrate(ctx, db.URL, "up", io.Discard); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SetRolePasswords(ctx, db.URL, map[string]string{"mcpgw_app": "app", "mcpgw_upstream": "up"}); err != nil {
+	if err := store.SetRolePasswords(ctx, db.URL, map[string]string{"mcpgw_app": pgtest.RolePassword, "mcpgw_upstream": pgtest.RolePassword}); err != nil {
 		t.Fatal(err)
 	}
 	super, err := store.Open(ctx, db.URL)
@@ -97,7 +97,7 @@ func Start(t testing.TB, opts Options) *Stack {
 	if err := datagen.Seed(ctx, super, datagen.Generate(datagen.DefaultSeed)); err != nil {
 		t.Fatal(err)
 	}
-	upPool, err := store.Open(ctx, db.RoleURL("mcpgw_upstream", "up"))
+	upPool, err := store.Open(ctx, db.RoleURL("mcpgw_upstream", pgtest.RolePassword))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +144,7 @@ func Start(t testing.TB, opts Options) *Stack {
 		t.Fatal(err)
 	}
 	rc := redistest.New(t)
-	cfg.DatabaseURL = db.RoleURL("mcpgw_app", "app")
+	cfg.DatabaseURL = db.RoleURL("mcpgw_app", pgtest.RolePassword)
 	cfg.RedisURL = fmt.Sprintf("redis://%s/%d", rc.Options().Addr, rc.Options().DB)
 	cfg.JWKSURL = issuerSrv.URL + "/.well-known/jwks.json"
 	cfg.UpstreamsFile = upFile
@@ -178,11 +178,11 @@ func Start(t testing.TB, opts Options) *Stack {
 	adminSrv := httptest.NewServer(st.App.AdminHandler())
 	st.MCPURL, st.AdminURL = mcpSrv.URL+"/mcp", adminSrv.URL
 	deadline := time.Now().Add(30 * time.Second)
-	for !allUp(st.App) {
+	for !allUp(st.App) || !ready(st.AdminURL) {
 		if time.Now().After(deadline) {
-			t.Fatalf("stack: upstreams not up: %+v", st.App.Upstreams())
+			t.Fatalf("stack: not ready (upstreams %+v)", st.App.Upstreams())
 		}
-		time.Sleep(20 * time.Millisecond) //nolint:forbidigo // waiting for the background catalog refresh
+		time.Sleep(20 * time.Millisecond) //nolint:forbidigo // waiting for the background catalog refresh and seq warm-up
 	}
 	t.Cleanup(func() {
 		mcpSrv.Close()
@@ -199,6 +199,16 @@ func Start(t testing.TB, opts Options) *Stack {
 		super.Close()
 	})
 	return st
+}
+
+// ready reports whether the gateway's /readyz answers 200 (policy, Postgres, Redis, audit seqs).
+func ready(adminURL string) bool {
+	resp, err := http.Get(adminURL + "/readyz") //nolint:noctx // local test server, bounded by the caller's deadline
+	if err != nil {
+		return false
+	}
+	_ = resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
 }
 
 func allUp(a *server.App) bool {

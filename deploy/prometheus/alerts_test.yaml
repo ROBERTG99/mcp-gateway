@@ -3,7 +3,7 @@ rule_files:
   - alerts.yaml
 evaluation_interval: 30s
 tests:
-  - name: audit buffer above 80% for a minute fires, 50% does not
+  - name: audit buffer above 80% for a minute fires
     interval: 30s
     input_series:
       - series: 'mcpgw_audit_buffer_depth{instance="gw-1"}'
@@ -21,6 +21,17 @@ tests:
             exp_annotations:
               summary: "Audit buffer above 80% on gw-1"
               description: "Calls fail with -32048 when the buffer is full. Check Postgres health and audit flush latency."
+  - name: audit buffer at 50% never fires
+    interval: 30s
+    input_series:
+      - series: 'mcpgw_audit_buffer_depth{instance="gw-1"}'
+        values: "5000x20"
+      - series: 'mcpgw_audit_buffer_capacity{instance="gw-1"}'
+        values: "10000x20"
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: AuditBufferHigh
+        exp_alerts: []
   - name: a failed policy reload fires, a healthy bundle does not
     interval: 1m
     input_series:
@@ -33,6 +44,23 @@ tests:
         alertname: PolicyLoadFailure
         exp_alerts: []
       - eval_time: 3m
+        alertname: PolicyLoadFailure
+        exp_alerts:
+          - exp_labels: { severity: critical, instance: gw-1 }
+            exp_annotations:
+              summary: "Policy bundle failed to load on gw-1"
+              description: "The previous bundle stays active; with no bundle every call is denied. Run `mcp-gateway policy test policies/`."
+  - name: a broken bundle left on disk keeps firing after the failure counter goes quiet
+    interval: 1m
+    input_series:
+      - series: 'mcpgw_policy_reload_failures_total{instance="gw-1"}'
+        values: "0 1 1 1 1 1 1 1 1 1 1 1 1 1 1"
+      - series: 'mcpgw_policy_stale{instance="gw-1"}'
+        values: "0 1 1 1 1 1 1 1 1 1 1 1 1 1 1"
+      - series: 'mcpgw_policy_loaded{instance="gw-1"}'
+        values: "1x14"
+    alert_rule_test:
+      - eval_time: 14m
         alertname: PolicyLoadFailure
         exp_alerts:
           - exp_labels: { severity: critical, instance: gw-1 }
@@ -86,3 +114,69 @@ tests:
             exp_annotations:
               summary: "An approval has been pending for more than 10 minutes"
               description: "Held calls expire after MCPGW_APPROVAL_TTL (15 min); approvers should decide in the console."
+  - name: overhead p95 above 5 ms for ten minutes fires
+    interval: 1m
+    input_series:
+      # Slow node: every call takes 5-10 ms.
+      - series: 'mcpgw_overhead_seconds_bucket{le="0.001",instance="gw-1"}'
+        values: "0x30"
+      - series: 'mcpgw_overhead_seconds_bucket{le="0.005",instance="gw-1"}'
+        values: "0x30"
+      - series: 'mcpgw_overhead_seconds_bucket{le="0.01",instance="gw-1"}'
+        values: "0+100x30"
+      - series: 'mcpgw_overhead_seconds_bucket{le="+Inf",instance="gw-1"}'
+        values: "0+100x30"
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: GatewayOverheadSLO
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: GatewayOverheadSLO
+        exp_alerts:
+          - exp_labels: { severity: warning }
+            exp_annotations:
+              summary: "Gateway overhead p95 above 5 ms (SLO)"
+              description: "Overhead excludes upstream time; check policy evaluation and Redis latency."
+  - name: overhead below 1 ms never fires
+    interval: 1m
+    input_series:
+      - series: 'mcpgw_overhead_seconds_bucket{le="0.001",instance="gw-1"}'
+        values: "0+100x30"
+      - series: 'mcpgw_overhead_seconds_bucket{le="0.005",instance="gw-1"}'
+        values: "0+100x30"
+      - series: 'mcpgw_overhead_seconds_bucket{le="+Inf",instance="gw-1"}'
+        values: "0+100x30"
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: GatewayOverheadSLO
+        exp_alerts: []
+  - name: audit flush p99 above 500 ms for ten minutes fires (one slow node of two, fleet-wide p99)
+    interval: 1m
+    input_series:
+      - series: 'mcpgw_audit_flush_seconds_bucket{le="0.01",instance="gw-1"}'
+        values: "0x30"
+      - series: 'mcpgw_audit_flush_seconds_bucket{le="0.5",instance="gw-1"}'
+        values: "0x30"
+      - series: 'mcpgw_audit_flush_seconds_bucket{le="1",instance="gw-1"}'
+        values: "0+20x30"
+      - series: 'mcpgw_audit_flush_seconds_bucket{le="+Inf",instance="gw-1"}'
+        values: "0+20x30"
+      - series: 'mcpgw_audit_flush_seconds_bucket{le="0.01",instance="gw-2"}'
+        values: "0+20x30"
+      - series: 'mcpgw_audit_flush_seconds_bucket{le="0.5",instance="gw-2"}'
+        values: "0+20x30"
+      - series: 'mcpgw_audit_flush_seconds_bucket{le="1",instance="gw-2"}'
+        values: "0+20x30"
+      - series: 'mcpgw_audit_flush_seconds_bucket{le="+Inf",instance="gw-2"}'
+        values: "0+20x30"
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: AuditFlushSLO
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: AuditFlushSLO
+        exp_alerts:
+          - exp_labels: { severity: warning }
+            exp_annotations:
+              summary: "Audit flush p99 above 500 ms (SLO)"
+              description: "Slow audit persistence fills the buffer; check Postgres."

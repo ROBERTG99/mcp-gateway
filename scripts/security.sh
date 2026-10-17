@@ -17,20 +17,21 @@ step "gosec (golangci-lint)" golangci-lint run --enable-only gosec ./...
 echo "== govulncheck"
 if out=$(govulncheck ./... 2>&1); then
   echo "   ok"
-elif grep -q "fetching vulnerabilities" <<<"$out"; then
-  echo "   NOT RUN: vuln.go.dev is unreachable from this environment (CI runs it; docs/security.md)"
+elif grep -q "fetching vulnerabilities" <<<"$out" && [ "${CI:-}" != "true" ]; then
+  echo "   NOT RUN: vuln.go.dev is unreachable from this environment (fails under CI=true; docs/security.md)"
 else
   echo "$out"; echo "   FAILED: govulncheck"; status=1
 fi
 step "trivy filesystem (vulnerabilities, secrets, misconfigurations; high and critical)" \
   trivy fs --quiet --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --exit-code 1 \
   --skip-dirs e2e/node_modules --skip-dirs bin .
-if docker image inspect mcp-gateway:dev >/dev/null 2>&1; then
-  step "trivy image mcp-gateway:dev (high and critical)" \
-    trivy image --quiet --severity HIGH,CRITICAL --exit-code 1 --ignore-unfixed mcp-gateway:dev
-else
-  echo "== trivy image: mcp-gateway:dev not built (make up builds it); skipped"
+# The image is built when missing (make verify runs security before up), so it is always scanned.
+if ! docker image inspect mcp-gateway:dev >/dev/null 2>&1; then
+  step "build mcp-gateway:dev for the image scan" \
+    docker build --network host --build-arg HTTPS_PROXY="${HTTPS_PROXY:-}" --target gateway -t mcp-gateway:dev .
 fi
+step "trivy image mcp-gateway:dev (high and critical)" \
+  trivy image --quiet --severity HIGH,CRITICAL --exit-code 1 --ignore-unfixed mcp-gateway:dev
 step "hadolint" hadolint Dockerfile
 if compgen -G ".github/workflows/*.y*ml" >/dev/null; then
   step "actionlint" actionlint

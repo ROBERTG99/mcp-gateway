@@ -18,7 +18,7 @@ mcp-gateway sits between LLM agents and upstream MCP servers. It calls no model;
 |---|---|---|---|---|---|---|
 | MCP endpoint (`internal/proxy`) | RS256 JWT with `kid`, issuer and audience checked; sessions bound to the principal (`TestSessionBoundToPrincipal`) | arguments parsed as I-JSON, schema-validated, depth ≤ 32 (`TestLimits`) | every outcome audited, `-32048` when the audit buffer is full (`TestEveryOutcomeAuditedOnce`) | tool list filtered by policy per principal (`TestToolsListFilteredByPolicy`, `TestVisibilityFollowsPolicyReload`) | body ≤ 1 MiB (`TestBodyLimit`), per-tenant and per-agent token buckets, daily budgets (`TestRateLimitStage`) | tenant taken from the token only, never from the body or `_meta` |
 | Authentication (`internal/authn`) | JWKS fetched from the configured issuer; unknown `kid` refreshes once; HS256 and `none` rejected | — | — | tokens never logged (`TestNoSecretsInLogs`) | JWKS refresh is single-flight and never blocks verification (`TestJWKSHungIssuerDoesNotBlock`) | scopes come from the token; no implicit scopes |
-| Policy (`internal/policy`) | — | bundle compiled at load; a broken bundle keeps the previous one (`mcpgw_policy_reload_failures_total`) | decisions recorded in the audit event | — | prepared queries; p95 0.19 ms (`evals/REPORT.md`, latency.v1) | default deny; deny beats hold; an approval lifts only a hold (`policies/*_test.rego`) |
+| Policy (`internal/policy`) | — | bundle compiled at load; a broken bundle keeps the previous one (`mcpgw_policy_reload_failures_total`) | decisions recorded in the audit event | — | prepared queries; latency.v1 gate p95 < 1 ms (`evals/REPORT.md`, `make eval`) | default deny; deny beats hold; an approval lifts only a hold (`policies/*_test.rego`) |
 | Idempotency (`internal/idempotency`) | keys scoped by tenant | the stored hash binds key, tool and canonical arguments (`TestIdempotencyKeyBoundToTool`) | replays flagged in `_meta.mcpgw.idempotent_replay` and audited as `replayed` | stored results ≤ 256 KiB | store down means writes are refused (`TestIdempotencyStoreDownFailsClosed`) | — |
 | Approvals (`internal/approvals`) | approvers need `mcpgw:approve` and the approval's tenant | approval bound to tenant, agent, tool, args hash and key; single use (`TestApprovalBoundToArgsHash`) | decisions audited as `approval.approve` / `approval.reject` with the approver as agent | webhook payload redacted and HMAC-signed (`TestApprovalWebhookContract`) | one pending approval per call (unique index), outbox claimed with a lease | the security reviewer sees no buttons and gets 403 (`TestConsoleApprovalsRBAC`, `e2e/tests/approvals.spec.ts`) |
 | Audit log (`internal/audit`) | — | SHA-256 hash chain; append-only trigger; `audit verify` finds the first bad seq (`TestAuditVerifyDetectsTamper`, `TestAuditVerifyDetectsValueTampers`) | one event per outcome, including denials and rejections | arguments redacted before storage | bounded buffer; unstorable events never stall the writer (`TestAuditWriterIsolatesUnstorableEvent`) | gateway role has INSERT and SELECT only |
@@ -50,9 +50,13 @@ The gateway is the enforcement point for the tools an LLM agent may use, so most
 - **NFR-9 limits:**
   - request body ≤ 1 MiB (HTTP 413);
   - upstream result ≤ 4 MiB (`-32046`, `result_too_large`);
-  - stored replay result ≤ 256 KiB (larger results are forwarded on retry);
+  - stored replay result ≤ 256 KiB (larger results are forwarded but not stored; a retry is forwarded to the upstream's own dedup);
   - argument nesting ≤ 32;
   - arguments validated against the tool's input schema (`-32602`).
+- **Limits and their edges:**
+  - the 4 MiB result check runs after the upstream response has been read and decoded by the MCP client, so a hostile upstream can still make the gateway buffer a larger response once (`docs/KNOWN_LIMITATIONS.md`);
+  - a write whose upstream result is over 4 MiB has already taken effect upstream, but the agent gets `-32046` (`result_too_large`) and the call is audited as `error`; a retry with the same key is forwarded to the upstream's own dedup (`internal/pipeline/pipeline.go`, `checkResult`), which keeps the write single but returns the same oversized result, so the agent never receives it;
+  - argument, depth and schema rejections happen before the rate limiter (spec order), so they use no tokens; each still takes an audit slot, so one agent sending only malformed calls can add to audit pressure for every tenant until the body limit and the audit buffer bound it (LLM10).
 - **Ordering of side effects:** an upstream write runs only after the audit slot, policy, approval and idempotency stages have all passed.
 - **Redaction:** applied before the audit log, approval webhooks and logs. Logs go through the redacting handler, and sensitive keys are dropped.
 - **Audit log:** append-only, hash-chained and verified by `mcp-gateway audit verify`.
@@ -77,9 +81,9 @@ The gateway is the enforcement point for the tools an LLM agent may use, so most
 |---|---|
 | gitleaks (tree and history, `.gitleaks.toml`) | ok |
 | gosec (through golangci-lint, so reviewed `//nolint:gosec` justifications apply) | ok |
-| govulncheck | **not run**: vuln.go.dev answers 403 through this environment's proxy; CI runs it |
+| govulncheck | **not run**: vuln.go.dev answers 403 through this environment's proxy; with `CI=true` an unreachable database fails the step, so CI cannot pass without the scan |
 | trivy filesystem (vulnerabilities, secrets, misconfigurations; high and critical) | ok, after upgrading `github.com/moby/go-archive` to v0.3.0 (CVE-2026-17106, a testcontainers dependency) |
-| trivy image `mcp-gateway:dev` (high and critical, fixed only) | ok |
+| trivy image `mcp-gateway:dev` (high and critical, fixed only; the script builds the image when it is missing) | ok |
 | hadolint | ok |
 | actionlint | skipped: no workflows yet (T-43) |
 | pnpm audit (`e2e/`, high and critical) | ok with one accepted advisory |

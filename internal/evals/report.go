@@ -174,6 +174,8 @@ func Markdown(reportsDir, baselineDir string) (string, error) {
 		"therefore measures new fills of known phrasings, not new phrasings (docs/KNOWN_LIMITATIONS.md).\n")
 	b.WriteString("- `redaction.v1`: cases use a fixed set of formats; real-world recall will be lower.\n")
 	b.WriteString("- Graders are deterministic, so a delta against the baseline is a real change; the gate fails any regression beyond 1.0 pp.\n")
+	b.WriteString("- Live evals were not run: the gateway calls no model, so there is no provider key or cost; `make eval-live` prints the " +
+		"USD 0.00 estimate and reruns these offline graders (docs/evaluation.md).\n")
 	b.WriteString("\nInjection scoring is defence in depth, not a solution: see `docs/evaluation.md`.\n")
 	return b.String(), nil
 }

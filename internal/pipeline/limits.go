@@ -1,7 +1,6 @@
 package pipeline
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -49,63 +48,79 @@ func argsDepth(raw json.RawMessage) int {
 }
 
 // schemas caches each tool's resolved input schema (tools are re-fetched on catalog refresh, so
-// the cache is keyed by the definition pointer).
+// the cache is keyed by the definition pointer). Unusable schemas are cached too, as their error.
 type schemas struct {
-	mu sync.Mutex
-	m  map[*mcp.Tool]*jsonschema.Resolved
+	mu sync.RWMutex
+	m  map[*mcp.Tool]schemaEntry
 }
 
-func (s *schemas) get(t catalog.Tool) (*jsonschema.Resolved, error) {
+type schemaEntry struct {
+	r   *jsonschema.Resolved // nil when the tool has no schema or it is unusable
+	err error
+}
+
+// get returns the resolved schema; fresh reports whether this call resolved it (so an unusable
+// schema is logged once per definition, not once per call).
+func (s *schemas) get(t catalog.Tool) (e schemaEntry, fresh bool) {
+	s.mu.RLock()
+	e, ok := s.m[t.Def]
+	s.mu.RUnlock()
+	if ok {
+		return e, false
+	}
+	e = resolveSchema(t)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if r, ok := s.m[t.Def]; ok {
-		return r, nil
-	}
-	var r *jsonschema.Resolved
-	if t.Def.InputSchema != nil {
-		raw, err := json.Marshal(t.Def.InputSchema)
-		if err != nil {
-			return nil, fmt.Errorf("encode input schema of %s: %w", t.FullName(), err)
-		}
-		var sch jsonschema.Schema
-		if err := json.Unmarshal(raw, &sch); err != nil {
-			return nil, fmt.Errorf("decode input schema of %s: %w", t.FullName(), err)
-		}
-		if r, err = sch.Resolve(nil); err != nil {
-			return nil, fmt.Errorf("resolve input schema of %s: %w", t.FullName(), err)
-		}
-	}
 	if s.m == nil {
-		s.m = map[*mcp.Tool]*jsonschema.Resolved{}
+		s.m = map[*mcp.Tool]schemaEntry{}
 	}
 	if len(s.m) > 4096 { // definitions churn only on catalog refresh; bound the cache anyway
 		clear(s.m)
 	}
-	s.m[t.Def] = r
-	return r, nil
+	s.m[t.Def] = e
+	return e, true
 }
 
-// checkArgs enforces the depth limit and the tool's input schema before any other stage.
+func resolveSchema(t catalog.Tool) schemaEntry {
+	if t.Def.InputSchema == nil {
+		return schemaEntry{}
+	}
+	raw, err := json.Marshal(t.Def.InputSchema)
+	if err != nil {
+		return schemaEntry{err: fmt.Errorf("encode input schema of %s: %w", t.FullName(), err)}
+	}
+	var sch jsonschema.Schema
+	if err := json.Unmarshal(raw, &sch); err != nil {
+		return schemaEntry{err: fmt.Errorf("decode input schema of %s: %w", t.FullName(), err)}
+	}
+	r, err := sch.Resolve(nil)
+	if err != nil {
+		return schemaEntry{err: fmt.Errorf("resolve input schema of %s: %w", t.FullName(), err)}
+	}
+	return schemaEntry{r: r}
+}
+
+// checkArgs enforces the depth limit and the tool's input schema before any other stage. A tool
+// whose schema cannot be used is not validated here (the upstream enforces its own schema); that
+// is logged once per tool definition.
 func (p *Pipeline) checkArgs(c *call) error {
 	if d := argsDepth(c.args); d > p.opts.MaxArgsDepth {
 		return &jsonrpc.Error{Code: jsonrpc.CodeInvalidParams, Message: fmt.Sprintf("arguments are nested %d levels deep (limit %d)", d, p.opts.MaxArgsDepth)}
 	}
-	r, err := p.schemas.get(c.tool)
-	if err != nil || r == nil {
-		return nil //nolint:nilerr // an unusable upstream schema is the upstream's to enforce
+	e, fresh := p.schemas.get(c.tool)
+	if e.err != nil && fresh {
+		p.deps.Logger.Warn("input schema unusable; arguments not validated by the gateway", "tool", c.tool.FullName(), "error", e.err)
 	}
-	var instance any
-	dec := json.NewDecoder(bytes.NewReader(c.args))
-	if err := dec.Decode(&instance); err != nil {
-		return &jsonrpc.Error{Code: jsonrpc.CodeInvalidParams, Message: "arguments are not valid JSON"}
+	if e.r == nil {
+		return nil
 	}
-	if err := r.Validate(instance); err != nil {
-		msg := err.Error()
+	if err := e.r.Validate(c.argsVal); err != nil {
+		msg := strings.TrimSpace(err.Error())
 		if len(msg) > 300 {
-			msg = msg[:300]
+			msg = strings.ToValidUTF8(msg[:300], "")
 		}
 		return &jsonrpc.Error{Code: jsonrpc.CodeInvalidParams, Message: "arguments do not match the input schema of " +
-			c.tool.FullName() + ": " + strings.TrimSpace(msg)}
+			c.tool.FullName() + ": " + msg}
 	}
 	return nil
 }

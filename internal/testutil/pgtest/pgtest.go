@@ -47,6 +47,11 @@ func baseURL(ctx context.Context) (string, error) {
 	return shared.url, shared.err
 }
 
+// RolePassword is the password every test sets for the application roles (mcpgw_app,
+// mcpgw_readonly, mcpgw_upstream). Roles belong to the whole Postgres cluster, not to one database,
+// so test binaries sharing one server (the compose service in make test-docker) must agree on it.
+const RolePassword = "mcpgw-test" //nolint:gosec // G101: password of throwaway test databases, not a credential
+
 // DB is a fresh database for one test.
 type DB struct {
 	// URL connects as the superuser to the test database.

@@ -10,7 +10,7 @@ groups:
           summary: "Audit buffer above 80% on {{ $labels.instance }}"
           description: "Calls fail with -32048 when the buffer is full. Check Postgres health and audit flush latency."
       - alert: PolicyLoadFailure
-        expr: increase(mcpgw_policy_reload_failures_total[5m]) > 0 or mcpgw_policy_loaded == 0
+        expr: increase(mcpgw_policy_reload_failures_total[5m]) > 0 or mcpgw_policy_stale == 1 or mcpgw_policy_loaded == 0
         labels: { severity: critical }
         annotations:
           summary: "Policy bundle failed to load on {{ $labels.instance }}"

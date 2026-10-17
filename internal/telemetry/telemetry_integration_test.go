@@ -146,7 +146,7 @@ func TestMetricsAfterToolCalls(t *testing.T) {
 		`mcpgw_audit_buffer_depth`, `mcpgw_audit_buffer_capacity 10000`,
 		`mcpgw_approvals_pending 0`, `mcpgw_approvals_oldest_pending_seconds 0`,
 		`mcpgw_upstream_up{upstream="orders"} 1`,
-		`mcpgw_policy_loaded 1`, `mcpgw_policy_reload_failures_total 0`,
+		`mcpgw_policy_loaded 1`, `mcpgw_policy_stale 0`, `mcpgw_policy_reload_failures_total 0`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("metrics lack %s", want)

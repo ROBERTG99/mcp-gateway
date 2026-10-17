@@ -223,8 +223,9 @@ func Load(ctx context.Context, cfg LoadConfig) (LoadResult, error) {
 	cancel()
 	<-samplerDone
 
-	elapsed := time.Since(measureFrom)
-	res.DurationS = elapsed.Seconds()
+	// Calls are counted when they start inside the measured window, so the rate divides by the
+	// window, not by the time the last in-flight call took to finish.
+	res.DurationS = cfg.Duration.Seconds()
 	res.Reads, res.Writes, res.Errors = reads.Load(), writes.Load(), errs.Load()
 	res.Calls = res.Reads + res.Writes
 	res.ErrorRatio = float64(res.Errors) / float64(max(1, res.Calls))

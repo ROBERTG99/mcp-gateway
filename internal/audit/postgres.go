@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -25,8 +26,91 @@ type PostgresSink struct {
 // NewPostgresSink returns the sink.
 func NewPostgresSink(pool *pgxpool.Pool) *PostgresSink { return &PostgresSink{pool: pool} }
 
-// Append implements Sink.
+// Append implements Sink. A batch whose COMMIT succeeded but whose acknowledgement was lost (the
+// connection broke or ctx ended during COMMIT) comes back from the writer as a retry; its events
+// then already exist under their seqs. Those are recognised as the same events and returned as
+// stored, and only the rest is appended, so the retry neither duplicates nor wedges the writer. A
+// stored row that differs from the event with its seq (e.g. a sequence reset after a restore)
+// keeps the unique violation, and the writer stays failed closed.
 func (p *PostgresSink) Append(ctx context.Context, events []Event) ([]Event, error) {
+	stored, err := p.append(ctx, events)
+	var pgErr *pgconn.PgError
+	if err == nil || !errors.As(err, &pgErr) || pgErr.Code != "23505" {
+		return stored, err
+	}
+	have, herr := p.storedSame(ctx, events)
+	if herr != nil {
+		return nil, fmt.Errorf("%w (checking for an earlier commit: %w)", err, herr)
+	}
+	if len(have) == 0 {
+		return nil, err
+	}
+	var rest []Event
+	for _, e := range events {
+		if _, ok := have[e.Seq]; !ok {
+			rest = append(rest, e)
+		}
+	}
+	var added []Event
+	if len(rest) > 0 {
+		if added, err = p.append(ctx, rest); err != nil {
+			return nil, err
+		}
+	}
+	out := make([]Event, 0, len(events))
+	for _, e := range events {
+		if s, ok := have[e.Seq]; ok {
+			out = append(out, s)
+		} else {
+			out = append(out, added[0])
+			added = added[1:]
+		}
+	}
+	return out, nil
+}
+
+// storedSame returns the stored rows whose seq is in events, keyed by seq, if every one of them is
+// the event with that seq (same identity, arguments hash, decision, status and timestamp); a row
+// that differs makes it return none.
+func (p *PostgresSink) storedSame(ctx context.Context, events []Event) (map[int64]Event, error) {
+	bySeq := make(map[int64]Event, len(events))
+	seqs := make([]int64, 0, len(events))
+	for _, e := range events {
+		bySeq[e.Seq] = e
+		seqs = append(seqs, e.Seq)
+	}
+	rows, err := p.pool.Query(ctx, selectEvents+" WHERE seq = ANY($1)", seqs)
+	if err != nil {
+		return nil, fmt.Errorf("read stored seqs: %w", err)
+	}
+	defer rows.Close()
+	have := map[int64]Event{}
+	for rows.Next() {
+		s, err := ScanEvent(rows)
+		if err != nil {
+			return nil, err
+		}
+		if !sameEvent(s, bySeq[s.Seq]) {
+			return nil, nil
+		}
+		have[s.Seq] = s
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read stored seqs: %w", err)
+	}
+	return have, nil
+}
+
+func sameEvent(stored, e Event) bool {
+	return stored.Tenant == e.Tenant && stored.Agent == e.Agent && stored.Server == e.Server && stored.Tool == e.Tool &&
+		stored.ArgsSHA256 == e.ArgsSHA256 && stored.Decision == e.Decision && stored.Status == e.Status &&
+		ptrEq(stored.ApprovalID, e.ApprovalID) && ptrEq(stored.IdempotencyKey, e.IdempotencyKey) &&
+		stored.TS.Equal(e.TS.Truncate(time.Microsecond))
+}
+
+func ptrEq(a, b *string) bool { return (a == nil) == (b == nil) && (a == nil || *a == *b) }
+
+func (p *PostgresSink) append(ctx context.Context, events []Event) ([]Event, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("audit append: begin: %w", err)
@@ -149,6 +233,19 @@ type PostgresSeq struct {
 	buf      []int64
 	fetching bool
 	filled   chan struct{} // closed and replaced after every refill attempt
+	warmed   atomic.Bool   // set by the first successful refill
+}
+
+// Warmed reports whether a block of seqs has ever been allocated (readiness: before that, every
+// reservation waits on Postgres and fails within the enqueue timeout). While it is false it starts
+// a background refill, so a gateway whose warm-up failed recovers once Postgres is back even
+// though, not being ready, it receives no calls that would trigger one.
+func (s *PostgresSeq) Warmed() bool {
+	if s.warmed.Load() {
+		return true
+	}
+	s.startRefill()
+	return false
 }
 
 // NewPostgresSeq returns an allocator fetching block values at a time.
@@ -207,6 +304,9 @@ func (s *PostgresSeq) fetch(ctx context.Context) error {
 	var vals []int64
 	if err == nil {
 		vals, err = pgx.CollectRows(rows, pgx.RowTo[int64])
+	}
+	if err == nil {
+		s.warmed.Store(true)
 	}
 	s.mu.Lock()
 	s.buf = append(s.buf, vals...)

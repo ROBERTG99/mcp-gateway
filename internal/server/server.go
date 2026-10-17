@@ -88,6 +88,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		AuditCapacity:   func() int { return a.audit.Capacity() },
 		PendingApproval: func(ctx context.Context) (int64, time.Duration, error) { return a.approvals.PendingStats(ctx) },
 		PolicyLoaded:    func() bool { return a.policy.Ready() },
+		PolicyStale:     func() bool { return a.policy.Ready() && a.policy.LastError() != "" },
 		Upstreams: func() map[string]bool {
 			up := map[string]bool{}
 			for _, u := range a.catalog.Status() {
@@ -206,8 +207,11 @@ func (a *App) adminDeps() admin.Deps {
 }
 
 func (a *App) readyz(w http.ResponseWriter, r *http.Request) {
-	checks := map[string]string{"policy": "ok", "postgres": "ok", "redis": "ok"}
+	checks := map[string]string{"policy": "ok", "postgres": "ok", "redis": "ok", "audit": "ok"}
 	ready := true
+	if !a.seq.Warmed() {
+		checks["audit"], ready = "sequence not allocated yet", false
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 500*time.Millisecond)
 	defer cancel()
 	if err := a.db.Ping(ctx); err != nil {
@@ -246,15 +250,16 @@ func (a *App) Run(ctx context.Context) error {
 	return nil
 }
 
-// RunBackground performs the startup work (catalog refresh, audit sequence warm-up) and runs the
+// RunBackground performs the startup work (audit sequence warm-up, catalog refresh) and runs the
 // background workers until ctx is cancelled: audit writer, catalog refresh, webhook outbox,
 // approval maintenance and policy watch. Tests use it with MCPHandler and AdminHandler.
 func (a *App) RunBackground(ctx context.Context) error {
-	if err := a.catalog.Refresh(ctx); err != nil {
-		a.logger.Warn("initial catalog refresh failed", "error", err)
-	}
+	// Seqs first: a refreshed catalog makes tools callable, and every call needs a seq.
 	if err := a.seq.Warm(ctx); err != nil {
 		a.logger.Error("audit sequence unavailable; calls fail with -32048 until Postgres is reachable", "error", err)
+	}
+	if err := a.catalog.Refresh(ctx); err != nil {
+		a.logger.Warn("initial catalog refresh failed", "error", err)
 	}
 	g, gctx := errgroup.WithContext(ctx)
 	g.Go(func() error { return a.audit.Run(gctx) })

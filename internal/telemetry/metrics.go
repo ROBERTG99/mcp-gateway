@@ -32,6 +32,7 @@ type Probes struct {
 	PendingApproval func(ctx context.Context) (count int64, oldest time.Duration, err error)
 	Upstreams       func() map[string]bool // name -> up
 	PolicyLoaded    func() bool
+	PolicyStale     func() bool // the last reload failed and the previous bundle is still serving
 }
 
 // NewMetrics builds the registry with the gateway metrics and the Go and process collectors.
@@ -70,6 +71,10 @@ func NewMetrics(p Probes) *Metrics {
 	if p.PolicyLoaded != nil {
 		reg.MustRegister(prometheus.NewGaugeFunc(prometheus.GaugeOpts{Name: "mcpgw_policy_loaded",
 			Help: "1 when a policy bundle is loaded; 0 means every call is denied."}, func() float64 { return b2f(p.PolicyLoaded()) }))
+	}
+	if p.PolicyStale != nil {
+		reg.MustRegister(prometheus.NewGaugeFunc(prometheus.GaugeOpts{Name: "mcpgw_policy_stale",
+			Help: "1 while the last policy reload failed and the previous bundle is still serving."}, func() float64 { return b2f(p.PolicyStale()) }))
 	}
 	if p.PendingApproval != nil || p.Upstreams != nil {
 		reg.MustRegister(&scrapeCollector{probes: p})

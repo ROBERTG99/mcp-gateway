@@ -1,10 +1,13 @@
 package policy_test
 
 import (
+	"context"
 	"encoding/json"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -149,5 +152,54 @@ func TestReloadIsAtomicAndKeepsLastGood(t *testing.T) {
 	}
 	if strings.Contains(strings.Join(d.Reasons, ","), "default_deny") {
 		t.Fatal("unexpected default deny")
+	}
+}
+
+// TestLoadBundleConfigMapLayout loads a bundle laid out like a Kubernetes ConfigMap volume (the Helm
+// chart's policies.existingConfigMap): top-level symlinks into a hidden timestamped directory
+// reached through a ..data symlink. Each file must be read once, under its top-level name.
+func TestLoadBundleConfigMapLayout(t *testing.T) {
+	src := "../../policies"
+	dir := t.TempDir()
+	ts := filepath.Join(dir, "..2026_10_17_12_00_00.000000001")
+	if err := os.Mkdir(ts, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, f := range []string{"authz.rego", "approval.rego", "limits.rego", "data/tenants.json"} {
+		b, err := os.ReadFile(filepath.Join(src, f))
+		if err != nil {
+			t.Fatal(err)
+		}
+		name := filepath.Base(f)
+		if err := os.WriteFile(filepath.Join(ts, name), b, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		names = append(names, name)
+	}
+	if err := os.Symlink(filepath.Base(ts), filepath.Join(dir, "..data")); err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range names {
+		if err := os.Symlink(filepath.Join("..data", n), filepath.Join(dir, n)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	b, err := policy.LoadBundle(dir, false)
+	if err != nil {
+		t.Fatalf("LoadBundle: %v", err)
+	}
+	if got := slices.Sorted(maps.Keys(b.Modules)); !slices.Equal(got, []string{"approval.rego", "authz.rego", "limits.rego"}) {
+		t.Fatalf("modules %v, want each file once under its top-level name", got)
+	}
+	if _, ok := b.Data["tenants"]; !ok {
+		t.Fatal("data/tenants.json not loaded")
+	}
+	e, err := policy.New(context.Background(), policy.Options{Dir: dir})
+	if err != nil {
+		t.Fatalf("engine on ConfigMap layout: %v", err)
+	}
+	if e.BundleHash() != b.Hash {
+		t.Fatalf("engine hash %q, want %q", e.BundleHash(), b.Hash)
 	}
 }

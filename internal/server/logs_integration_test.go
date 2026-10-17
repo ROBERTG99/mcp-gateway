@@ -33,7 +33,7 @@ func (s *syncBuffer) String() string {
 }
 
 // TestNoSecretsInLogs (NFR-4): with the production logger at debug level, calls carrying card
-// numbers, emails and bearer tokens in their arguments (including ones the upstream echoes back
+// numbers, IBANs, emails and bearer tokens in their arguments (including ones the upstream echoes back
 // in an error), an invalid JWT and an upstream failure leave no secret, token or raw PII in the
 // logs.
 func TestNoSecretsInLogs(t *testing.T) {
@@ -46,6 +46,7 @@ func TestNoSecretsInLogs(t *testing.T) {
 	}
 	defer func() { _ = sess.Close() }()
 	card, email, bearer := "4111 1111 1111 1111", "ana.lane42@example.com", "Bearer s3cr3tTokenValue0123456789abcdef"
+	iban := "DE89 3704 0044 0532 0130 00" // the standard documentation IBAN (checksum-valid)
 	calls := []*mcp.CallToolParams{
 		// The order id carries a card number; the upstream echoes it in "order ... not found".
 		{Name: "orders.get_order", Arguments: map[string]any{"order_id": card}},
@@ -54,6 +55,8 @@ func TestNoSecretsInLogs(t *testing.T) {
 		{Name: "orders.refund_order", Arguments: map[string]any{"order_id": card, "amount_cents": 100, "reason": email},
 			Meta: mcp.Meta{"idempotency_key": "logs-test-0002"}},
 		{Name: "crm.get_customer", Arguments: map[string]any{"customer_id": email}},
+		{Name: "orders.refund_order", Arguments: map[string]any{"order_id": "O-00008", "amount_cents": 100, "reason": "refund to " + iban},
+			Meta: mcp.Meta{"idempotency_key": "logs-test-0003"}},
 	}
 	for _, c := range calls {
 		_, _ = sess.CallTool(t.Context(), c) // outcomes vary; only the logs matter here
@@ -67,7 +70,7 @@ func TestNoSecretsInLogs(t *testing.T) {
 	if strings.Count(out, `"msg":"step"`) < len(calls) {
 		t.Fatalf("expected a step record per call; the test would prove nothing:\n%s", out)
 	}
-	for _, secret := range []string{card, "4111111111111111", email, "s3cr3tTokenValue", token, strings.Split(token, ".")[1]} {
+	for _, secret := range []string{card, "4111111111111111", email, iban, "DE89370400440532013000", "s3cr3tTokenValue", token, strings.Split(token, ".")[1]} {
 		if strings.Contains(out, secret) {
 			i := strings.Index(out, secret)
 			t.Errorf("logs contain %q: ...%s...", secret, out[max(0, i-200):min(len(out), i+100)])

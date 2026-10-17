@@ -16,7 +16,7 @@ import (
 // rules query is a metric the gateway exports (no dangling panels or alerts).
 func TestDashboardsUseExportedMetrics(t *testing.T) {
 	m := telemetry.NewMetrics(telemetry.Probes{AuditDepth: func() int { return 0 }, AuditCapacity: func() int { return 1 },
-		PolicyLoaded: func() bool { return true }, Upstreams: func() map[string]bool { return nil },
+		PolicyLoaded: func() bool { return true }, PolicyStale: func() bool { return false }, Upstreams: func() map[string]bool { return nil },
 		PendingApproval: nil})
 	descs := make(chan *prometheus.Desc, 64)
 	go func() { m.Registry().Describe(descs); close(descs) }()

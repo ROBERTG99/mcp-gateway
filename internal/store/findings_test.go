@@ -18,10 +18,10 @@ func TestFindingsStored(t *testing.T) {
 	if err := store.Migrate(ctx, db.URL, "up", io.Discard); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SetRolePasswords(ctx, db.URL, map[string]string{"mcpgw_app": "pw"}); err != nil {
+	if err := store.SetRolePasswords(ctx, db.URL, map[string]string{"mcpgw_app": pgtest.RolePassword}); err != nil {
 		t.Fatal(err)
 	}
-	pool, err := store.Open(ctx, db.RoleURL("mcpgw_app", "pw"))
+	pool, err := store.Open(ctx, db.RoleURL("mcpgw_app", pgtest.RolePassword))
 	if err != nil {
 		t.Fatal(err)
 	}

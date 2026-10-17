@@ -57,10 +57,10 @@ func BenchmarkAuditPage(b *testing.B) {
 		b.Fatal(err)
 	}
 	admin.Close()
-	if err := store.SetRolePasswords(ctx, db.URL, map[string]string{"mcpgw_readonly": "pw"}); err != nil {
+	if err := store.SetRolePasswords(ctx, db.URL, map[string]string{"mcpgw_readonly": pgtest.RolePassword}); err != nil {
 		b.Fatal(err)
 	}
-	pool, err := store.Open(ctx, db.RoleURL("mcpgw_readonly", "pw"))
+	pool, err := store.Open(ctx, db.RoleURL("mcpgw_readonly", pgtest.RolePassword))
 	if err != nil {
 		b.Fatal(err)
 	}

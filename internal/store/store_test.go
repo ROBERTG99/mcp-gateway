@@ -25,10 +25,10 @@ func TestAuditAppendOnly(t *testing.T) {
 	if err := store.Migrate(ctx, db.URL, "up", io.Discard); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SetRolePasswords(ctx, db.URL, map[string]string{"mcpgw_app": "app-pw"}); err != nil {
+	if err := store.SetRolePasswords(ctx, db.URL, map[string]string{"mcpgw_app": pgtest.RolePassword}); err != nil {
 		t.Fatal(err)
 	}
-	app, err := pgx.Connect(ctx, db.RoleURL("mcpgw_app", "app-pw"))
+	app, err := pgx.Connect(ctx, db.RoleURL("mcpgw_app", pgtest.RolePassword))
 	if err != nil {
 		t.Fatal(err)
 	}

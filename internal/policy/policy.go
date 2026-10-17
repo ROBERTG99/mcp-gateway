@@ -245,7 +245,9 @@ type Bundle struct {
 	Hash    string
 }
 
-// LoadBundle reads *.rego (test files only when withTests) and data/*.json from dir.
+// LoadBundle reads *.rego (test files only when withTests) and data/*.json from dir. Hidden
+// directories are skipped: a Kubernetes ConfigMap volume keeps its real files in a hidden
+// timestamped directory and exposes them through top-level symlinks, which are read instead.
 func LoadBundle(dir string, withTests bool) (*Bundle, error) {
 	b := &Bundle{Modules: map[string]string{}, Data: map[string]any{}}
 	h := sha256.New()
@@ -253,6 +255,9 @@ func LoadBundle(dir string, withTests bool) (*Bundle, error) {
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
+		}
+		if d.IsDir() && path != dir && strings.HasPrefix(d.Name(), ".") {
+			return filepath.SkipDir
 		}
 		if !d.IsDir() && (strings.HasSuffix(path, ".rego") || strings.HasSuffix(path, ".json")) {
 			files = append(files, path)

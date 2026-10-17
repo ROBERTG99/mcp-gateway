@@ -18,10 +18,10 @@ func TestPostgresStore(t *testing.T) {
 		if err := store.Migrate(t.Context(), db.URL, "up", io.Discard); err != nil {
 			t.Fatal(err)
 		}
-		if err := store.SetRolePasswords(t.Context(), db.URL, map[string]string{"mcpgw_app": "pw"}); err != nil {
+		if err := store.SetRolePasswords(t.Context(), db.URL, map[string]string{"mcpgw_app": pgtest.RolePassword}); err != nil {
 			t.Fatal(err)
 		}
-		pool, err := store.Open(t.Context(), db.RoleURL("mcpgw_app", "pw"))
+		pool, err := store.Open(t.Context(), db.RoleURL("mcpgw_app", pgtest.RolePassword))
 		if err != nil {
 			t.Fatal(err)
 		}

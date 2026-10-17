@@ -61,3 +61,23 @@ func TestReadyzReflectsPolicyBundle(t *testing.T) {
 		t.Fatalf("readyz with a broken bundle = %d %q, want 503 not loaded", code, check)
 	}
 }
+
+// TestReadyzWaitsForAuditSequence: until the first block of audit seqs is allocated (RunBackground
+// warms it), every call would fail with -32048, so the gateway reports not ready.
+func TestReadyzWaitsForAuditSequence(t *testing.T) {
+	a, err := server.New(t.Context(), testConfig(t, "../../policies"), slog.New(slog.DiscardHandler))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := httptest.NewRecorder()
+	a.AdminHandler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+	var body struct {
+		Checks map[string]string `json:"checks"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if rec.Code != http.StatusServiceUnavailable || body.Checks["audit"] != "sequence not allocated yet" {
+		t.Fatalf("readyz before warm-up = %d %v, want 503 with audit not allocated", rec.Code, body.Checks)
+	}
+}
