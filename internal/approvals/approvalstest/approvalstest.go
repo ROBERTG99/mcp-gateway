@@ -78,6 +78,16 @@ func Run(t *testing.T, newStore func(t *testing.T) approvals.Store) {
 		if _, err := s.Decide(ctx, a.ID, "t_beta", approvals.StatusApproved, "x", "", now); !errors.Is(err, approvals.ErrForbidden) {
 			t.Fatalf("other tenant: %v", err)
 		}
+		// No self-approval: the agent whose call was held may not approve it, but may withdraw it.
+		if _, err := s.Decide(ctx, a.ID, "t_alpha", approvals.StatusApproved, a.Agent, "", now); !errors.Is(err, approvals.ErrForbidden) {
+			t.Fatalf("self-approval: %v", err)
+		}
+		w := newApproval("t_alpha")
+		w.IdempotencyKey = "refund-key-withdraw" // a different call: one pending approval per call
+		create(t, s, w)
+		if d, err := s.Decide(ctx, w.ID, "t_alpha", approvals.StatusRejected, w.Agent, "no longer needed", now); err != nil || d.Status != approvals.StatusRejected {
+			t.Fatalf("self-withdrawal: %+v %v", d, err)
+		}
 		if _, err := s.Decide(ctx, "00000000-0000-4000-8000-999999999999", "", approvals.StatusApproved, "x", "", now); !errors.Is(err, approvals.ErrNotFound) {
 			t.Fatalf("missing: %v", err)
 		}

@@ -365,6 +365,10 @@ func TestNonDeterministicBuiltinsRejected(t *testing.T) {
 			if err == nil && e.Ready() {
 				t.Fatalf("bundle using %s compiled", name)
 			}
+			// The rejection must be about the builtin, not some unrelated compile error.
+			if fn := strings.SplitN(strings.TrimPrefix(body, "x := "), "(", 2)[0]; !strings.Contains(err.Error(), fn) {
+				t.Fatalf("error %q does not name %s", err, fn)
+			}
 		})
 	}
 }

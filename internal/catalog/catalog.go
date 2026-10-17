@@ -369,7 +369,7 @@ func (c *Catalog) adopt(u *upstream, s *mcp.ClientSession) *mcp.ClientSession {
 
 func (u *upstream) markDown(err error, now time.Time) {
 	u.mu.Lock()
-	u.up, u.lastErr, u.lastRefresh, u.tools, u.unknownWrite = false, err.Error(), now, nil, nil
+	u.up, u.lastErr, u.lastRefresh, u.tools, u.unknownWrite, u.overridden = false, err.Error(), now, nil, nil, nil
 	u.mu.Unlock()
 }
 
