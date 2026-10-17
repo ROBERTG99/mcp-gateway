@@ -84,3 +84,13 @@ textarea.code { min-height: 280px; font-family: var(--font-mono); font-size: 0.8
 .loading { margin: 0 0 var(--space-3); font-weight: 600; }
 .status.replayed, .status.closed { border-color: var(--ink-muted); background: var(--surface-2); }
 .banner.warn { border-left-color: var(--hold); background: var(--hold-bg); }
+.nowrap { white-space: nowrap; }
+/* Below 768 px list tables stack every row as a labelled card, so no column needs a sideways scroll. */
+@media (max-width: 767px) {
+  table.cards thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  table.cards, table.cards tbody, table.cards tr, table.cards td, table.cards caption { display: block; width: 100%; }
+  table.cards tr { border-bottom: 1px solid var(--line); padding: var(--space-2) 0; }
+  table.cards td { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); gap: var(--space-2); border: 0; padding: var(--space-1) var(--space-3); overflow-wrap: anywhere; }
+  table.cards td::before { content: attr(data-label); font-weight: 600; color: var(--ink-muted); }
+}
+.tabs a { min-height: 44px; display: inline-flex; align-items: center; }

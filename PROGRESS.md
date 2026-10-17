@@ -22,9 +22,9 @@ chore: configure commit attribution
 
 ## Resume here (handoff, 2026-10-16)
 
-**State:** T-01..T-32 done and pushed on `claude/build-md-execution-blkq3q`. Milestones M0-M3 reviewed "ship"; M4 (T-28..T-32) is complete and awaits its `reviewer` run. `make check-fast` is green; integration tests pass with Docker (testcontainers); `make e2e` passes on the compose stack (33 Playwright tests, axe clean).
+**State:** T-01..T-32 done and pushed on `claude/build-md-execution-blkq3q`. Milestones M0-M4 reviewed "ship"; M5 is in progress (T-33 done, T-34 eval runner in progress). `make check-fast` is green; integration tests pass with Docker (testcontainers); `make e2e` passes on the compose stack (33 Playwright tests, axe clean).
 
-**Next:** run the `reviewer` subagent (and `ux-reviewer`) on M4 (`git diff 0daa987..HEAD -- internal/console e2e docs/images`), fix blockers, then M5 starting with T-33 (eval datasets).
+**Next:** finish T-34 (`internal/evals`, `cmd/evalgen`): the first offline run fails the injection recall gate (dev 0.6667, test 0.5250 vs >= 0.80); tune the detector on dev only, never the threshold. Then T-35..T-36.
 
 **Start of a new session (Claude Code on the web):**
 
@@ -57,7 +57,7 @@ chore: configure commit attribution
 
 | Milestone | Reviewer verdict | Notes |
 |---|---|---|
-| M4 | pending | Run after T-32. |
+| M4 | ship (second pass; UX re-review blockers fixed after it) | Code review first pass "fix first": console pages checked only the session, not the admin API scopes (TestConsoleRequiresScope, GETs and POSTs), and upstream content lacked the untrusted-output chip (TestUpstreamsPage). UX review: 10 blockers fixed in 752aa56 (verify failure keeps the list, theme toggle state, hover and placeholder contrast, h1 on error pages, rendered CSRF/scope errors, execution summary, state gaps, separate approve/reject text); 2 mobile blockers fixed after: list tables stack as labelled cards below 768 px and the chip is above the upstreams table (e2e `375px lists`). Evidence: make check-fast; go test -race -tags=integration ./internal/console ./internal/admin ./internal/server ./internal/config; SCREENSHOTS=1 pnpm exec playwright test: 48 passed; BenchmarkAuditPage p95 14.71 ms (reviewer run). |
 | M3 | ship (third pass) | First pass "fix first": one hostile argument (integer beyond 2^53 or NUL) stalled the audit writer forever (now sanitised on write, unstorable batches bisected with a placeholder; TestAuditArgsAlwaysStorable, TestAuditWriterIsolatesUnstorableEvent, TestHostileArgsDoNotStopAudit, TestAuditUnstorableArgsPostgres); served `ts` not re-hashable (Event.MarshalJSON, TestAuditAPIEventsRehashable); approval_consumed never returned. Second pass: read-side sanitising hid tampering (lossless Normalize, TestAuditVerifyDetectsValueTampers). Suggestions applied: uuid lookups, outbox SKIP LOCKED lease, one pending approval per call (migration 00005), webhook secret length, verify limited to cross-tenant viewers, writer closed flag, dynamic audit WHERE, enqueue latency on thread CPU time plus wall p50. |
 | M2 | ship (third pass) | Blockers fixed with regression tests: `arguments: null` bypassed argument rules (TestNullArgumentsDoNotBypassArgumentRules), JWKS refresh blocked under a mutex (TestJWKSHungIssuerDoesNotBlock), cards followed by digits escaped redaction, reload failure undocumented (ADR 0002 + stale readiness), docs citing not-yet-built metrics reworded. |
 | M1 | ship (second pass) | First pass "fix first": concurrent refunds could exceed the order amount (snapshot taken before the row lock). Fixed by locking first and summing in a second statement; deterministic `TestInsertRefundSerialisesOnOrderLock` fails on the old SQL, passes now. Suggestions applied: I-JSON checks in canonicaljson, raw dedup results, goose advisory lock, password guards, narrower gateway env. |

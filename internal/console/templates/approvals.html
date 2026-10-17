@@ -7,20 +7,20 @@
 </nav>
 {{if .Error}}{{else if .Data.Approvals}}
 <div class="table-wrap" tabindex="0" role="region" aria-label="Approvals table">
-<table>
+<table class="cards" role="table">
   <caption class="muted">Held tool calls wait here until an approver of their tenant decides or they expire. Soonest expiry first.</caption>
-  <thead><tr><th scope="col">Tool</th><th scope="col">Tenant</th><th scope="col" class="hide-sm">Agent</th><th scope="col">Reasons</th><th scope="col" class="hide-sm">Args hash</th><th scope="col">Expires</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Open</span></th></tr></thead>
-  <tbody>
+  <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Tool</th><th scope="col" role="columnheader">Tenant</th><th scope="col" role="columnheader">Agent</th><th scope="col" role="columnheader">Reasons</th><th scope="col" role="columnheader">Args hash</th><th scope="col" role="columnheader">Expires</th><th scope="col" role="columnheader">Status</th><th scope="col" role="columnheader"><span class="sr-only">Open</span></th></tr></thead>
+  <tbody role="rowgroup">
   {{range .Data.Approvals}}
-  <tr class="row">
-    <td class="mono">{{.Server}}.{{.Tool}}</td>
-    <td class="mono">{{.Tenant}}</td>
-    <td class="hide-sm">{{.Agent}}</td>
-    <td>{{range $i, $r := .Reasons}}{{if $i}}, {{end}}<span class="mono">{{$r}}</span>{{end}}</td>
-    <td class="hide-sm mono">{{short .ArgsSHA256}}</td>
-    <td>{{.ExpiresIn}}</td>
-    <td><span class="status {{.Status}}">{{.Status}}</span></td>
-    <td><a href="/console/approvals/{{.ID}}">Review<span class="sr-only"> approval {{.ID}}</span></a></td>
+  <tr class="row" role="row">
+    <td role="cell" data-label="Tool" class="mono">{{.Server}}.{{.Tool}}</td>
+    <td role="cell" data-label="Tenant" class="mono">{{.Tenant}}</td>
+    <td role="cell" data-label="Agent">{{.Agent}}</td>
+    <td role="cell" data-label="Reasons">{{range $i, $r := .Reasons}}{{if $i}}, {{end}}<span class="mono">{{$r}}</span>{{end}}</td>
+    <td role="cell" data-label="Args hash" class="mono">{{short .ArgsSHA256}}</td>
+    <td role="cell" data-label="Expires">{{.ExpiresIn}}</td>
+    <td role="cell" data-label="Status"><span class="status {{.Status}}">{{.Status}}</span></td>
+    <td role="cell" data-label="Open"><a href="/console/approvals/{{.ID}}">Review<span class="sr-only"> approval {{.ID}}</span></a></td>
   </tr>
   {{end}}
   </tbody>

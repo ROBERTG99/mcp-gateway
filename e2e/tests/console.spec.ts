@@ -86,3 +86,22 @@ test("empty state explains what to do", async ({ page }) => {
   await expect(page.getByText("No audit events match these filters.")).toBeVisible();
   await expectAccessible(page);
 });
+
+test.describe("375px lists", () => {
+  test.use({ viewport: { width: 375, height: 900 } });
+
+  // Rows stack as labelled cards: no list table overflows sideways, and the chip is on screen.
+  test("every list column is visible without horizontal scrolling", async ({ page }) => {
+    const noSidewaysScroll = async () => {
+      const overflow = await page.locator(".table-wrap").evaluate((el) => el.scrollWidth - el.clientWidth);
+      expect(overflow).toBeLessThanOrEqual(0);
+    };
+    await holdRefund();
+    await signIn(page, "approver");
+    for (const path of ["/console/approvals", "/console/audit", "/console/upstreams"]) {
+      await page.goto(path);
+      await noSidewaysScroll();
+    }
+    await expect(page.locator("main .chip", { hasText: "untrusted output" }).first()).toBeInViewport();
+  });
+});

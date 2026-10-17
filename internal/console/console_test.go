@@ -265,11 +265,23 @@ func TestConsoleRequiresScope(t *testing.T) {
 			t.Fatalf("%s without scope: %d", path, resp.StatusCode)
 		}
 	}
+	_, page := get(t, c, e.srv.URL+"/console/audit")
+	csrf := csrfOf(t, page)
+	for _, path := range []string{"/console/policy", "/console/approvals/00000000-0000-4000-8000-000000000001/approve"} {
+		if resp, _ := post(t, c, e.srv.URL+path, url.Values{"csrf": {csrf}, "input": {"{}"}}); resp.StatusCode != http.StatusForbidden {
+			t.Fatalf("POST %s without scope: %d", path, resp.StatusCode)
+		}
+	}
+	if strings.Contains(page, `href="/console/audit"`) || strings.Contains(page, `href="/console/approvals"`) {
+		t.Fatalf("navigation lists pages the persona cannot open: %s", page)
+	}
 	approver := client(t)
 	signIn(t, e, approver, "approver")
 	_, body := get(t, approver, e.srv.URL+"/console/approvals")
-	if strings.Contains(body, `href="/console/upstreams"`) == false || !strings.Contains(body, `href="/console/approvals"`) {
-		t.Fatalf("approver navigation: %s", body)
+	for _, link := range []string{`href="/console/audit"`, `href="/console/approvals"`, `href="/console/policy"`, `href="/console/upstreams"`} {
+		if !strings.Contains(body, link) {
+			t.Fatalf("approver navigation lacks %s", link)
+		}
 	}
 }
 
