@@ -1,0 +1,12 @@
+{
+  "-32040": "idempotency_conflict",
+  "-32041": "idempotency_key_required",
+  "-32042": "rate_limited",
+  "-32043": "budget_exhausted",
+  "-32044": "policy_denied",
+  "-32045": "approval_invalid",
+  "-32046": "upstream_unavailable",
+  "-32047": "idempotency_in_progress",
+  "-32048": "audit_backpressure",
+  "-32049": "dependency_unavailable"
+}

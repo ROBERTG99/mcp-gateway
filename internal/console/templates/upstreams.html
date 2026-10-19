@@ -1,0 +1,26 @@
+{{define "content"}}
+<h1>Upstreams</h1>
+{{if .Error}}{{else if .Data}}
+<p>Tool names and errors below are reported by the upstreams themselves <span class="chip">untrusted output</span></p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Upstreams table">
+<table class="cards" role="table">
+  <caption class="muted">Health comes from the last catalog refresh; an open breaker stops calls until a probe succeeds.</caption>
+  <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Name</th><th scope="col" role="columnheader">Health</th><th scope="col" role="columnheader">Breaker</th><th scope="col" role="columnheader">Tools</th><th scope="col" role="columnheader">URL</th><th scope="col" role="columnheader">Last refresh (UTC)</th></tr></thead>
+  <tbody role="rowgroup">
+  {{range .Data}}
+  <tr class="row" role="row">
+    <td role="cell" data-label="Name" class="mono">{{.Name}}</td>
+    <td role="cell" data-label="Health">{{if .Up}}<span class="status up">up</span>{{else}}<span class="status down">down</span>{{end}}{{if .LastError}}<div class="muted"><span class="chip">untrusted output</span> {{.LastError}}</div>{{end}}</td>
+    <td role="cell" data-label="Breaker"><span class="status {{.Breaker}}">{{.Breaker}}</span></td>
+    <td role="cell" data-label="Tools">{{if .Tools}}<ul class="rules">{{range .Tools}}<li class="mono">{{.}}</li>{{end}}</ul>{{else}}<span class="muted">none</span>{{end}}</td>
+    <td role="cell" data-label="URL" class="mono">{{.URL}}</td>
+    <td role="cell" data-label="Last refresh (UTC)" class="mono">{{ts .LastRefresh}}</td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+</div>
+{{else}}
+<div class="empty"><p><strong>No upstreams are configured.</strong></p><p>Add servers to <span class="mono">MCPGW_UPSTREAMS_FILE</span> and restart the gateway.</p></div>
+{{end}}
+{{end}}

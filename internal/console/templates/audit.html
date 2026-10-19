@@ -1,0 +1,44 @@
+{{define "content"}}
+<h1>Audit log</h1>
+<section class="card" aria-labelledby="filters-h">
+  <h2 id="filters-h" class="flush">Filters</h2>
+  <form class="filters" method="get" action="/console/audit" aria-label="Audit filters">
+    {{if .Data.CrossTen}}<div><label for="f-tenant">Tenant</label><input id="f-tenant" name="tenant" value="{{index .Data.Filters "tenant"}}" placeholder="e.g. t_alpha"></div>{{end}}
+    <div><label for="f-agent">Agent</label><input id="f-agent" name="agent" value="{{index .Data.Filters "agent"}}" placeholder="e.g. agent-support"></div>
+    <div><label for="f-tool">Tool</label><input id="f-tool" name="tool" value="{{index .Data.Filters "tool"}}" placeholder="e.g. orders.refund_order"></div>
+    <div><label for="f-status">Status</label>
+      <select id="f-status" name="status"><option value="">Any</option>{{$cur := index .Data.Filters "status"}}{{range .Data.Statuses}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{.}}</option>{{end}}</select></div>
+    <div><label for="f-approval">Approval id</label><input id="f-approval" name="approval_id" value="{{index .Data.Filters "approval_id"}}"></div>
+    <div><label for="f-from">From (UTC)</label><input id="f-from" name="from" type="datetime-local" value="{{index .Data.Filters "from"}}"></div>
+    <div><label for="f-to">To (UTC)</label><input id="f-to" name="to" type="datetime-local" value="{{index .Data.Filters "to"}}"></div>
+    <div class="actions flush"><button type="submit" class="primary">Apply</button><a class="button" href="/console/audit">Reset</a></div>
+  </form>
+</section>
+{{if .Data.CanVerify}}<p class="actions"><a class="button pagelink" href="{{.Data.VerifyURL}}">Verify chain</a></p>{{end}}
+{{if .Data.ListFailed}}{{else if .Data.Page.Events}}
+<p class="muted">Showing {{len .Data.Page.Events}} events{{if .Data.Filters.cursor}} older than the previous page (<a href="/console/audit">newest</a>){{end}}.</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Audit events table">
+<table class="cards" role="table">
+  <caption class="muted">Newest first. Open an event for its redacted arguments and hashes.</caption>
+  <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Seq</th><th scope="col" role="columnheader">Time (UTC)</th><th scope="col" role="columnheader">Tenant</th><th scope="col" role="columnheader">Agent</th><th scope="col" role="columnheader">Tool</th><th scope="col" role="columnheader">Decision</th><th scope="col" role="columnheader">Status</th><th scope="col" role="columnheader">Latency</th></tr></thead>
+  <tbody role="rowgroup">
+  {{range .Data.Page.Events}}
+  <tr class="row" role="row">
+    <td role="cell" data-label="Seq"><a href="/console/audit/{{.Seq}}" aria-label="Event {{.Seq}}">{{.Seq}}</a></td>
+    <td role="cell" data-label="Time (UTC)" class="mono nowrap">{{ts .TS}}</td>
+    <td role="cell" data-label="Tenant" class="mono">{{.Tenant}}</td>
+    <td role="cell" data-label="Agent">{{.Agent}}</td>
+    <td role="cell" data-label="Tool" class="mono">{{.Server}}.{{.Tool}}</td>
+    <td role="cell" data-label="Decision"><span class="status {{.Decision}}">{{decisionLabel .Decision}}</span></td>
+    <td role="cell" data-label="Status"><span class="status {{.Status}}">{{.Status}}</span>{{if .ApprovalID}} <a href="/console/approvals/{{deref .ApprovalID}}" class="muted" aria-label="approval for event {{.Seq}}">approval</a>{{end}}</td>
+    <td role="cell" data-label="Latency" class="mono">{{printf "%.1f" .LatencyMS}} ms</td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+</div>
+{{if .Data.OlderURL}}<div class="pager"><a class="button pagelink" href="{{.Data.OlderURL}}">Older events</a></div>{{end}}
+{{else}}
+<div class="empty"><p><strong>No audit events match these filters.</strong></p><p>Every tool call writes one event; try a wider time range or <a href="/console/audit">reset the filters</a>.</p></div>
+{{end}}
+{{end}}

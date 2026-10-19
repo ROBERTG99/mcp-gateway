@@ -1,0 +1,14 @@
+# Idempotency records in DynamoDB (on-demand table with TTL on `expires_at`, created outside the
+# chart; docs/runbook.md). Redis is still used for rate limits and daily budgets.
+idempotency:
+  store: dynamodb
+  dynamodb:
+    table: mcpgw_idempotency
+    region: eu-west-1
+    endpoint: ""
+
+serviceAccount:
+  create: true
+  annotations:
+    # IAM role with dynamodb:GetItem, PutItem and DeleteItem on the table (IRSA).
+    eks.amazonaws.com/role-arn: arn:aws:iam::111122223333:role/mcp-gateway-idempotency

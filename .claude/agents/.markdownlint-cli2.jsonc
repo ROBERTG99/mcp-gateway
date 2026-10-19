@@ -1,0 +1,2 @@
+// Agent definitions are system prompts that start with front matter and prose, not a heading.
+{ "config": { "MD041": false } }

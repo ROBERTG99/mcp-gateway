@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mcpgw.fullname" . }}
+  labels:
+    {{- include "mcpgw.labels" . | nindent 4 }}
+data:
+  upstreams.yaml: |
+    upstreams:
+      {{- toYaml .Values.upstreams | nindent 6 }}
+  tenants.yaml: |
+    tenants:
+      {{- toYaml .Values.tenants | nindent 6 }}

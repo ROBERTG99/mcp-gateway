@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ROBERTG99/evalgate/schemas/evalgate.report.v1.json",
+  "title": "evalgate.report.v1",
+  "description": "Transcribed from the evalgate v0.1.0 contract (ROBERTG99/evalgate BUILD.md, 'Report'); the evalgate repository did not yet publish the schema file when this copy was made.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "suite", "run_id", "created_at", "git_sha", "mode", "models", "prompt_hashes", "n_cases", "metrics",
+    "cost_usd_total", "cost_usd_per_case", "latency_p50_ms", "latency_p95_ms", "cases"],
+  "properties": {
+    "schema": { "const": "evalgate.report.v1" },
+    "suite": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "git_sha": { "type": "string" },
+    "mode": { "enum": ["offline", "live"] },
+    "models": { "type": "array", "items": { "type": "string" } },
+    "prompt_hashes": { "type": "object", "additionalProperties": { "type": "string", "pattern": "^[0-9a-f]{64}$" } },
+    "n_cases": { "type": "integer", "minimum": 0 },
+    "metrics": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["value", "threshold", "direction", "passed", "ci_low", "ci_high"],
+        "properties": {
+          "value": { "type": "number" },
+          "threshold": { "type": "number" },
+          "direction": { "enum": ["higher", "lower"] },
+          "passed": { "type": "boolean" },
+          "ci_low": { "type": "number" },
+          "ci_high": { "type": "number" }
+        }
+      }
+    },
+    "cost_usd_total": { "type": "number", "minimum": 0 },
+    "cost_usd_per_case": { "type": "number", "minimum": 0 },
+    "latency_p50_ms": { "type": "number", "minimum": 0 },
+    "latency_p95_ms": { "type": "number", "minimum": 0 },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "split", "scores", "passed", "cost_usd", "latency_ms", "error"],
+        "properties": {
+          "id": { "type": "string" },
+          "split": { "enum": ["dev", "test"] },
+          "scores": { "type": "object", "additionalProperties": { "type": "number" } },
+          "passed": { "type": "boolean" },
+          "cost_usd": { "type": "number", "minimum": 0 },
+          "latency_ms": { "type": "number", "minimum": 0 },
+          "error": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "extensions": { "type": "object" }
+  }
+}

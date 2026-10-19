@@ -1,0 +1,20 @@
+# Per-tenant token buckets (tenant-wide and per agent) and daily call budgets (reset 00:00 UTC).
+tenants:
+  t_alpha:
+    rate_per_second: 2000
+    burst: 4000
+    agent_rate_per_second: 2000
+    agent_burst: 4000
+    daily_budget: 5000000
+  t_beta:
+    rate_per_second: 5
+    burst: 10
+    agent_rate_per_second: 5
+    agent_burst: 10
+    daily_budget: 1000
+  t_gamma:
+    rate_per_second: 50
+    burst: 100
+    agent_rate_per_second: 25
+    agent_burst: 50
+    daily_budget: 20000

@@ -1,0 +1,16 @@
+# Upstream MCP servers aggregated by the gateway. Tools are exposed as <name>.<tool>.
+# name must match ^[a-z][a-z0-9_]{1,31}$. Adding a server here plus a tenant allowlist entry in
+# policies/data/tenants.json is all it takes to connect a new system (restart the gateway to load it).
+# Per-upstream `timeout:` overrides MCPGW_UPSTREAM_TIMEOUT (10 s) when set. `write_tools:` lists tools
+# the gateway always treats as writes (scope <server>:write, idempotency key required), whatever
+# readOnlyHint the upstream declares: annotations are hints, not trusted facts.
+upstreams:
+  - name: ledger
+    url: http://upstream-ledger:8213/mcp
+    write_tools: [record_promise_to_pay, issue_credit_note]
+  - name: crm
+    url: http://upstream-crm:8214/mcp
+    write_tools: [add_note]
+  - name: orders
+    url: http://upstream-orders:8215/mcp
+    write_tools: [refund_order]

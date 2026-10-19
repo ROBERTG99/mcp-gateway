@@ -1,0 +1,8 @@
+{
+  "approval_required": ["approval_id", "reasons", "status"],
+  "audit_event": ["agent", "approval_id", "args_redacted", "args_sha256", "decision", "hash", "idempotency_key", "latency_ms", "prev_hash", "seq", "server", "status", "tenant", "tool", "ts"],
+  "webhook": ["agent", "approval_id", "args_redacted", "expires_at", "reasons", "tenant", "tool"],
+  "policy_decision": ["allow", "reasons", "require_approval"],
+  "result_meta_mcpgw": ["audit_seq", "idempotent_replay", "injection", "request_id"],
+  "injection": ["score", "signals"]
+}

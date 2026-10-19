@@ -1,0 +1,35 @@
+# Gateway image: build, hadolint, trivy (fails on high or critical) and the size budget
+# (< 40 MB compressed, scripts/image_size.sh). Required check: docker.
+name: docker
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - name: hadolint
+        run: hadolint Dockerfile
+      - name: Build the gateway image
+        run: docker build --target gateway -t mcp-gateway:dev .
+      - name: trivy image
+        run: trivy image --severity HIGH,CRITICAL --exit-code 1 --ignore-unfixed mcp-gateway:dev
+      - name: Image size budget
+        run: make image-size
+      - name: Build the examples and test images
+        run: |
+          docker build --target examples -t mcp-gateway-examples:dev .
+          docker build --target test -t mcp-gateway-test:dev .

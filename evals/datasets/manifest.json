@@ -1,0 +1,19 @@
+{
+  "schema": "datagen.v1",
+  "seed": 20260,
+  "generator": "cmd/datagen evals",
+  "suites": {
+    "injection.v1": {
+      "dev": 120,
+      "test": 80
+    },
+    "policy.v1": {
+      "dev": 90,
+      "test": 60
+    },
+    "redaction.v1": {
+      "dev": 72,
+      "test": 48
+    }
+  }
+}

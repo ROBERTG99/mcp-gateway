@@ -1,0 +1,33 @@
+[project]
+name = "mcp-gateway-tooling"
+version = "0.1.0"
+description = "Python tooling for mcp-gateway: Claude Code hooks, scripts and harness tests"
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = [
+  "pytest>=8",
+  "mypy>=1.11",
+  "ruff>=0.6",
+  "pyyaml>=6",
+  "types-pyyaml>=6",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests/harness", "tests/evals", "tests/bench", "tests/docker", "tests/scripts"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"

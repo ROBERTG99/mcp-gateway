@@ -1,0 +1,25 @@
+{
+  "name": "mcp-gateway",
+  "image": "mcr.microsoft.com/devcontainers/base:bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/go:1": { "version": "1.27.2" },
+    "ghcr.io/devcontainers/features/node:1": { "version": "22", "pnpmVersion": "10.28.0" },
+    "ghcr.io/devcontainers/features/python:1": { "version": "3.13" },
+    "ghcr.io/va-h/devcontainers-features/uv:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "forwardPorts": [8200, 8210, 8211, 8212, 8251],
+  "portsAttributes": {
+    "8200": { "label": "console and admin API" },
+    "8210": { "label": "MCP endpoint" },
+    "8211": { "label": "metrics" },
+    "8212": { "label": "dev issuer" },
+    "8251": { "label": "Grafana (make observability)" }
+  },
+  "postCreateCommand": "make bootstrap && cd e2e && pnpm exec playwright install --with-deps chromium",
+  "customizations": {
+    "vscode": {
+      "extensions": ["golang.go", "charliermarsh.ruff", "tsandall.opa", "ms-azuretools.vscode-docker"]
+    }
+  }
+}

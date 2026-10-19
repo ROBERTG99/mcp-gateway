@@ -1,0 +1,32 @@
+{{define "content"}}
+<h1>Approvals</h1>
+<nav class="tabs" aria-label="Approval status">
+  <ul>{{$cur := .Data.Status}}{{range .Data.Statuses}}
+    <li><a href="/console/approvals?status={{.}}"{{if eq . $cur}} aria-current="true"{{end}}>{{.}}</a></li>{{end}}
+  </ul>
+</nav>
+{{if .Error}}{{else if .Data.Approvals}}
+<div class="table-wrap" tabindex="0" role="region" aria-label="Approvals table">
+<table class="cards" role="table">
+  <caption class="muted">Held tool calls wait here until an approver of their tenant decides or they expire. Soonest expiry first.</caption>
+  <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Tool</th><th scope="col" role="columnheader">Tenant</th><th scope="col" role="columnheader">Agent</th><th scope="col" role="columnheader">Reasons</th><th scope="col" role="columnheader">Args hash</th><th scope="col" role="columnheader">Expires</th><th scope="col" role="columnheader">Status</th><th scope="col" role="columnheader"><span class="sr-only">Open</span></th></tr></thead>
+  <tbody role="rowgroup">
+  {{range .Data.Approvals}}
+  <tr class="row" role="row">
+    <td role="cell" data-label="Tool" class="mono">{{.Server}}.{{.Tool}}</td>
+    <td role="cell" data-label="Tenant" class="mono">{{.Tenant}}</td>
+    <td role="cell" data-label="Agent">{{.Agent}}</td>
+    <td role="cell" data-label="Reasons">{{range $i, $r := .Reasons}}{{if $i}}, {{end}}<span class="mono">{{$r}}</span>{{end}}</td>
+    <td role="cell" data-label="Args hash" class="mono">{{short .ArgsSHA256}}</td>
+    <td role="cell" data-label="Expires">{{.ExpiresIn}}</td>
+    <td role="cell" data-label="Status"><span class="status {{.Status}}">{{.Status}}</span></td>
+    <td role="cell" data-label="Open"><a href="/console/approvals/{{.ID}}" aria-label="Review approval {{.ID}}">Review</a></td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+</div>
+{{else}}
+<div class="empty">{{if eq .Data.Status "pending"}}<p><strong>No approvals are waiting.</strong></p><p>Calls that policy holds for a human appear here with their expiry.</p>{{else}}<p><strong>No {{.Data.Status}} approvals.</strong></p>{{end}}</div>
+{{end}}
+{{end}}

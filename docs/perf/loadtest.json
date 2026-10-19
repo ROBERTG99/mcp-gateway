@@ -1,0 +1,17 @@
+{
+  "run_id": "1792250053408599928",
+  "agent": "agent-load-1792250053408599928",
+  "concurrency": 64,
+  "duration_s": 30,
+  "calls": 18899,
+  "reads": 15145,
+  "writes": 3754,
+  "errors": 0,
+  "error_ratio": 0,
+  "calls_per_second": 629.9666666666667,
+  "latency_p50_ms": 92.117,
+  "latency_p95_ms": 205.441,
+  "latency_p99_ms": 262.993,
+  "rss_max_mb": 93.890625,
+  "rss_samples": 60
+}

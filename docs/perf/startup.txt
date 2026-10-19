@@ -1,0 +1,5 @@
+=== RUN   TestStartupUnder2s
+    startup_integration_test.go:64: ready after 22.177291ms
+--- PASS: TestStartupUnder2s (2.94s)
+PASS
+ok  	github.com/ROBERTG99/mcp-gateway/internal/server	2.970s

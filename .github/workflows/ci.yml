@@ -1,0 +1,121 @@
+# Lint, types, unit, integration (service containers), contract, policy, hooks, helm-check,
+# promtool, coverage and the security scans (spec §17). Required check: ci.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: make lint
+
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: make typecheck
+
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: make unit
+      - run: make policy-test
+      - run: make hooks-test
+
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      MCPGW_TEST_USE_COMPOSE: "1"
+      MCPGW_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:8220/postgres?sslmode=disable
+      MCPGW_TEST_REDIS_URL: redis://localhost:8230/0
+      MCPGW_TEST_DYNAMODB_ENDPOINT: http://localhost:8240
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["8220:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 2s --health-timeout 3s --health-retries 30
+      redis:
+        image: redis:7
+        ports: ["8230:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 2s --health-timeout 3s --health-retries 30
+      dynamodb:
+        image: amazon/dynamodb-local:3.3.2
+        ports: ["8240:8000"]
+        options: >-
+          --health-cmd "curl -s -o /dev/null http://localhost:8000 || exit 1" --health-interval 2s --health-timeout 3s --health-retries 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: make integration
+      - run: make coverage
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage.out
+          if-no-files-found: ignore
+
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: make up
+      - run: make seed
+      - run: make contract
+      - if: failure()
+        run: docker compose logs --no-color > compose.log
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: contract-compose-logs
+          path: compose.log
+      - if: always()
+        run: make down
+
+  deploy-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: make helm-check
+      - run: make promtool
+
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # scripts/security.sh fails when govulncheck cannot reach vuln.go.dev under CI.
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # gitleaks scans the history
+      - uses: ./.github/actions/setup
+      - run: make security

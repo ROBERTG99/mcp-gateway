@@ -1,0 +1,17 @@
+goos: linux
+goarch: amd64
+pkg: github.com/ROBERTG99/mcp-gateway/internal/pipeline
+cpu: Intel(R) Xeon(R) Processor @ 2.10GHz
+BenchmarkGatewayOverhead-4   	    2000	    208523 ns/op	         0.1660 overhead-p50-ms	         0.3980 overhead-p95-ms
+PASS
+ok  	github.com/ROBERTG99/mcp-gateway/internal/pipeline	0.457s
+goos: linux
+goarch: amd64
+pkg: github.com/ROBERTG99/mcp-gateway/internal/console
+cpu: Intel(R) Xeon(R) Processor @ 2.10GHz
+BenchmarkAuditPage-4   	    2000	   4238713 ns/op	        11.79 p95-ms
+PASS
+ok  	github.com/ROBERTG99/mcp-gateway/internal/console	13.289s
+budgets (NFR):
+  ok   NFR-1 BenchmarkGatewayOverhead overhead-p95-ms = 0.398 (budget < 5)
+  ok   NFR-8 BenchmarkAuditPage p95-ms = 11.79 (budget < 300)

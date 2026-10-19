@@ -1,0 +1,8 @@
+mcp-gateway {{ .Chart.AppVersion }} installed as {{ include "mcpgw.fullname" . }}.
+
+  MCP endpoint:  http://{{ include "mcpgw.fullname" . }}.{{ .Release.Namespace }}:{{ .Values.service.ports.mcp }}/mcp
+  Admin API:     http://{{ include "mcpgw.fullname" . }}.{{ .Release.Namespace }}:{{ .Values.service.ports.admin }}
+  Metrics:       http://{{ include "mcpgw.fullname" . }}.{{ .Release.Namespace }}:{{ .Values.service.ports.metrics }}/metrics
+
+Idempotency store: {{ .Values.idempotency.store }}. Secrets come from Secret "{{ .Values.existingSecret }}".
+The console sign-in uses the development issuer and is disabled here; see docs/runbook.md.

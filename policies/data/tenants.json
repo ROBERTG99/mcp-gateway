@@ -1,0 +1,5 @@
+{
+  "t_alpha": { "upstreams": ["ledger", "crm", "orders"] },
+  "t_beta": { "upstreams": ["ledger", "crm", "orders"] },
+  "t_gamma": { "upstreams": ["crm", "orders"] }
+}

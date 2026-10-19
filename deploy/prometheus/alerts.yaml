@@ -1,0 +1,44 @@
+# Alerts for mcp-gateway (spec §14). Runbook: docs/runbook.md.
+groups:
+  - name: mcp-gateway
+    rules:
+      - alert: AuditBufferHigh
+        expr: mcpgw_audit_buffer_depth / mcpgw_audit_buffer_capacity > 0.8
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "Audit buffer above 80% on {{ $labels.instance }}"
+          description: "Calls fail with -32048 when the buffer is full. Check Postgres health and audit flush latency."
+      - alert: PolicyLoadFailure
+        expr: increase(mcpgw_policy_reload_failures_total[5m]) > 0 or mcpgw_policy_stale == 1 or mcpgw_policy_loaded == 0
+        labels: { severity: critical }
+        annotations:
+          summary: "Policy bundle failed to load on {{ $labels.instance }}"
+          description: "The previous bundle stays active; with no bundle every call is denied. Run `mcp-gateway policy test policies/`."
+      - alert: UpstreamDown
+        expr: mcpgw_upstream_up == 0
+        for: 2m
+        labels: { severity: warning }
+        annotations:
+          summary: "Upstream {{ $labels.upstream }} is down or its breaker is open"
+          description: "Calls to its tools fail with -32046 until it recovers."
+      - alert: ApprovalPendingTooLong
+        expr: mcpgw_approvals_oldest_pending_seconds > 600
+        labels: { severity: warning }
+        annotations:
+          summary: "An approval has been pending for more than 10 minutes"
+          description: "Held calls expire after MCPGW_APPROVAL_TTL (15 min); approvers should decide in the console."
+      - alert: GatewayOverheadSLO
+        expr: histogram_quantile(0.95, sum by (le) (rate(mcpgw_overhead_seconds_bucket[5m]))) > 0.005
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Gateway overhead p95 above 5 ms (SLO)"
+          description: "Overhead excludes upstream time; check policy evaluation and Redis latency."
+      - alert: AuditFlushSLO
+        expr: histogram_quantile(0.99, sum by (le) (rate(mcpgw_audit_flush_seconds_bucket[5m]))) > 0.5
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Audit flush p99 above 500 ms (SLO)"
+          description: "Slow audit persistence fills the buffer; check Postgres."

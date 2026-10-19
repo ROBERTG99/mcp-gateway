@@ -1,0 +1,1119 @@
+{
+  "schema": "evalgate.report.v1",
+  "suite": "redaction.v1",
+  "run_id": "redaction.v1-dev-20261017T220915Z",
+  "created_at": "2026-10-17T22:09:15Z",
+  "git_sha": "931583747c1330e94cdd5e7a861b56eeb0c58be2",
+  "mode": "offline",
+  "models": [],
+  "prompt_hashes": {
+    "injection_detector": "139fcc4fdb67b1356fec62b2c1809f430530cfec69ff583bac0e91af00964a64",
+    "policy_bundle": "112e5738500fdc4554d33459e68bd06fdead6561542c04fab9612d6899e4a95b",
+    "redaction_detector": "dd5e1b871be5ed4306866ca273051e19110c9a08d898243931747d2a33bfa9cc"
+  },
+  "n_cases": 72,
+  "metrics": {
+    "precision": {
+      "value": 1,
+      "threshold": 0.95,
+      "direction": "higher",
+      "passed": true,
+      "ci_low": 1,
+      "ci_high": 1
+    },
+    "recall": {
+      "value": 1,
+      "threshold": 0.98,
+      "direction": "higher",
+      "passed": true,
+      "ci_low": 1,
+      "ci_high": 1
+    }
+  },
+  "cost_usd_total": 0,
+  "cost_usd_per_case": 0,
+  "latency_p50_ms": 0.032,
+  "latency_p95_ms": 0.085,
+  "cases": [
+    {
+      "id": "red-dev-001",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 3,
+        "spans": 3,
+        "spans_removed": 3,
+        "true_markers": 3
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.063,
+      "error": null
+    },
+    {
+      "id": "red-dev-002",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 2,
+        "spans": 2,
+        "spans_removed": 2,
+        "true_markers": 2
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.045,
+      "error": null
+    },
+    {
+      "id": "red-dev-003",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 3,
+        "spans": 3,
+        "spans_removed": 3,
+        "true_markers": 3
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.043,
+      "error": null
+    },
+    {
+      "id": "red-dev-004",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 1,
+        "markers": 1,
+        "spans": 1,
+        "spans_removed": 1,
+        "true_markers": 1
+      },
+      "passed": false,
+      "cost_usd": 0,
+      "latency_ms": 0.028,
+      "error": null
+    },
+    {
+      "id": "red-dev-005",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 2,
+        "spans": 2,
+        "spans_removed": 2,
+        "true_markers": 2
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.034,
+      "error": null
+    },
+    {
+      "id": "red-dev-006",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 3,
+        "spans": 3,
+        "spans_removed": 3,
+        "true_markers": 3
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.035,
+      "error": null
+    },
+    {
+      "id": "red-dev-007",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 1,
+        "spans": 1,
+        "spans_removed": 1,
+        "true_markers": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.031,
+      "error": null
+    },
+    {
+      "id": "red-dev-008",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 1,
+        "markers": 1,
+        "spans": 1,
+        "spans_removed": 1,
+        "true_markers": 1
+      },
+      "passed": false,
+      "cost_usd": 0,
+      "latency_ms": 0.032,
+      "error": null
+    },
+    {
+      "id": "red-dev-009",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 1,
+        "markers": 3,
+        "spans": 3,
+        "spans_removed": 3,
+        "true_markers": 3
+      },
+      "passed": false,
+      "cost_usd": 0,
+      "latency_ms": 0.04,
+      "error": null
+    },
+    {
+      "id": "red-dev-010",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 3,
+        "spans": 3,
+        "spans_removed": 3,
+        "true_markers": 3
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.039,
+      "error": null
+    },
+    {
+      "id": "red-dev-011",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 2,
+        "spans": 2,
+        "spans_removed": 2,
+        "true_markers": 2
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.031,
+      "error": null
+    },
+    {
+      "id": "red-dev-012",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 3,
+        "spans": 3,
+        "spans_removed": 3,
+        "true_markers": 3
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.037,
+      "error": null
+    },
+    {
+      "id": "red-dev-013",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 1,
+        "markers": 2,
+        "spans": 2,
+        "spans_removed": 2,
+        "true_markers": 2
+      },
+      "passed": false,
+      "cost_usd": 0,
+      "latency_ms": 0.03,
+      "error": null
+    },
+    {
+      "id": "red-dev-014",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 1,
+        "spans": 1,
+        "spans_removed": 1,
+        "true_markers": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.026,
+      "error": null
+    },
+    {
+      "id": "red-dev-015",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 1,
+        "spans": 1,
+        "spans_removed": 1,
+        "true_markers": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.025,
+      "error": null
+    },
+    {
+      "id": "red-dev-016",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 1,
+        "spans": 1,
+        "spans_removed": 1,
+        "true_markers": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.024,
+      "error": null
+    },
+    {
+      "id": "red-dev-017",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 2,
+        "spans": 2,
+        "spans_removed": 2,
+        "true_markers": 2
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.046,
+      "error": null
+    },
+    {
+      "id": "red-dev-018",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 3,
+        "spans": 3,
+        "spans_removed": 3,
+        "true_markers": 3
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.036,
+      "error": null
+    },
+    {
+      "id": "red-dev-019",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 3,
+        "spans": 3,
+        "spans_removed": 3,
+        "true_markers": 3
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.037,
+      "error": null
+    },
+    {
+      "id": "red-dev-020",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 2,
+        "spans": 2,
+        "spans_removed": 2,
+        "true_markers": 2
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.031,
+      "error": null
+    },
+    {
+      "id": "red-dev-021",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 1,
+        "spans": 1,
+        "spans_removed": 1,
+        "true_markers": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.029,
+      "error": null
+    },
+    {
+      "id": "red-dev-022",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 1,
+        "spans": 1,
+        "spans_removed": 1,
+        "true_markers": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.027,
+      "error": null
+    },
+    {
+      "id": "red-dev-023",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 1,
+        "markers": 3,
+        "spans": 3,
+        "spans_removed": 3,
+        "true_markers": 3
+      },
+      "passed": false,
+      "cost_usd": 0,
+      "latency_ms": 0.034,
+      "error": null
+    },
+    {
+      "id": "red-dev-024",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 1,
+        "markers": 1,
+        "spans": 1,
+        "spans_removed": 1,
+        "true_markers": 1
+      },
+      "passed": false,
+      "cost_usd": 0,
+      "latency_ms": 0.026,
+      "error": null
+    },
+    {
+      "id": "red-dev-025",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 2,
+        "spans": 2,
+        "spans_removed": 2,
+        "true_markers": 2
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.035,
+      "error": null
+    },
+    {
+      "id": "red-dev-026",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 3,
+        "spans": 3,
+        "spans_removed": 3,
+        "true_markers": 3
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.056,
+      "error": null
+    },
+    {
+      "id": "red-dev-027",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 2,
+        "spans": 2,
+        "spans_removed": 2,
+        "true_markers": 2
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.031,
+      "error": null
+    },
+    {
+      "id": "red-dev-028",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 2,
+        "spans": 2,
+        "spans_removed": 2,
+        "true_markers": 2
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.034,
+      "error": null
+    },
+    {
+      "id": "red-dev-029",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 2,
+        "spans": 2,
+        "spans_removed": 2,
+        "true_markers": 2
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.031,
+      "error": null
+    },
+    {
+      "id": "red-dev-030",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 3,
+        "spans": 3,
+        "spans_removed": 3,
+        "true_markers": 3
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.044,
+      "error": null
+    },
+    {
+      "id": "red-dev-031",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 2,
+        "spans": 2,
+        "spans_removed": 2,
+        "true_markers": 2
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.031,
+      "error": null
+    },
+    {
+      "id": "red-dev-032",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 2,
+        "spans": 2,
+        "spans_removed": 2,
+        "true_markers": 2
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.11,
+      "error": null
+    },
+    {
+      "id": "red-dev-033",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 1,
+        "spans": 1,
+        "spans_removed": 1,
+        "true_markers": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.04,
+      "error": null
+    },
+    {
+      "id": "red-dev-034",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 1,
+        "markers": 1,
+        "spans": 1,
+        "spans_removed": 1,
+        "true_markers": 1
+      },
+      "passed": false,
+      "cost_usd": 0,
+      "latency_ms": 0.033,
+      "error": null
+    },
+    {
+      "id": "red-dev-035",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 3,
+        "spans": 3,
+        "spans_removed": 3,
+        "true_markers": 3
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.188,
+      "error": null
+    },
+    {
+      "id": "red-dev-036",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 3,
+        "spans": 3,
+        "spans_removed": 3,
+        "true_markers": 3
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.062,
+      "error": null
+    },
+    {
+      "id": "red-dev-037",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 2,
+        "spans": 2,
+        "spans_removed": 2,
+        "true_markers": 2
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.049,
+      "error": null
+    },
+    {
+      "id": "red-dev-038",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 3,
+        "spans": 3,
+        "spans_removed": 3,
+        "true_markers": 3
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.085,
+      "error": null
+    },
+    {
+      "id": "red-dev-039",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 1,
+        "spans": 1,
+        "spans_removed": 1,
+        "true_markers": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.036,
+      "error": null
+    },
+    {
+      "id": "red-dev-040",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 2,
+        "spans": 2,
+        "spans_removed": 2,
+        "true_markers": 2
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.28,
+      "error": null
+    },
+    {
+      "id": "red-dev-041",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 1,
+        "spans": 1,
+        "spans_removed": 1,
+        "true_markers": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.045,
+      "error": null
+    },
+    {
+      "id": "red-dev-042",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 3,
+        "spans": 3,
+        "spans_removed": 3,
+        "true_markers": 3
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.081,
+      "error": null
+    },
+    {
+      "id": "red-dev-043",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 1,
+        "spans": 1,
+        "spans_removed": 1,
+        "true_markers": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.028,
+      "error": null
+    },
+    {
+      "id": "red-dev-044",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 1,
+        "spans": 1,
+        "spans_removed": 1,
+        "true_markers": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.026,
+      "error": null
+    },
+    {
+      "id": "red-dev-045",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 2,
+        "spans": 2,
+        "spans_removed": 2,
+        "true_markers": 2
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.034,
+      "error": null
+    },
+    {
+      "id": "red-dev-046",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 3,
+        "spans": 3,
+        "spans_removed": 3,
+        "true_markers": 3
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.039,
+      "error": null
+    },
+    {
+      "id": "red-dev-047",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 3,
+        "spans": 3,
+        "spans_removed": 3,
+        "true_markers": 3
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.042,
+      "error": null
+    },
+    {
+      "id": "red-dev-048",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 1,
+        "markers": 1,
+        "spans": 1,
+        "spans_removed": 1,
+        "true_markers": 1
+      },
+      "passed": false,
+      "cost_usd": 0,
+      "latency_ms": 0.026,
+      "error": null
+    },
+    {
+      "id": "red-dev-049",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 3,
+        "spans": 3,
+        "spans_removed": 3,
+        "true_markers": 3
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.039,
+      "error": null
+    },
+    {
+      "id": "red-dev-050",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 2,
+        "spans": 2,
+        "spans_removed": 2,
+        "true_markers": 2
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.033,
+      "error": null
+    },
+    {
+      "id": "red-dev-051",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 3,
+        "spans": 3,
+        "spans_removed": 3,
+        "true_markers": 3
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.039,
+      "error": null
+    },
+    {
+      "id": "red-dev-052",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 2,
+        "spans": 2,
+        "spans_removed": 2,
+        "true_markers": 2
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.03,
+      "error": null
+    },
+    {
+      "id": "red-dev-053",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 1,
+        "spans": 1,
+        "spans_removed": 1,
+        "true_markers": 1
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.059,
+      "error": null
+    },
+    {
+      "id": "red-dev-054",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 2,
+        "spans": 2,
+        "spans_removed": 2,
+        "true_markers": 2
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.041,
+      "error": null
+    },
+    {
+      "id": "red-dev-055",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 0,
+        "spans": 0,
+        "spans_removed": 0,
+        "true_markers": 0
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.023,
+      "error": null
+    },
+    {
+      "id": "red-dev-056",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 0,
+        "spans": 0,
+        "spans_removed": 0,
+        "true_markers": 0
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.021,
+      "error": null
+    },
+    {
+      "id": "red-dev-057",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 0,
+        "spans": 0,
+        "spans_removed": 0,
+        "true_markers": 0
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.025,
+      "error": null
+    },
+    {
+      "id": "red-dev-058",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 0,
+        "spans": 0,
+        "spans_removed": 0,
+        "true_markers": 0
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.024,
+      "error": null
+    },
+    {
+      "id": "red-dev-059",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 0,
+        "spans": 0,
+        "spans_removed": 0,
+        "true_markers": 0
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.022,
+      "error": null
+    },
+    {
+      "id": "red-dev-060",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 1,
+        "markers": 0,
+        "spans": 0,
+        "spans_removed": 0,
+        "true_markers": 0
+      },
+      "passed": false,
+      "cost_usd": 0,
+      "latency_ms": 0.024,
+      "error": null
+    },
+    {
+      "id": "red-dev-061",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 0,
+        "spans": 0,
+        "spans_removed": 0,
+        "true_markers": 0
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.021,
+      "error": null
+    },
+    {
+      "id": "red-dev-062",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 0,
+        "spans": 0,
+        "spans_removed": 0,
+        "true_markers": 0
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.022,
+      "error": null
+    },
+    {
+      "id": "red-dev-063",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 0,
+        "spans": 0,
+        "spans_removed": 0,
+        "true_markers": 0
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.026,
+      "error": null
+    },
+    {
+      "id": "red-dev-064",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 1,
+        "markers": 0,
+        "spans": 0,
+        "spans_removed": 0,
+        "true_markers": 0
+      },
+      "passed": false,
+      "cost_usd": 0,
+      "latency_ms": 0.023,
+      "error": null
+    },
+    {
+      "id": "red-dev-065",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 0,
+        "spans": 0,
+        "spans_removed": 0,
+        "true_markers": 0
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.053,
+      "error": null
+    },
+    {
+      "id": "red-dev-066",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 0,
+        "spans": 0,
+        "spans_removed": 0,
+        "true_markers": 0
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.028,
+      "error": null
+    },
+    {
+      "id": "red-dev-067",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 0,
+        "spans": 0,
+        "spans_removed": 0,
+        "true_markers": 0
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.022,
+      "error": null
+    },
+    {
+      "id": "red-dev-068",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 0,
+        "spans": 0,
+        "spans_removed": 0,
+        "true_markers": 0
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.026,
+      "error": null
+    },
+    {
+      "id": "red-dev-069",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 1,
+        "markers": 0,
+        "spans": 0,
+        "spans_removed": 0,
+        "true_markers": 0
+      },
+      "passed": false,
+      "cost_usd": 0,
+      "latency_ms": 0.021,
+      "error": null
+    },
+    {
+      "id": "red-dev-070",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 1,
+        "markers": 0,
+        "spans": 0,
+        "spans_removed": 0,
+        "true_markers": 0
+      },
+      "passed": false,
+      "cost_usd": 0,
+      "latency_ms": 0.022,
+      "error": null
+    },
+    {
+      "id": "red-dev-071",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 0,
+        "markers": 0,
+        "spans": 0,
+        "spans_removed": 0,
+        "true_markers": 0
+      },
+      "passed": true,
+      "cost_usd": 0,
+      "latency_ms": 0.024,
+      "error": null
+    },
+    {
+      "id": "red-dev-072",
+      "split": "dev",
+      "scores": {
+        "decoys_lost": 1,
+        "markers": 0,
+        "spans": 0,
+        "spans_removed": 0,
+        "true_markers": 0
+      },
+      "passed": false,
+      "cost_usd": 0,
+      "latency_ms": 0.021,
+      "error": null
+    }
+  ]
+}
