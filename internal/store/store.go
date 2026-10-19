@@ -138,7 +138,7 @@ func execRetryingConcurrentUpdate(ctx context.Context, conn *pgx.Conn, sql strin
 			return err
 		}
 		// Jittered so callers that collided do not retry in lockstep and collide again.
-		t := time.NewTimer(time.Millisecond + rand.N(time.Duration(attempt)*10*time.Millisecond))
+		t := time.NewTimer(time.Millisecond + rand.N(time.Duration(attempt)*10*time.Millisecond)) //nolint:gosec // G404: retry jitter, not a secret
 		select {
 		case <-ctx.Done():
 			t.Stop()
