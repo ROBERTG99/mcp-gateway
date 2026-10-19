@@ -23,6 +23,12 @@ BENCH_OK = "\n".join(
 )
 
 
+@pytest.fixture(autouse=True)
+def _no_ci_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the NFR/CI choice explicit: GitHub Actions sets CI=true, which flips --ci's default."""
+    monkeypatch.delenv("CI", raising=False)
+
+
 def write(tmp_path: Path, name: str, text: str) -> str:
     p = tmp_path / name
     p.write_text(text, encoding="utf-8")
@@ -50,6 +56,12 @@ def test_ci_budget_is_looser_for_overhead(tmp_path: Path) -> None:
     path = write(tmp_path, "b.out", ci_ok)
     assert bench_budget.main([path]) == 1
     assert bench_budget.main([path, "--ci"]) == 0
+
+
+def test_ci_env_selects_ci_budgets(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    ci_ok = BENCH_OK.replace("0.4640 overhead-p95-ms", "7.0000 overhead-p95-ms")
+    monkeypatch.setenv("CI", "true")
+    assert bench_budget.main([write(tmp_path, "b.out", ci_ok)]) == 0
 
 
 def test_missing_benchmark_fails(tmp_path: Path) -> None:
