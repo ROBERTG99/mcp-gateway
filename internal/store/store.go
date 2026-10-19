@@ -4,11 +4,15 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"log"
+	"math/rand/v2"
+	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib" // database/sql driver for goose
 	"github.com/pressly/goose/v3"
@@ -110,11 +114,38 @@ func SetRolePasswords(ctx context.Context, url string, passwords map[string]stri
 		}
 		// ALTER ROLE cannot take bind parameters; quote the literal safely.
 		lit := "'" + pgEscape(pw) + "'"
-		if _, err := conn.Exec(ctx, "ALTER ROLE "+pgx.Identifier{role}.Sanitize()+" PASSWORD "+lit); err != nil {
+		if err := execRetryingConcurrentUpdate(ctx, conn, "ALTER ROLE "+pgx.Identifier{role}.Sanitize()+" PASSWORD "+lit); err != nil {
 			return fmt.Errorf("set password for %s: %w", role, err)
 		}
 	}
 	return nil
+}
+
+// alterRoleAttempts bounds the retries of a role update refused as "tuple concurrently updated".
+const alterRoleAttempts = 20
+
+// execRetryingConcurrentUpdate runs a role statement, retrying when Postgres refuses it with
+// "tuple concurrently updated" (XX000). Roles are cluster-wide catalog rows, so concurrent callers
+// (migrate jobs of several replicas, test binaries sharing one server) race on the same pg_authid
+// row, and the catalog update does not wait for the other transaction: the loser just fails. Each
+// statement sets an absolute value, so running it again is safe.
+func execRetryingConcurrentUpdate(ctx context.Context, conn *pgx.Conn, sql string) error {
+	for attempt := 1; ; attempt++ {
+		_, err := conn.Exec(ctx, sql)
+		var pgErr *pgconn.PgError
+		if err == nil || attempt == alterRoleAttempts || !errors.As(err, &pgErr) ||
+			pgErr.Code != "XX000" || pgErr.Message != "tuple concurrently updated" {
+			return err
+		}
+		// Jittered so callers that collided do not retry in lockstep and collide again.
+		t := time.NewTimer(time.Millisecond + rand.N(time.Duration(attempt)*10*time.Millisecond))
+		select {
+		case <-ctx.Done():
+			t.Stop()
+			return fmt.Errorf("%w (retrying after: %w)", ctx.Err(), err)
+		case <-t.C:
+		}
+	}
 }
 
 func pgEscape(s string) string {

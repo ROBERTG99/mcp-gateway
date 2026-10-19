@@ -6,6 +6,7 @@ import (
 	"context"
 	"io"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -140,5 +141,33 @@ func TestRefundTotalsUseIndex(t *testing.T) {
 	}
 	if plan := strings.Join(lines, "\n"); !strings.Contains(plan, "orders_refunds_order") {
 		t.Fatalf("plan does not use orders_refunds_order: %s", plan)
+	}
+}
+
+// TestSetRolePasswordsConcurrent: roles belong to the whole cluster, so concurrent callers (test
+// binaries sharing a server, or migrate jobs of several replicas) update the same pg_authid rows.
+// Postgres refuses the loser with "tuple concurrently updated"; SetRolePasswords must not fail.
+func TestSetRolePasswordsConcurrent(t *testing.T) {
+	ctx := t.Context()
+	db := pgtest.New(t)
+	if err := store.Migrate(ctx, db.URL, "up", io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	const callers = 16
+	errs := make(chan error, callers)
+	var wg sync.WaitGroup
+	for range callers {
+		wg.Go(func() {
+			errs <- store.SetRolePasswords(ctx, db.URL, map[string]string{
+				"mcpgw_app": pgtest.RolePassword, "mcpgw_upstream": pgtest.RolePassword,
+			})
+		})
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("concurrent SetRolePasswords: %v", err)
+		}
 	}
 }
