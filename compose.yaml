@@ -2,7 +2,10 @@ name: mcp-gateway
 
 x-build: &build
   context: .
-  network: host
+  # Host networking only where the build must reach a proxy on the host (the agent sandbox:
+  # MCPGW_BUILD_NETWORK=host). Compose builds through Bake, which refuses network: host without an
+  # interactive --allow=network.host, so `docker compose up --build` fails in CI and other non-TTYs.
+  network: "${MCPGW_BUILD_NETWORK:-default}"
   args:
     HTTPS_PROXY: "${HTTPS_PROXY:-}"
 
