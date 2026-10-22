@@ -3,7 +3,7 @@ description: Go (go.mod toolchain), uv, pnpm and Node 22, and the pinned tools i
 runs:
   using: composite
   steps:
-    - uses: actions/setup-go@v6
+    - uses: actions/setup-go@v7
       with:
         go-version-file: go.mod
         cache-dependency-path: go.sum
