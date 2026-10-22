@@ -26,7 +26,7 @@ type SeqAllocator interface {
 	Next(ctx context.Context) (int64, error)
 }
 
-// Options tune the writer (spec NFR-6 defaults).
+// Options tune the writer (NFR-6 defaults).
 type Options struct {
 	Buffer          int           // events (default 10,000)
 	FlushInterval   time.Duration // default 50 ms

@@ -56,7 +56,7 @@ func TestPolicyStageWithRealBundle(t *testing.T) {
 	}
 }
 
-// Regression (M2 review): "arguments": null must not look like tools/list to the policy.
+// Regression (found in review): "arguments": null must not look like tools/list to the policy.
 func TestNullArgumentsDoNotBypassArgumentRules(t *testing.T) {
 	up := &fakeUpstream{}
 	p := realPolicyPipeline(t, up)

@@ -5,8 +5,7 @@ HTTP endpoint; every tool call is authenticated per tenant and agent, filtered a
 held for a human when policy says so, made idempotent if it writes, marked as untrusted output with an
 injection score, redacted and recorded in a SHA-256 hash-chained audit log. The gateway calls no model.
 
-Part of a 10-repository AI engineering portfolio by [@ROBERTG99](https://github.com/ROBERTG99). All data is
-synthetic (seed 20260). MIT licensed.
+All data is synthetic (seed 20260). MIT licensed.
 
 ## Why
 
@@ -36,7 +35,7 @@ and the report that produced it.
 | Throughput, 80% reads, 0 errors | 630.0 calls/s, **NFR-2 not met** | ≥ 2,000 on 8 vCPUs (CI: ≥ 500) | `make loadtest-profile`, `docs/perf/loadtest.json` |
 | Gateway memory under that load | 93.9 MB RSS (not verified at 2,000 calls/s) | < 128 MB (NFR-7) | `make loadtest-profile`, `docs/perf/loadtest.json` |
 | Time to ready | 22.2 ms | < 2 s (NFR-5) | `go test -tags=integration -run TestStartupUnder2s -v ./internal/server`, `docs/perf/startup.txt` |
-| Gateway image | 17.6 MB compressed (57.6 MB unpacked) | < 40 MB (NFR-10) | `make image-size`, `docs/verification.md` |
+| Gateway image | 17.6 MB compressed (57.6 MB unpacked) | < 40 MB (NFR-10) | `make image-size` |
 | Policy decision accuracy (test split) | 1.0 | = 1.0 | `make eval`, `evals/REPORT.md` |
 | Injection recall / false-positive rate (test split) | 0.80 / 0.0 | ≥ 0.80 / ≤ 0.05 | `make eval`, `evals/REPORT.md` |
 | Redaction recall / precision (test split) | 1.0 / 1.0 | ≥ 0.98 / ≥ 0.95 | `make eval`, `evals/REPORT.md` |
@@ -83,7 +82,7 @@ go run ./cmd/demo-agent --call orders.refund_order --args '{"order_id":"O-00002"
 ## The demo
 
 `make demo` (`scripts/demo.sh`, `cmd/demo-agent`, no model) drives the running stack through seven steps and
-prints PASS or FAIL for each (`docs/verification.md` has the latest transcript):
+prints PASS or FAIL for each:
 
 1. only the allowed tools are listed;
 2. a USD 50 refund executes;
@@ -163,20 +162,16 @@ the unit tests. `make test` adds the integration, contract, policy and hook test
 runs the full suite inside containers. `make verify` is the single gate. Setup details are in
 `docs/DEVELOPMENT.md`; the workflow and conventions are in `CONTRIBUTING.md`.
 
+The project uses an AI-assisted workflow (Claude Code configuration in [`CLAUDE.md`](CLAUDE.md) and
+[`.claude/`](.claude/)), with tests and evals gating every change.
+
 ## Limitations
 
 The most important ones:
 
-- NFR-2 throughput is not met on the build machine.
+- NFR-2 throughput is not met on the 4-vCPU development machine.
 - Console sign-in is development only.
 - The eval data is synthetic.
 - Audit events still queued in memory are lost on a hard crash.
 
 The full list, with what each would take, is in `docs/KNOWN_LIMITATIONS.md`.
-
-## How this was built
-
-An AI coding agent (Claude Code) built this repository from the specification in
-`docs/specs/000-build-spec.md`. It worked test first, ran a reviewer subagent at every milestone, and kept a
-rule that every number must cite the command that produced it. The process, what the reviews caught, and what
-a human still has to check are in `docs/ai-development.md` and `PROGRESS.md`.

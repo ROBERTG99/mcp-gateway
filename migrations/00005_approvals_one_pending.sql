@@ -1,5 +1,5 @@
 -- At most one pending approval per call (tenant, agent, tool, args hash, idempotency key), so two
--- concurrent identical held calls create one approval and send one webhook (M3 review).
+-- concurrent identical held calls create one approval and send one webhook (found in review).
 -- +goose Up
 -- Databases from before this migration may hold duplicate pending rows: keep the newest pending
 -- approval per call and expire the others.

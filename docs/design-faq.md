@@ -57,7 +57,7 @@ In Go, the engine returns a deny for no bundle, an evaluation error or a malform
 
 Commands: `make policy-test` runs the Rego and Go policy tests. `make eval` runs `policy.v1`, which scores decision accuracy 1 on the test partition (`evals/REPORT.md`).
 
-Caveat: the `policy.v1` labels were written from the spec, not taken from the bundle (`docs/DECISIONS.md`). Accuracy 1 shows the bundle agrees with that reading of the spec. It does not show the spec is right.
+Caveat: the `policy.v1` labels were written from the policy requirements, not taken from the bundle (`docs/DECISIONS.md`). Accuracy 1 shows the bundle agrees with that reading of the requirements. It does not show the requirements are right.
 
 ## 6. How do you hide tools from an agent?
 

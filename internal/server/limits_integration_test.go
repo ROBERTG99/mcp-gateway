@@ -50,7 +50,7 @@ func TestBodyLimitThroughGateway(t *testing.T) {
 	}
 }
 
-// TestRedisOutageKeepsReadsServed (spec §4.6): with Redis unreachable the gateway stays ready
+// TestRedisOutageKeepsReadsServed: with Redis unreachable the gateway stays ready
 // (/readyz 200, redis check "unreachable"), reads are served on the per-process token bucket and
 // writes are refused with -32049, so a Redis outage does not take every replica out of service.
 func TestRedisOutageKeepsReadsServed(t *testing.T) {

@@ -1,9 +1,9 @@
 # Known limitations
 
-What is not done, or done differently from the specification, and why. Each item names where it is tracked.
+What is not done, or done differently from the requirements, and why. Each item names where it is tracked.
 
-- `.claude/settings.json` lives at `docs/harness/settings.json` until the maintainer copies it (see `PROGRESS.md`, "Needs the maintainer").
-- `scripts/install_tools.sh` downloads hadolint, trivy and promtool release binaries without SHA-256 verification. In Claude Code on the web the GitHub release host is blocked, so the script falls back to the official container images (hadolint, promtool) and `go install` (trivy), which are verified by the registry digest and the Go checksum database respectively. Pinning release checksums is a follow-up.
+- The Claude Code settings are kept as a template at `docs/harness/settings.json`; copy it to `.claude/settings.json` to enable the guard hooks locally.
+- `scripts/install_tools.sh` downloads hadolint, trivy and promtool release binaries without SHA-256 verification. Where the GitHub release host is blocked (as in some sandboxed development environments), so the script falls back to the official container images (hadolint, promtool) and `go install` (trivy), which are verified by the registry digest and the Go checksum database respectively. Pinning release checksums is a follow-up.
 - The three example upstreams share one database role (`mcpgw_upstream`) with write access to all three schemas. A per-schema role per upstream would show least privilege better; the gateway's own role (`mcpgw_app`) is least privilege.
 - Idempotency locks identify their holder by the (tool-bound) args hash, not a random owner token. If an upstream call outlives `MCPGW_IDEMPOTENCY_LOCK_TTL` (30 s, three times the upstream timeout), a second caller can acquire the key and the first caller's later release could drop the second caller's lock. Upstream-side dedup (`pkg/mcpserver`, unique `(tenant, idempotency_key)`) still prevents a duplicate write. Owner tokens are a follow-up.
 - The 2026-07-28 stateless protocol has no `Mcp-Session-Id`; per-principal session binding (`TestSessionBoundToPrincipal`) applies to clients that negotiate the legacy session protocol.
@@ -38,9 +38,9 @@ The console signs in with the dev issuer's personas: there is no password and no
 
 ## Eval results are on synthetic, template-built data
 
-- Injection recall on the test partition is exactly at the gate: 0.8000 (95% CI 0.6765-0.9167) against 0.9167 on dev (`evals/REPORT.md`, `make eval`). The partitions are split per case, not per template: all 18 malicious templates in test also occur in dev with different fills, the detector rules added on 2026-10-17 were written against dev misses from those templates, and the `decode … follow` rule matches the generator's own base64 wrapper sentence. Test recall is therefore not a held-out estimate for unseen phrasings. A later `injection.v2` should split by template and add out-of-template hard negatives (the M5 review found ordinary notes such as "Note for the agent: …" flagged before the rules were narrowed). Families still missed on dev include exfiltration instructions that name an email address rather than a link, and forged chat transcripts ("assistant: … user: …") without other signals. Injection scoring is defence in depth; untrusted marking and policy are the controls.
+- Injection recall on the test partition is exactly at the gate: 0.8000 (95% CI 0.6765-0.9167) against 0.9167 on dev (`evals/REPORT.md`, `make eval`). The partitions are split per case, not per template: all 18 malicious templates in test also occur in dev with different fills, the detector rules added on 2026-10-17 were written against dev misses from those templates, and the `decode … follow` rule matches the generator's own base64 wrapper sentence. Test recall is therefore not a held-out estimate for unseen phrasings. A later `injection.v2` should split by template and add out-of-template hard negatives (a review of the detector found ordinary notes such as "Note for the agent: …" flagged before the rules were narrowed). Families still missed on dev include exfiltration instructions that name an email address rather than a link, and forged chat transcripts ("assistant: … user: …") without other signals. Injection scoring is defence in depth; untrusted marking and policy are the controls.
 - Redaction scores 1.0 recall and precision on both partitions. The cases are generated from a fixed set of formats (test card numbers, checksum-valid IBANs, fictional phone ranges), so real-world recall will be lower; names and street addresses are out of scope for the detectors.
-- `chaos.v1` is produced by `make chaos` against the running stack (T-35), not by `make eval`.
+- `chaos.v1` is produced by `make chaos` against the running stack, not by `make eval`.
 
 ## Chaos eval parameters
 
@@ -48,7 +48,7 @@ The console signs in with the dev issuer's personas: there is no password and no
 
 ## NFR-2 not met; NFR-7 not verified at 2,000 calls/s
 
-NFR-2 asks for at least 2,000 calls/s on an 8-vCPU laptop, and NFR-7 for a gateway RSS under 128 MB at that rate. The only machine available to the build has 4 vCPUs (Intel Xeon @ 2.10 GHz) and runs the whole compose stack plus the load generator. On it, `make loadtest-profile` measured 630.0 calls/s with 0 errors and a gateway RSS of at most 93.9 MB (`docs/perf/loadtest.json`). That passes the CI budget (>= 500 calls/s, `scripts/bench_budget.py --ci`) but **fails NFR-2**, and NFR-7 holds only at 630 calls/s, so it is **not verified at 2,000 calls/s**.
+NFR-2 asks for at least 2,000 calls/s on an 8-vCPU laptop, and NFR-7 for a gateway RSS under 128 MB at that rate. The development machine used for these measurements has 4 vCPUs (Intel Xeon @ 2.10 GHz) and runs the whole compose stack plus the load generator. On it, `make loadtest-profile` measured 630.0 calls/s with 0 errors and a gateway RSS of at most 93.9 MB (`docs/perf/loadtest.json`). That passes the CI budget (>= 500 calls/s, `scripts/bench_budget.py --ci`) but **fails NFR-2**, and NFR-7 holds only at 630 calls/s, so it is **not verified at 2,000 calls/s**.
 
 The machine was CPU-bound: 3.52 of 4 cores busy over the measured window (`docs/perf/cpu.txt`, `scripts/cpu_usage.py`). Per component, in average cores (`docs/perf/cpu.txt`):
 
@@ -66,8 +66,8 @@ What the profiling changed:
 - **Refunds index.** Per-order refund sums scanned `orders.refunds` sequentially. Migration 00006 adds an index, and `TestRefundTotalsUseIndex` guards it.
 - **Injection scorer.** Literal prefilters and a hand-written tokenizer give the same results (`TestRulePrefiltersAreExact`, `TestTokensMatchRegexp`, `make eval` metrics unchanged) for less CPU. `BenchmarkScoreToolResult` now takes 0.23-0.24 ms per result with the stack running on the same machine (`docs/perf/scorer.txt`). The pre-change time was read by hand and is not kept, so no before/after ratio is claimed.
 
-Where the gateway's remaining CPU goes was read from a pprof profile of a throwaway build that was not committed (`PROGRESS.md`). The main costs were the scorer, OPA evaluation, HTTP and the MCP SDK, the upstream MCP client and GC; the split is not reproducible from the repository and is not quoted here.
+Where the gateway's remaining CPU goes was read from a pprof profile of a throwaway build that was not committed. The main costs were the scorer, OPA evaluation, HTTP and the MCP SDK, the upstream MCP client and GC; the split is not reproducible from the repository and is not quoted here.
 
 Under CPU saturation the gateway's measured overhead (`mcpgw_overhead_seconds`) includes run-queue waiting, so the `GatewayOverheadSLO` alert can go pending during a load test on this machine. The in-process benchmark puts the gateway's own overhead at p95 0.398 ms (`docs/perf/bench.txt`, `make bench`).
 
-Next steps for the maintainer (`PROGRESS.md`, "Needs the maintainer"): re-run `make loadtest-profile` on an 8-vCPU machine with the load generator on another host, then profile the gateway's per-call CPU against the remaining gap.
+Next steps: re-run `make loadtest-profile` on an 8-vCPU machine with the load generator on another host, then profile the gateway's per-call CPU against the remaining gap.

@@ -10,7 +10,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-// Metrics are the gateway's Prometheus metrics (spec §14), served on MCPGW_METRICS_ADDR (8211).
+// Metrics are the gateway's Prometheus metrics, served on MCPGW_METRICS_ADDR (8211).
 // There are no token or cost metrics: the gateway calls no model. Every method is nil-safe.
 type Metrics struct {
 	reg *prometheus.Registry

@@ -5,7 +5,7 @@ paths: ["**/*.go", "**/*.py", "**/*.ts"]
 # LLM code rules
 
 This repository calls no model, and no provider SDK may be imported (golangci-lint depguard enforces it).
-If model code is ever added, Appendix B of `docs/specs/000-build-spec.md` applies in full:
+If model code is ever added, these rules apply in full:
 
 - Load the `claude-api` skill first. One gateway module per language owns every model call.
 - Model IDs come from configuration; defaults `claude-opus-5-5` and `claude-haiku-5-5`, no date suffixes.

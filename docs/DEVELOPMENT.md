@@ -1,10 +1,10 @@
 # Development
 
-## Build environment (recorded at bootstrap, 2026-10-16)
+## Reference environment (recorded 2026-10-16)
 
 | Item | Value |
 |---|---|
-| Environment | Claude Code on the web (`CLAUDE_CODE_REMOTE=true`), Appendix A of the spec applied |
+| Environment | Cloud development container (Claude Code on the web, `CLAUDE_CODE_REMOTE=true`), restricted network |
 | OS | Ubuntu 24.04.5 LTS, Linux 6.18 x86_64 |
 | CPU | 4 vCPU, Intel Xeon @ 2.10 GHz |
 | RAM | 16 GB (`/proc/meminfo` MemTotal 16479424 kB) |
@@ -19,7 +19,7 @@
 | hadolint, trivy | missing at bootstrap; downloaded from GitHub releases into `./bin` by `make bootstrap` |
 | Terraform, kubectl, kind | missing; not needed (no Terraform in this repository, `make kind-smoke` is optional) |
 
-Network notes (Appendix A): `get.helm.sh` is blocked, so Helm is built with `go install helm.sh/helm/v3/cmd/helm`. Docker Hub pulls go through `mirror.gcr.io`.
+Network notes: `get.helm.sh` is blocked, so Helm is built with `go install helm.sh/helm/v3/cmd/helm`. Docker Hub pulls go through `mirror.gcr.io`.
 
 ## Getting started
 
@@ -34,7 +34,7 @@ Ports are in the 8200-8299 range (see `compose.yaml`; host ports are bound to 12
 
 ## Conventions
 
-- Test first: every task starts with a failing test (see `.claude/skills/tdd/SKILL.md`).
+- Test first: every change starts with a failing test (see `.claude/skills/tdd/SKILL.md`).
 - Go: errors wrapped with `%w`, `context.Context` first, no package-level mutable state, `go test -race` clean, injectable clock (`internal/clock`).
-- Commits: Conventional Commits, authored by the maintainer, no AI attribution trailers (`.claude/rules/git-commits.md`).
-- Progress: `PROGRESS.md`; decisions: `docs/DECISIONS.md`; architecture decisions: `docs/adr/`.
+- Commits: Conventional Commits under the author's own name, no AI attribution trailers (`.claude/rules/git-commits.md`).
+- Decisions: `docs/DECISIONS.md`; architecture decisions: `docs/adr/`.

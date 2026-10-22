@@ -1,4 +1,4 @@
-# Alerts for mcp-gateway (spec §14). Runbook: docs/runbook.md.
+# Alerts for mcp-gateway. Runbook: docs/runbook.md.
 groups:
   - name: mcp-gateway
     rules:

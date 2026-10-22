@@ -13,7 +13,7 @@ The gateway speaks Streamable HTTP on both sides and has no stdio code path.
 - Agent side: `internal/proxy/proxy.go` serves `POST`, `GET` and `DELETE /mcp` with the SDK's `NewStreamableHTTPHandler`. The address is `MCPGW_MCP_ADDR` (`internal/config/config.go`). Every request passes the JWT middleware first (`internal/server/server.go`, `MCPHandler`).
 - Upstream side: `internal/catalog/catalog.go` connects to each upstream with `mcp.StreamableClientTransport` and the URL from `config/upstreams.yaml`. The example upstreams serve the same transport (`internal/upstreams/upstreams.go`).
 - Sessions of the legacy session protocol are bound to the authenticated principal, so a session id cannot be reused by another principal (`TestSessionBoundToPrincipal` in `internal/proxy/session_test.go`).
-- Stdio is out of scope for v0.1.0 (`docs/specs/000-build-spec.md`, section 3.3). No non-test Go file under `cmd/` or `internal/` refers to a stdio transport.
+- Stdio is out of scope for v0.1.0. No non-test Go file under `cmd/` or `internal/` refers to a stdio transport.
 
 ## Alternatives considered
 

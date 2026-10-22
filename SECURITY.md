@@ -20,7 +20,7 @@ Use GitHub security advisories:
 1. Open the [repository security page](https://github.com/ROBERTG99/mcp-gateway/security).
 2. Choose "Report a vulnerability" and fill in the form.
 
-If that button is not shown, open a public issue titled "Security contact request" with no details about the problem. The maintainer will then arrange a private channel.
+If that button is not shown, open a public issue titled "Security contact request" with no details about the problem. We will then arrange a private channel.
 
 Please include:
 
@@ -31,7 +31,7 @@ Please include:
 
 Do not include real secrets, real tokens or real personal data. Use synthetic data.
 
-The maintainer will acknowledge the report, work on a fix with you, and agree on a disclosure date before anything is made public.
+We will acknowledge the report, work on a fix with you, and agree on a disclosure date before anything is made public.
 
 ## Scope
 

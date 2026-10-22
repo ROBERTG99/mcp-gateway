@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # make image-size: size of a built image, compressed (the layers as a registry stores them and
 # `docker pull` transfers them; `docker save | gzip`) and unpacked (the container filesystem;
-# `docker export`). Fails when the compressed size reaches the budget in MB (spec T-41: < 40 MB).
+# `docker export`). Fails when the compressed size reaches the budget in MB (NFR-10: < 40 MB).
 # The two numbers are measured the same way on the classic and the containerd image store.
 set -euo pipefail
 image=${1:-mcp-gateway:dev}

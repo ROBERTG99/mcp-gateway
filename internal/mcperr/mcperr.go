@@ -1,4 +1,4 @@
-// Package mcperr defines the gateway's JSON-RPC error codes (spec §4.4) and constructors.
+// Package mcperr defines the gateway's JSON-RPC error codes and constructors.
 package mcperr
 
 import (

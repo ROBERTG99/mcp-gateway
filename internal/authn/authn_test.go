@@ -170,7 +170,7 @@ func TestJWKSCacheAndStaleLimit(t *testing.T) {
 	}
 }
 
-// Regression (M2 review): a hung issuer must not block verification while cached keys are
+// Regression (found in review): a hung issuer must not block verification while cached keys are
 // within the stale limit.
 func TestJWKSHungIssuerDoesNotBlock(t *testing.T) {
 	f := newFixture(t)

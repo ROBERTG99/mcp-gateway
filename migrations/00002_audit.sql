@@ -1,4 +1,4 @@
--- Tamper-evident audit log (spec §4.3, §4.4). seq is allocated by the gateway from
+-- Tamper-evident audit log. seq is allocated by the gateway from
 -- audit_events_seq; chain_pos is the position in the hash chain, assigned by the audit writer
 -- under a transaction advisory lock so that every replica extends one chain.
 -- +goose Up

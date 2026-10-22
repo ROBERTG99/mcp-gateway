@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SessionStart hook (spec §7.2, Appendix A).
+"""SessionStart hook.
 
 Only acts on Claude Code on the web (`CLAUDE_CODE_REMOTE=true`). Idempotent: configures the Docker
 registry mirror, starts dockerd if it is not running, installs the pinned tools into ./bin and syncs

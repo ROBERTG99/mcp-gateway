@@ -1,4 +1,4 @@
-# Playwright and axe against the compose stack (spec §17). Required check: e2e.
+# Playwright and axe against the compose stack. Required check: e2e.
 name: e2e
 
 on:

@@ -1,6 +1,6 @@
 # Performance results
 
-Raw outputs behind the performance numbers in the docs, from the 2026-10-17 runs on Claude Code on the web:
+Raw outputs behind the performance numbers in the docs, from the 2026-10-17 runs in a cloud development container:
 4 vCPUs (Intel Xeon @ 2.10 GHz), with the compose stack (Postgres, Redis, three upstreams, the gateway, the
 issuer, the webhook sink, dynamodb-local) and the load generator on the same machine.
 
@@ -15,4 +15,4 @@ issuer, the webhook sink, dynamodb-local) and the load generator on the same mac
 For the load test, `make loadtest` and `make loadtest-profile` restart the gateway with
 `config/tenants.loadtest.yaml`, where t_alpha's token buckets are far above the target rate, so the run
 measures the gateway rather than the configured rate limit; the stack is restored afterwards
-(`docs/DECISIONS.md`). The image size and `make up` time are in `docs/verification.md`.
+(`docs/DECISIONS.md`). `make image-size` prints the image size.

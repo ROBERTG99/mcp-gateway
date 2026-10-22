@@ -19,7 +19,7 @@ import (
 	"github.com/ROBERTG99/mcp-gateway/internal/testutil/stack"
 )
 
-// TestSpanTreeForToolCall (spec §14): one trace covers a tools/call from the HTTP request through
+// TestSpanTreeForToolCall: one trace covers a tools/call from the HTTP request through
 // authentication, every pipeline stage and Redis, into the upstream, which continues the trace
 // from the W3C context the gateway forwards.
 func TestSpanTreeForToolCall(t *testing.T) {
@@ -114,7 +114,7 @@ func TestSpanTreeForToolCall(t *testing.T) {
 	}
 }
 
-// TestMetricsAfterToolCalls (spec §14): after a write, its replay and a flagged CRM read, the
+// TestMetricsAfterToolCalls: after a write, its replay and a flagged CRM read, the
 // metrics endpoint exposes every gateway metric with the expected series.
 func TestMetricsAfterToolCalls(t *testing.T) {
 	st := stack.Start(t, stack.Options{})

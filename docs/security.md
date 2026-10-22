@@ -36,7 +36,7 @@ The gateway is the enforcement point for the tools an LLM agent may use, so most
 | LLM02 Sensitive information disclosure | redaction of cards, IBANs, national ids, emails, phones and tokens before audit, webhooks and logs; tenant isolation | `TestNoSecretsInLogs`, `TestProductionLoggerRedacts`; redaction.v1 recall and precision 1.0 on synthetic formats |
 | LLM03 Supply chain | pinned dependencies, `govulncheck`, `trivy`, `go-licenses`, `pnpm audit`, `gitleaks` | `make security` (below) |
 | LLM04 Data and model poisoning | not applicable: the gateway trains and calls no model; poisoned upstream content is handled as LLM01 | — |
-| LLM05 Improper output handling | upstream results are size-limited, marked untrusted and escaped in the console | `TestLimits`, console XSS probes in the M4 review |
+| LLM05 Improper output handling | upstream results are size-limited, marked untrusted and escaped in the console | `TestLimits`, console XSS probes during code review |
 | LLM06 Excessive agency | per-tool scopes, default-deny policy, refund and credit-note holds, single-use approvals, mandatory idempotency keys on writes | `policies/*_test.rego`, `TestApprovalLifecycle`, `TestIdempotencyKeyRequired` |
 | LLM07 System prompt leakage | not applicable: the gateway holds no prompts; override and "reveal your instructions" phrases raise the injection score | `TestInjectionSignals` |
 | LLM08 Vector and embedding weaknesses | not applicable: no retrieval or embeddings | — |
@@ -56,7 +56,7 @@ The gateway is the enforcement point for the tools an LLM agent may use, so most
 - **Limits and their edges:**
   - the 4 MiB result check runs after the upstream response has been read and decoded by the MCP client, so a hostile upstream can still make the gateway buffer a larger response once (`docs/KNOWN_LIMITATIONS.md`);
   - a write whose upstream result is over 4 MiB has already taken effect upstream, but the agent gets `-32046` (`result_too_large`) and the call is audited as `error`; a retry with the same key is forwarded to the upstream's own dedup (`internal/pipeline/pipeline.go`, `checkResult`), which keeps the write single but returns the same oversized result, so the agent never receives it;
-  - argument, depth and schema rejections happen before the rate limiter (spec order), so they use no tokens; each still takes an audit slot, so one agent sending only malformed calls can add to audit pressure for every tenant until the body limit and the audit buffer bound it (LLM10).
+  - argument, depth and schema rejections happen before the rate limiter (by design), so they use no tokens; each still takes an audit slot, so one agent sending only malformed calls can add to audit pressure for every tenant until the body limit and the audit buffer bound it (LLM10).
 - **Gateway-side classification:** a tool listed under `write_tools` in `upstreams.yaml` is a write whatever `readOnlyHint` its upstream declares (`TestWriteToolsOverrideReadOnlyHint`), so a misconfigured or compromised upstream cannot turn a refund into a read that skips the write scope and the idempotency key.
 - **Deterministic policy:** bundles compile without `http.send`, `net.*`, `time.now_ns`, `rand.*`, `uuid.*` and `opa.runtime`, so a hot reload that uses them fails and the last good bundle keeps serving (`TestNonDeterministicBuiltinsRejected`). Non-object arguments and fractional amounts are denied by policy itself (`invalid_args`, `invalid_amount`).
 - **Separation of duties:** an approver cannot approve a call they made themselves (they may withdraw it); the check runs inside the store's locked decision, so a store error fails the decision (`approvalstest.Run`, both stores).
@@ -99,6 +99,6 @@ The gateway is the enforcement point for the tools an LLM agent may use, so most
 | gitleaks `jwt` and `generic-api-key` in `evals/datasets/*/redaction.v1.jsonl`, `internal/redact/*_test.go`, `internal/telemetry/*_test.go` and `internal/server/logs_integration_test.go` | synthetic tokens that the redaction eval and the log-redaction tests (NFR-4) must detect; they sign nothing | `.gitleaks.toml` |
 | GHSA-vfj7-8cjw-p6xm (`braces`, high) via `markdownlint-cli2` | dev-only lint tool in `e2e/`, runs on repository Markdown, no patched version published | `e2e/package.json` `pnpm.auditConfig.ignoreGhsas` |
 | `github.com/segmentio/asm` license not classified | its `LICENSE` is the MIT license (checked by hand); dependency of the MCP SDK's JSON package | `scripts/security.sh` |
-| `.claude/settings.json` not installed | the guard hooks are not active in this environment (PROGRESS.md, "Needs the maintainer") | — |
+| `.claude/settings.json` not committed | the Claude Code guard hooks are active only after copying `docs/harness/settings.json` into place | `docs/harness/settings.json` |
 
 See also `docs/KNOWN_LIMITATIONS.md` (development-only console sign-in, injection scoring is defence in depth).

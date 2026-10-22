@@ -1,6 +1,6 @@
 ---
 name: quality-gate
-description: Run the mcp-gateway quality gate before closing a milestone or opening a pull request, and summarise failures.
+description: Run the mcp-gateway quality gate before opening a pull request or cutting a release, and summarise failures.
 ---
 
 # Quality gate
@@ -10,5 +10,5 @@ description: Run the mcp-gateway quality gate before closing a milestone or open
 3. `make policy-test hooks-test helm-check promtool`.
 4. `make eval` and `make bench` (budgets in `scripts/bench_budget.py`).
 5. `make security`; document any accepted finding in `docs/security.md` with a reason.
-6. Run the `reviewer` subagent on the milestone diff and fix its blockers.
-7. Write a one-line result per command into `PROGRESS.md`.
+6. Run the `reviewer` subagent on the branch diff and fix its blockers.
+7. Put a one-line result per command in the pull request description.

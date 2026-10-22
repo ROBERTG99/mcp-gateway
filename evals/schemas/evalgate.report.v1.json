@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/ROBERTG99/evalgate/schemas/evalgate.report.v1.json",
   "title": "evalgate.report.v1",
-  "description": "Transcribed from the evalgate v0.1.0 contract (ROBERTG99/evalgate BUILD.md, 'Report'); the evalgate repository did not yet publish the schema file when this copy was made.",
+  "description": "Transcribed from the evalgate v0.1.0 contract (ROBERTG99/evalgate, 'Report'); the evalgate repository did not yet publish the schema file when this copy was made.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema", "suite", "run_id", "created_at", "git_sha", "mode", "models", "prompt_hashes", "n_cases", "metrics",

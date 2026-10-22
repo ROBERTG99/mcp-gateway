@@ -3,8 +3,7 @@
 mcp-gateway sits between LLM agents and upstream MCP servers. Agents see one Streamable HTTP endpoint;
 every `tools/call` passes authentication, limits, rate limits, an OPA policy decision, an optional human
 approval, mandatory idempotency for writes, the upstream call, untrusted-output marking with injection
-scoring, redaction and a hash-chained audit record. The gateway calls no model. The specification is
-`docs/specs/000-build-spec.md`; decisions taken while building it are in `docs/DECISIONS.md` and
+scoring, redaction and a hash-chained audit record. The gateway calls no model. Design decisions are in `docs/DECISIONS.md` and
 `docs/adr/`.
 
 ## Components

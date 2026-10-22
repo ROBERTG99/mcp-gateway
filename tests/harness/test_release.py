@@ -1,4 +1,4 @@
-"""Release preparation (T-48): the changelog has the release section, and the version agrees across
+"""Release preparation: the changelog has the release section, and the version agrees across
 the changelog, the Helm chart and the release workflow."""
 
 from __future__ import annotations

@@ -32,21 +32,21 @@ marking with injection scoring, and a SHA-256 hash-chained audit log. The gatewa
 ## Go conventions
 
 - Errors wrapped with `%w`; `context.Context` first; no package-level mutable state; `internal/clock` for time.
-- `go test -race` clean; no sleeps in tests; table-driven; test names as in the spec.
+- `go test -race` clean; no sleeps in tests; table-driven; one named test per behaviour.
 - Never import a model provider SDK (depguard).
 - Log with `slog` only after `internal/redact`; never log tokens.
 
 ## Working rules
 
-- **Test first**: write the named failing test, implement, run checks, record evidence in `PROGRESS.md`, commit (Conventional Commits). Never leave the branch red.
+- **Test first**: write the named failing test, implement, run `make check-fast`, commit (Conventional Commits). Never leave the branch red.
 - Never skip, disable or weaken a test or threshold. Record gaps in `docs/KNOWN_LIMITATIONS.md`.
 - Never edit `evals/datasets/test/`. Never invent numbers; every README/doc number cites its command or report.
-- Decide, don't ask: ambiguous choices go to `docs/DECISIONS.md`; architectural ones also get an ADR in `docs/adr/`.
+- Record non-obvious choices in `docs/DECISIONS.md`; architectural ones also get an ADR in `docs/adr/`.
 
 ## Commit attribution
 
-Commits and pull requests go out under the maintainer's name only. Do not add `Co-Authored-By`,
-`Claude-Session` or "Generated with Claude Code" to commits or pull requests. Do not modify
+Do not add `Co-Authored-By`, `Claude-Session` or "Generated with Claude Code" to commits or pull
+requests. Do not modify
 `git config user.*` or the `GIT_AUTHOR_*` / `GIT_COMMITTER_*` variables.
 
 ## Never do
@@ -57,9 +57,7 @@ Commits and pull requests go out under the maintainer's name only. Do not add `C
 - Commit secrets or real personal data (synthetic data only, seed 20260).
 - Read `.env` files other than `.env.example`.
 
-## Where the plan lives
+## Project records
 
-- Specification: `docs/specs/000-build-spec.md` (originally `BUILD.md`).
-- Progress and "Needs the maintainer": `PROGRESS.md`.
 - Decisions: `docs/DECISIONS.md`; ADRs: `docs/adr/`; limitations: `docs/KNOWN_LIMITATIONS.md`.
-- Harness: `.claude/rules/`, `.claude/agents/` (run `reviewer` at the end of each milestone), `.claude/skills/`, `.claude/hooks/`.
+- Harness: `.claude/rules/`, `.claude/agents/` (run `reviewer` before opening a pull request), `.claude/skills/`, `.claude/hooks/`.

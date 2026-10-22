@@ -43,7 +43,7 @@ func tamper(ctx context.Context, db *pgxpool.Pool, seq int64, restore bool) (int
 	return seq, tx.Commit(ctx)
 }
 
-// TestDemoScenarioSteps runs the scripted scenario of spec §16 in process, all seven steps: the
+// TestDemoScenarioSteps runs the scripted demo scenario in process, all seven steps: the
 // tamper step edits one audit row and verify must fail at exactly that seq. Restoring the row
 // makes the chain verify again, and a second run (new keys) passes on the same data.
 func TestDemoScenarioSteps(t *testing.T) {

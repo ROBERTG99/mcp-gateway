@@ -1,6 +1,6 @@
 # Release on a pushed tag v*: multi-arch images to ghcr.io/robertg99/mcp-gateway, the Helm chart
-# as an OCI artifact, and a GitHub release with the changelog section. Tags are pushed by the
-# maintainer only; the build agent never runs this workflow.
+# as an OCI artifact, and a GitHub release with the changelog section. Tags are pushed by hand;
+# Claude Code sessions never push tags or run this workflow.
 name: release
 
 on:

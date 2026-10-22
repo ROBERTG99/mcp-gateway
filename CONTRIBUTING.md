@@ -6,7 +6,7 @@ Read `CLAUDE.md` for the map of the repository and `AGENTS.md` for the short ver
 
 ## Set up
 
-You need Go, Docker, `uv`, Node with `pnpm`, and `make`. `go.mod` pins the Go toolchain, and `GOTOOLCHAIN=auto` downloads it. The environment used to build this repository is recorded in `docs/DEVELOPMENT.md`.
+You need Go, Docker, `uv`, Node with `pnpm`, and `make`. `go.mod` pins the Go toolchain, and `GOTOOLCHAIN=auto` downloads it. The reference development environment is recorded in `docs/DEVELOPMENT.md`.
 
 ```bash
 make bootstrap
@@ -36,12 +36,11 @@ make demo
 
 Every change starts with a failing test. The steps are in `.claude/skills/tdd/SKILL.md`:
 
-1. Read the task and its definition in `docs/specs/000-build-spec.md`.
+1. Decide which behaviour the change adds or fixes, and name the test that proves it.
 2. Write the named test first and run it, for example `go test -race -run '^TestName$' ./path/...`. Check that it fails because the behaviour is missing, not because of a typo.
 3. Write the smallest change that makes it pass.
 4. Run the area checks: `make check-fast` always, plus `make policy-test`, `make hooks-test` or `make integration` when you touched those areas.
-5. Record the evidence in `PROGRESS.md`: the command and a one-line result.
-6. Commit.
+5. Commit, and note the commands you ran in the pull request.
 
 Never skip, disable, mark as expected-failure or weaken a test or a threshold to get green. Fix the code. If something cannot be fixed, write the gap in `docs/KNOWN_LIMITATIONS.md`.
 
@@ -64,7 +63,7 @@ Before you open a pull request, also run `make lint` and `make typecheck`, and `
 
 Use Conventional Commits: `type(scope): summary`. The history uses `feat`, `fix`, `test`, `perf`, `docs` and `chore`, for example `feat(pipeline): ...` or `fix(evals): ...`. Keep each commit green.
 
-Commits and pull requests go out under the author's own name only. Do not add `Co-Authored-By`, `Claude-Session` or "Generated with Claude Code" lines to a commit message or a pull request description. Do not change `git config user.*` or the `GIT_AUTHOR_*` and `GIT_COMMITTER_*` variables. The rule is in `.claude/rules/git-commits.md`, and the Claude Code guard hook in `.claude/hooks/pre_tool_guard.py` blocks these actions for agents.
+Commits and pull requests go out under the author's own name only. Do not add `Co-Authored-By`, `Claude-Session` or "Generated with Claude Code" lines to a commit message or a pull request description. Do not change `git config user.*` or the `GIT_AUTHOR_*` and `GIT_COMMITTER_*` variables. The rule is in `.claude/rules/git-commits.md`, and the Claude Code guard hook in `.claude/hooks/pre_tool_guard.py` blocks these actions in Claude Code sessions.
 
 Never force-push or push tags.
 
@@ -130,7 +129,7 @@ A regression of more than 1.0 percentage point against `evals/baseline/` fails t
 - Keep a pull request to one change, with its tests.
 - Say which commands you ran and what they printed.
 - Docs: plain English and short sentences. No marketing claims.
-- `CODEOWNERS` lists the maintainer as reviewer for every path.
+- `CODEOWNERS` sets the reviewer for every path.
 
 ## License
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""PreToolUse guard for Bash, Read, Write and Edit (spec §7.2).
+"""PreToolUse guard for Bash, Read, Write and Edit.
 
-Blocks (exit 2 with a reason on stderr) the never-do actions of the build: terraform apply/destroy,
+Blocks (exit 2 with a reason on stderr) the never-do actions of this repository: terraform apply/destroy,
 force pushes and tag pushes, git identity changes, AI attribution trailers in commits or pull
 requests, repository creation or visibility changes, messages to real recipients, reads of .env
 files other than .env.example, and edits to existing files in evals/datasets/test/.
@@ -32,7 +32,7 @@ BASH_RULES: list[tuple[re.Pattern[str], str]] = [
     ),
     (
         re.compile(GIT + r"push\b[^;&|]*(--tags\b|--follow-tags\b|\sv\d+\.\d+\.\d+\b|refs/tags/)"),
-        "tags are pushed by the maintainer only",
+        "tags are pushed by hand, not from a session",
     ),
     (re.compile(GIT + r"config\b[^;&|]*\buser\.(name|email|signingkey)\b"), "never change git identity"),
     (re.compile(r"\bgit\s+(?:[^;&|]*\s)?-c\s*user\.(name|email)"), "never change git identity"),
@@ -46,7 +46,7 @@ BASH_RULES: list[tuple[re.Pattern[str], str]] = [
         "never create or alter repositories",
     ),
     (re.compile(r"\bgh\s+repo\s+edit\b[^;&|]*--visibility"), "never change repository visibility"),
-    (re.compile(r"\bgh\s+release\s+create\b"), "releases are published by the maintainer"),
+    (re.compile(r"\bgh\s+release\s+create\b"), "releases are published by hand, not from a session"),
     (
         re.compile(r"(hooks\.slack\.com|api\.twilio\.com|api\.sendgrid\.com|smtp\.|api\.mailgun\.net)"),
         "never send messages to real recipients",

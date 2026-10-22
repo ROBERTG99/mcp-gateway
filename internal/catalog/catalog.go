@@ -23,7 +23,7 @@ import (
 	"github.com/ROBERTG99/mcp-gateway/internal/version"
 )
 
-// ServerNamePattern is the contract for upstream server names (spec §4.4).
+// ServerNamePattern is the contract for upstream server names.
 var ServerNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{1,31}$`)
 
 // ErrUpstreamUnavailable means the upstream could not be reached, timed out or its breaker is open.
@@ -88,7 +88,7 @@ type Options struct {
 	Clock            clock.Clock
 	BreakerThreshold int           // consecutive failures before opening (default 5)
 	BreakerCooldown  time.Duration // default 30 s
-	// ReadRetries is how many times a failed read-only call is retried (spec: once).
+	// ReadRetries is how many times a failed read-only call is retried (once).
 	ReadRetries int
 }
 

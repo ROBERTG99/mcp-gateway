@@ -169,7 +169,7 @@ func (downStore) Release(context.Context, string, string, string) error {
 }
 func (downStore) Ping(context.Context) error { return context.DeadlineExceeded }
 
-// Regression (M2 review): the same key and arguments on another tool is a conflict, not a replay.
+// Regression (found in review): the same key and arguments on another tool is a conflict, not a replay.
 func TestIdempotencyKeyBoundToTool(t *testing.T) {
 	up := &fakeUpstream{}
 	p := newPipeline(up)

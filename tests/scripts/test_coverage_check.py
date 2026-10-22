@@ -1,4 +1,4 @@
-"""Tests for scripts/coverage_check.py (make coverage, spec §10 coverage gate)."""
+"""Tests for scripts/coverage_check.py (make coverage, the coverage gate)."""
 
 from __future__ import annotations
 

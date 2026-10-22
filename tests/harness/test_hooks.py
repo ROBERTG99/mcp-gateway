@@ -1,4 +1,4 @@
-"""Tests for the Claude Code hooks in .claude/hooks (T-04)."""
+"""Tests for the Claude Code hooks in .claude/hooks."""
 
 from __future__ import annotations
 
@@ -106,7 +106,7 @@ def test_guard_blocks_test_partition_edit() -> None:
         "sendmail someone@example.com < note.txt",
         "git push origin v0.1.0",
         "git push --tags",
-        # reviewer findings (M0): bypasses that must be blocked
+        # known bypasses that must be blocked
         "cat /home/user/mcp-gateway/.env",
         "cat config/.env",
         "git log -1; cat .env",
@@ -132,7 +132,7 @@ def test_guard_blocks_never_do_commands(command: str) -> None:
     [
         "make check-fast",
         "git commit -m 'feat(pipeline): add idempotency stage'",
-        "git push -u origin claude/build-md-execution-blkq3q",
+        "git push -u origin feat/idempotency-stage",
         "cp .env.example .env",
         "cat .env.example",
         "git log --format='%an <%ae>' | sort -u",

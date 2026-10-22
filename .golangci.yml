@@ -23,23 +23,23 @@ linters:
           files: ["$all"]
           deny:
             - pkg: github.com/anthropics/anthropic-sdk-go
-              desc: "mcp-gateway calls no model (spec §2): provider SDKs are forbidden"
+              desc: "mcp-gateway calls no model: provider SDKs are forbidden"
             - pkg: github.com/openai/openai-go
-              desc: "mcp-gateway calls no model (spec §2): provider SDKs are forbidden"
+              desc: "mcp-gateway calls no model: provider SDKs are forbidden"
             - pkg: github.com/sashabaranov/go-openai
-              desc: "mcp-gateway calls no model (spec §2): provider SDKs are forbidden"
+              desc: "mcp-gateway calls no model: provider SDKs are forbidden"
             - pkg: google.golang.org/genai
-              desc: "mcp-gateway calls no model (spec §2): provider SDKs are forbidden"
+              desc: "mcp-gateway calls no model: provider SDKs are forbidden"
             - pkg: github.com/google/generative-ai-go
-              desc: "mcp-gateway calls no model (spec §2): provider SDKs are forbidden"
+              desc: "mcp-gateway calls no model: provider SDKs are forbidden"
             - pkg: github.com/aws/aws-sdk-go-v2/service/bedrockruntime
-              desc: "mcp-gateway calls no model (spec §2): provider SDKs are forbidden"
+              desc: "mcp-gateway calls no model: provider SDKs are forbidden"
             - pkg: github.com/cohere-ai/cohere-go
-              desc: "mcp-gateway calls no model (spec §2): provider SDKs are forbidden"
+              desc: "mcp-gateway calls no model: provider SDKs are forbidden"
             - pkg: github.com/ollama/ollama
-              desc: "mcp-gateway calls no model (spec §2): provider SDKs are forbidden"
+              desc: "mcp-gateway calls no model: provider SDKs are forbidden"
             - pkg: github.com/tmc/langchaingo
-              desc: "mcp-gateway calls no model (spec §2): provider SDKs are forbidden"
+              desc: "mcp-gateway calls no model: provider SDKs are forbidden"
     gosec:
       excludes:
         - G104 # duplicated by errcheck

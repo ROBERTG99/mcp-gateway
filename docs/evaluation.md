@@ -71,8 +71,7 @@ recall is higher (`evals/REPORT.md`).
   should split by template and add out-of-template hard negatives.
 - **Synthetic formats.** Redaction cases use a fixed set of formats; real-world recall will be lower,
   and names and street addresses are out of scope for the detectors.
-- **Human review.** 40 injection cases still await the maintainer's review of their labels (`PROGRESS.md`,
-  "Needs the maintainer").
+- **Human review.** The labels of 40 injection cases have not yet been reviewed by hand.
 
 ## Reproducing
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PostToolUse formatter for Write and Edit (spec §7.2).
+"""PostToolUse formatter for Write and Edit.
 
 gofmt and goimports for Go, prettier for files under e2e/, `mcp-gateway policy fmt` for Rego.
 Each formatter is optional: when it is not installed the hook does nothing. Always exits 0.
