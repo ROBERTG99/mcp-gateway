@@ -30,7 +30,7 @@ services:
     profiles: ["test"]
     build:
       context: .
-      network: host
+      network: "${MCPGW_BUILD_NETWORK:-default}" # see x-build in compose.yaml
       target: test
       args:
         HTTPS_PROXY: "${HTTPS_PROXY:-}"
@@ -52,7 +52,7 @@ services:
     profiles: ["test"]
     build:
       context: .
-      network: host
+      network: "${MCPGW_BUILD_NETWORK:-default}" # see x-build in compose.yaml
       target: test
       args:
         HTTPS_PROXY: "${HTTPS_PROXY:-}"

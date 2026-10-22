@@ -51,16 +51,35 @@ func dynamoEndpoint(t *testing.T) string {
 // second caller acquire the same key (the "concurrent acquire" case failed with 2 winners of 24).
 func liveStart() time.Time { return time.Now().UTC().Truncate(time.Second) }
 
-func TestDynamoDBStore(t *testing.T) {
-	endpoint := dynamoEndpoint(t)
-	client := dynamodb.New(dynamodb.Options{
+func dynamoClient(endpoint string) *dynamodb.Client {
+	return dynamodb.New(dynamodb.Options{
 		Region: "us-east-1", BaseEndpoint: aws.String(endpoint),
 		Credentials: credentials.NewStaticCredentialsProvider("local", "local", ""),
 	})
+}
+
+// runID tells this test binary's tables apart from those of earlier runs: with
+// MCPGW_TEST_USE_COMPOSE the dynamodb-local service outlives the binary (CI runs make integration,
+// then make coverage, against the same service), and a reused table still holds the last run's
+// records and locks.
+var runID = time.Now().UnixNano()
+
+// freshTable returns a table name unique to this run and deletes the table when t ends.
+func freshTable(t *testing.T, client *dynamodb.Client, name string) string {
+	t.Helper()
+	table := fmt.Sprintf("%s_%d", name, runID)
+	t.Cleanup(func() {
+		_, _ = client.DeleteTable(context.Background(), &dynamodb.DeleteTableInput{TableName: aws.String(table)})
+	})
+	return table
+}
+
+func TestDynamoDBStore(t *testing.T) {
+	client := dynamoClient(dynamoEndpoint(t))
 	var n atomic.Int32
 	storetest.Run(t, func(t *testing.T) storetest.Harness {
 		c := clock.NewFake(liveStart())
-		s := idempotency.NewDynamoDB(client, fmt.Sprintf("mcpgw_idempotency_%d", n.Add(1)), c)
+		s := idempotency.NewDynamoDB(client, freshTable(t, client, fmt.Sprintf("mcpgw_idempotency_%d", n.Add(1))), c)
 		if err := s.EnsureTable(t.Context()); err != nil {
 			t.Fatal(err)
 		}
@@ -72,8 +91,10 @@ func TestDynamoDBStore(t *testing.T) {
 // local credentials and creates the table, and the store then works.
 func TestOpenDynamoDBLocalCreatesTable(t *testing.T) {
 	c := clock.NewFake(liveStart())
-	s, err := idempotency.Open(t.Context(), idempotency.OpenOptions{Backend: "dynamodb", DynamoDBEndpoint: dynamoEndpoint(t),
-		DynamoDBTable: "mcpgw_idempotency_open", DynamoDBRegion: "us-east-1", Clock: c})
+	endpoint := dynamoEndpoint(t)
+	table := freshTable(t, dynamoClient(endpoint), "mcpgw_idempotency_open")
+	s, err := idempotency.Open(t.Context(), idempotency.OpenOptions{Backend: "dynamodb", DynamoDBEndpoint: endpoint,
+		DynamoDBTable: table, DynamoDBRegion: "us-east-1", Clock: c})
 	if err != nil {
 		t.Fatal(err)
 	}
