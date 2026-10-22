@@ -6,8 +6,7 @@ All notable changes to this project are documented here. The format follows
 
 ## [0.1.0] - 2026-10-17
 
-First release, built from `docs/specs/000-build-spec.md`. The contracts in §4.4 of the specification (the
-MCP endpoint, JWT claims, idempotency, JSON-RPC error codes, policy input and decision, approvals and the
+First release. The public contracts (the MCP endpoint, JWT claims, idempotency, JSON-RPC error codes, policy input and decision, approvals and the
 webhook, untrusted-output marking, the `mcpgw.audit.v1` event and the admin REST API) are the v0.1.0 API.
 
 ### Added

@@ -25,7 +25,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-// Contract limits (spec §4.4).
+// Contract limits.
 const (
 	MaxLifetime = time.Hour
 	ClockSkew   = 30 * time.Second

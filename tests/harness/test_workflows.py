@@ -1,4 +1,4 @@
-"""CI workflows and repository integrations match spec §17 (actionlint runs in make lint)."""
+"""CI workflows and repository integrations match the repository setup (actionlint runs in make lint)."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-// Package telemetry sets up OpenTelemetry tracing (spec §14), the trace-aware slog handler and the
+// Package telemetry sets up OpenTelemetry tracing, the trace-aware slog handler and the
 // per-call step record. Spans: mcp.request (HTTP server), mcpgw.authn, mcpgw.policy.eval,
 // mcpgw.idempotency, mcpgw.upstream.call (W3C context forwarded in _meta and HTTP headers) and
 // mcpgw.audit.enqueue, plus pgx and go-redis. Attributes app.tenant_id, app.run_id, app.node.
@@ -33,7 +33,7 @@ const (
 	AttrNode   = attribute.Key("app.node")
 )
 
-// Span names (spec §14).
+// Span names.
 const (
 	SpanRequest     = "mcp.request"
 	SpanAuthn       = "mcpgw.authn"
@@ -155,7 +155,7 @@ func (h TraceHandler) WithGroup(name string) slog.Handler {
 	return TraceHandler{h.Handler.WithGroup(name)}
 }
 
-// StepRecord is the portfolio's shared step record (evalgate StepRecord): the gateway logs one per
+// StepRecord is the step record shared with evalgate (evalgate StepRecord): the gateway logs one per
 // tool call with kind "tool", no model, and zero tokens and cost.
 type StepRecord struct {
 	RunID         string    `json:"run_id"`

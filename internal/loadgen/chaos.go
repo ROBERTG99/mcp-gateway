@@ -1,4 +1,4 @@
-// Package loadgen drives the gateway over MCP for the chaos eval (spec §11, chaos.v1) and the
+// Package loadgen drives the gateway over MCP for the chaos eval (chaos.v1) and the
 // load test. The chaos run sends refunds with idempotency keys while the orders upstream stalls a
 // fraction of them past the gateway timeout; the client retries like a real agent would, and a
 // share of keys is deliberately sent twice. Ground truth comes from the upstream itself

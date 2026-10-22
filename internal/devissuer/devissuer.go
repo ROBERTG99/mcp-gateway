@@ -52,7 +52,7 @@ type Persona struct {
 	Scopes      []string `json:"scopes"`
 }
 
-// Personas are the console's dev sign-in identities (spec §2 users).
+// Personas are the console's dev sign-in identities (the user roles).
 func Personas() []Persona {
 	return []Persona{
 		{ID: "platform-engineer", Title: "Platform engineer", Description: "Operates the gateway, reloads and tests policies",

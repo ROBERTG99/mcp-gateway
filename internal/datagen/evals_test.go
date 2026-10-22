@@ -11,7 +11,7 @@ import (
 	"github.com/ROBERTG99/mcp-gateway/internal/datagen"
 )
 
-// TestEvalDatasetsCountsAndSplits (spec §11): suite sizes and dev/test splits, class balance,
+// TestEvalDatasetsCountsAndSplits: suite sizes and dev/test splits, class balance,
 // unique ids, determinism, test-partition protection, and the committed files match the generator.
 func TestEvalDatasetsCountsAndSplits(t *testing.T) {
 	d := datagen.GenerateEvals(datagen.DefaultSeed)

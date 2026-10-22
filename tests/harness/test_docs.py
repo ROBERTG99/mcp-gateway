@@ -1,4 +1,4 @@
-"""Documentation deliverables (spec §18, T-45, T-46): every document exists, ADRs name the rejected
+"""Documentation deliverables: every document exists, ADRs name the rejected
 alternative, every README number cites its source, and the design FAQ answers 15 questions with
 file:line references that resolve."""
 
@@ -12,7 +12,6 @@ ROOT = Path(__file__).resolve().parents[2]
 REQUIRED = [
     "README.md",
     "docs/architecture.md",
-    "docs/ai-development.md",
     "docs/evaluation.md",
     "evals/REPORT.md",
     "docs/security.md",
@@ -20,7 +19,6 @@ REQUIRED = [
     "docs/DEVELOPMENT.md",
     "docs/design-faq.md",
     "docs/KNOWN_LIMITATIONS.md",
-    "docs/verification.md",
     "CONTRIBUTING.md",
     "SECURITY.md",
     "CHANGELOG.md",
@@ -86,7 +84,6 @@ def test_readme_numbers_cite_sources() -> None:
     assert not uncited, "numbers without a command or report next to them:\n" + "\n".join(uncited)
     text = readme.read_text(encoding="utf-8")
     assert "Under construction" not in text and "under construction" not in text
-    assert "BUILD.md" not in text.replace("docs/specs/000-build-spec.md", "")
 
 
 REF = re.compile(

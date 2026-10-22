@@ -1,4 +1,4 @@
-// Package demo is the scripted (no LLM) demo scenario of spec §16, run by `demo-agent --scenario`
+// Package demo is the scripted (no LLM) demo scenario, run by `demo-agent --scenario`
 // against a running gateway: only allowed tools are listed; a USD 50 refund executes; a USD 500
 // refund is held, approved through the admin API and the retry executes; an orders call fails
 // mid-flight and the same-key retry leaves one refund; an injected CRM note is flagged; the audit

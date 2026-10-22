@@ -31,7 +31,7 @@ func copyPolicies(t *testing.T) string {
 	return dst
 }
 
-// TestAddFourthUpstreamByConfigOnly is the platform engineer's journey (spec §3.4 a, FR-11): a
+// TestAddFourthUpstreamByConfigOnly is the platform engineer's journey (FR-11): a
 // fourth MCP server ("weather") is connected with one upstreams.yaml entry and one policy data
 // change (t_alpha may use it), and no gateway code. Its tools are namespaced, visible only to the
 // allowed tenant with the "weather:read" scope, callable through the full pipeline, audited, and

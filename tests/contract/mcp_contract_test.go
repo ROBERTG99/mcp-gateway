@@ -1,4 +1,4 @@
-// Package contract checks the §4.4 contract shapes of mcp-gateway v0.1.0 against golden JSON.
+// Package contract checks the contract shapes of mcp-gateway v0.1.0 against golden JSON.
 package contract_test
 
 import (

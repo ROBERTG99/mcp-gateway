@@ -15,8 +15,8 @@ import (
 	"strings"
 )
 
-// Eval suites and partition sizes (spec §11). Labels are assigned by construction: policy cases
-// from the rules of spec §4.3/§7.5 (never by running OPA), injection and redaction cases from the
+// Eval suites and partition sizes. Labels are assigned by construction: policy cases
+// from the policy rules (never by running OPA), injection and redaction cases from the
 // template that built them (never by running the detectors).
 const (
 	PolicySuite    = "policy.v1"
@@ -31,7 +31,7 @@ const (
 	DevShare = 0.6
 )
 
-// PolicyCase is a policy input with the decision the spec prescribes (allow, hold or deny).
+// PolicyCase is a policy input with the decision the policy requirements prescribe (allow, hold or deny).
 type PolicyCase struct {
 	ID       string         `json:"id"`
 	Family   string         `json:"family"`
@@ -162,14 +162,14 @@ func refundArgs(r *rand.Rand, amount any) map[string]any {
 	return map[string]any{"order_id": orderID(r), "amount_cents": amount, "reason": pick(r, []string{"damaged", "late delivery", "duplicate charge"})}
 }
 
-// tenantUpstreams is the allowlist of policies/data/tenants.json (spec §4.3).
+// tenantUpstreams is the allowlist of policies/data/tenants.json.
 var tenantUpstreams = map[string][]string{
 	"t_alpha": {"ledger", "crm", "orders"}, "t_beta": {"ledger", "crm", "orders"}, "t_gamma": {"crm", "orders"},
 }
 
 var evalAgents = []string{"agent-support", "agent-collections", "agent-billing", "agent-triage"}
 
-// expectedDecision applies the spec's rules: tenant allowlist and scope (read tools need
+// expectedDecision applies the policy requirements: tenant allowlist and scope (read tools need
 // <server>:read, writes <server>:write), refund limits (<= 10,000 cents allow, <= 100,000 hold,
 // above or non-positive deny), credit notes always held, deny beats hold, and an approved approval
 // turns a hold into allow.
@@ -825,7 +825,7 @@ func (d EvalDatasets) EvalFiles() (map[string][]byte, error) {
 
 // WriteEvalDatasets writes the datasets under dir and returns the number of files written.
 // Existing test-partition files are never changed: identical files are left alone and a
-// differing one is an error (thresholds are tuned on dev only; spec §11).
+// differing one is an error (thresholds are tuned on dev only).
 func WriteEvalDatasets(dir string, seed uint64) (int, error) {
 	files, err := GenerateEvals(seed).EvalFiles()
 	if err != nil {

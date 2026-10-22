@@ -398,7 +398,7 @@ All six rules are in `deploy/prometheus/alerts.yaml` and are tested by `make pro
 
 ### GatewayOverheadSLO
 
-**What it means.** The 95th percentile of the gateway's own time per `tools/call`, upstream time excluded, has been above 5 ms for 10 minutes (`mcpgw_overhead_seconds`; the SLO is in `docs/specs/000-build-spec.md`, section 14).
+**What it means.** The 95th percentile of the gateway's own time per `tools/call`, upstream time excluded, has been above 5 ms for 10 minutes (`mcpgw_overhead_seconds`; the SLO is the `GatewayOverheadSLO` rule in `deploy/prometheus/alerts.yaml`).
 
 **First checks.**
 

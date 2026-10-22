@@ -20,7 +20,7 @@ query, `data.mcpgw.authz.decision`, held behind an atomic pointer (`internal/pol
 - Hot reload: `MCPGW_POLICY_RELOAD_INTERVAL` polls the bundle's content hash; `POST
   /admin/policy/reload` forces it. A successful reload swaps the prepared query atomically and
   resynchronises every cached per-principal tool list (agents receive `tools/list_changed`).
-- A failed reload keeps the last good bundle serving (spec §4.1). `/readyz` stays 200 but reports
+- A failed reload keeps the last good bundle serving (see `docs/DECISIONS.md`). `/readyz` stays 200 but reports
   `policy: stale: last reload failed: <error>`, and the error is logged. The counter
   `mcpgw_policy_reload_failures_total` counts every failed load or reload, the first one included
   (`internal/telemetry/metrics.go`, `internal/policy/policy.go`). The gauge `mcpgw_policy_stale` is

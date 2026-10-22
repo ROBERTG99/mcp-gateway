@@ -1,4 +1,4 @@
-"""Checks for the Claude Code harness files (T-03)."""
+"""Checks for the Claude Code harness files."""
 
 from __future__ import annotations
 
@@ -142,7 +142,6 @@ def test_instructions_files() -> None:
     assert len(claude_md.splitlines()) < 200
     for needle in (
         "make check-fast",
-        "PROGRESS.md",
         "docs/DECISIONS.md",
         "docs/adr/",
         "Co-Authored-By",

@@ -1,4 +1,4 @@
-// Package evals runs the offline eval suites of spec §11 (policy.v1, injection.v1, redaction.v1,
+// Package evals runs the offline eval suites (policy.v1, injection.v1, redaction.v1,
 // latency.v1) against the committed datasets and writes evalgate.report.v1 reports. Graders are
 // deterministic: there is no free text to judge, so no model and no LLM-as-judge is involved.
 package evals
@@ -33,7 +33,7 @@ const (
 	BootstrapResamples = 2000
 	BootstrapSeed      = 1337
 
-	// LatencyEvaluations is the size of latency.v1 (spec §11).
+	// LatencyEvaluations is the size of latency.v1.
 	LatencyEvaluations = 10000
 )
 

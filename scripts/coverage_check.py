@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail when Go line coverage is under the spec §10 thresholds (make coverage).
+"""Fail when Go line coverage is under the coverage thresholds (make coverage).
 
     coverage_check.py coverage.out [--core-min 85] [--overall-min 70]
 

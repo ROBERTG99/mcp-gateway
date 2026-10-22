@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stop hook (spec §7.2): run `make check-fast` before the agent stops.
+"""Stop hook: run `make check-fast` before the agent stops.
 
 On failure, block once with a short summary of the failing lines. When `stop_hook_active` is true
 (the agent is already continuing because of this hook) exit 0 so the session can end.

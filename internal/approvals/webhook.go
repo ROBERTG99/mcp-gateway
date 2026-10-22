@@ -67,7 +67,7 @@ func (n *WebhookNotifier) Deliver(ctx context.Context, payload []byte) error {
 	return nil
 }
 
-// OutboxOptions configure delivery retries (spec §4.6: 2 s doubling to 1 h, 24 attempts).
+// OutboxOptions configure delivery retries (2 s doubling to 1 h, 24 attempts).
 type OutboxOptions struct {
 	Clock       clock.Clock
 	Logger      *slog.Logger

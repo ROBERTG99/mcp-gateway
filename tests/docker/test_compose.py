@@ -1,4 +1,4 @@
-"""Static checks of the Docker setup (spec §16, .claude/rules/docker.md): compose.yaml,
+"""Static checks of the Docker setup (.claude/rules/docker.md): compose.yaml,
 compose.test.yaml and the Dockerfile (make test-docker runs these inside the test image too)."""
 
 from __future__ import annotations

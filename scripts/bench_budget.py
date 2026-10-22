@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Fail when a benchmark or load-test result is over its budget (spec §3.2, §10).
+"""Fail when a benchmark or load-test result is over its budget.
 
     bench_budget.py bench.out                 # go test -bench output (make bench)
     bench_budget.py --load loadtest.json      # loadgen --mode load report (make loadtest)
 
-Budgets are the NFRs; with --ci (or CI=true in the environment) the CI budgets of spec §10 apply
+Budgets are the NFRs; with --ci (or CI=true in the environment) the CI budgets apply
 instead: overhead p95 < 10 ms and >= 500 calls/s. A budgeted benchmark missing from the output is
 a failure, so a renamed or skipped benchmark cannot pass silently.
 """

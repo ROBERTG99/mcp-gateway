@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# make verify-clean (spec §19 step 1): clone the committed HEAD into a temporary folder and run
+# make verify-clean: clone the committed HEAD into a temporary folder and run
 # `make bootstrap && make verify` there with no .env file and no model API keys. The clone uses the
 # same compose project and host ports, so the stack of this checkout must be down first.
 set -euo pipefail

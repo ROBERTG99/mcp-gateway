@@ -40,7 +40,7 @@ type Approval struct {
 	Status string `json:"status"`
 }
 
-// Input is the policy input contract (spec §4.4). Args is nil for tools/list.
+// Input is the policy input contract. Args is nil for tools/list.
 type Input struct {
 	Tenant      string         `json:"tenant"`
 	Agent       string         `json:"agent"`

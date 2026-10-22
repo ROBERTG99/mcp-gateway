@@ -1,4 +1,4 @@
--- Human approvals, webhook outbox and injection findings (spec §4.3).
+-- Human approvals, webhook outbox and injection findings.
 -- +goose Up
 CREATE TABLE approvals (
   id              uuid PRIMARY KEY,

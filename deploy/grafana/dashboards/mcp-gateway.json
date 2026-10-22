@@ -486,5 +486,5 @@
   "annotations": {
     "list": []
   },
-  "description": "Gateway calls, overhead, policy, approvals, audit and upstream health (spec \u00a714). No token or cost panels: the gateway calls no model."
+  "description": "Gateway calls, overhead, policy, approvals, audit and upstream health. No token or cost panels: the gateway calls no model."
 }

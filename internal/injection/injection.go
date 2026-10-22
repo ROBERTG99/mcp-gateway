@@ -16,7 +16,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-// Signal weights (spec §4.5).
+// Signal weights.
 const (
 	SignalOverride   = "override_phrase"
 	SignalHidden     = "hidden_unicode"

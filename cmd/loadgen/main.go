@@ -3,7 +3,7 @@
 //	loadgen --mode chaos --gateway URL --issuer URL --admin URL --calls 10000 [--out evals/reports]
 //	loadgen --mode load --gateway URL --issuer URL --metrics URL [--duration 30s] [--report loadtest.json]
 //
-// Chaos mode (spec §11, chaos.v1) sends refunds with idempotency keys while the orders upstream
+// Chaos mode (chaos.v1) sends refunds with idempotency keys while the orders upstream
 // stalls a fraction of them past the gateway timeout (MCPGW_FAULT_TIMEOUT_RATE on upstream-orders),
 // retries like an agent, re-sends 20% of keys on purpose, and checks that every key executed once
 // and every call was audited. It writes <out>/chaos.v1.json (evalgate.report.v1).

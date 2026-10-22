@@ -2,7 +2,7 @@ import { mkdirSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import { expectAccessible, holdRefund, signIn, type Persona } from "./helpers.js";
 
-// §13: every console page passes axe (no serious or critical violations) at 375, 768 and 1280 px
+// Every console page passes axe (no serious or critical violations) at 375, 768 and 1280 px
 // in both themes. With SCREENSHOTS=1 (make docs) the renders are stored in docs/images/.
 
 const images = new URL("../../docs/images/", import.meta.url).pathname;

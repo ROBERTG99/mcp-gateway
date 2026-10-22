@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# make demo: the scripted scenario of spec §16 against the running compose stack (make up && make
+# make demo: the scripted demo scenario against the running compose stack (make up && make
 # seed), offline and with no model. demo-agent prints PASS or FAIL per step:
 #   1 only allowed tools are listed          5 an injected CRM note is flagged as untrusted
 #   2 a USD 50 refund executes               6 the audit chain verifies

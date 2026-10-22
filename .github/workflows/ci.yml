@@ -1,5 +1,5 @@
 # Lint, types, unit, integration (service containers), contract, policy, hooks, helm-check,
-# promtool, coverage and the security scans (spec §17). Required check: ci.
+# promtool, coverage and the security scans. Required check: ci.
 name: ci
 
 on:
