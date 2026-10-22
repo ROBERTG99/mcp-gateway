@@ -2,7 +2,7 @@
   "name": "mcp-gateway",
   "image": "mcr.microsoft.com/devcontainers/base:bookworm",
   "features": {
-    "ghcr.io/devcontainers/features/go:1": { "version": "1.27.2" },
+    "ghcr.io/devcontainers/features/go:1": { "version": "1.27.3" },
     "ghcr.io/devcontainers/features/node:1": { "version": "22", "pnpmVersion": "10.28.0" },
     "ghcr.io/devcontainers/features/python:1": { "version": "3.13" },
     "ghcr.io/va-h/devcontainers-features/uv:1": {},

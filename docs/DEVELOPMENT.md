@@ -8,7 +8,7 @@
 | OS | Ubuntu 24.04.5 LTS, Linux 6.18 x86_64 |
 | CPU | 4 vCPU, Intel Xeon @ 2.10 GHz |
 | RAM | 16 GB (`/proc/meminfo` MemTotal 16479424 kB) |
-| Go | host 1.24.7; module toolchain `go1.27.2` (downloaded through the Go proxy by `GOTOOLCHAIN=auto`) |
+| Go | host 1.24.7; module toolchain `go1.27.3` (downloaded through the Go proxy by `GOTOOLCHAIN=auto`) |
 | Node / pnpm | 22.22.0 / 10.28.0 |
 | Python / uv | 3.13.16 / 0.11.32 |
 | Docker | 29.8.2 (daemon started by hand, `nohup dockerd &`, with the `mirror.gcr.io` registry mirror; the SessionStart hook does it once `.claude/settings.json` is installed) |

@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Multi-stage build for mcp-gateway. Targets: gateway (default runtime), examples, test.
 
-FROM golang:1.27 AS build
+FROM golang:1.27.3@sha256:f20d83a83e18dbd2a4714b8ffd4b30b287b6243962dd75608e86abcc63ba4efc AS build
 ARG HTTPS_PROXY
 ARG VERSION=dev
 ARG COMMIT=unknown
@@ -16,7 +16,7 @@ RUN go build -ldflags "-s -w -X github.com/ROBERTG99/mcp-gateway/internal/versio
 # Test image: full source, the Go toolchain (with gcc for -race), helm (tests/helm) and the Python
 # test environment (uv.lock, system Python 3.13), used by compose.test.yaml (make test-docker).
 # Test binaries are compiled at build time so the containers only run them.
-FROM golang:1.27 AS test
+FROM golang:1.27.3@sha256:f20d83a83e18dbd2a4714b8ffd4b30b287b6243962dd75608e86abcc63ba4efc AS test
 ARG HTTPS_PROXY
 ENV GOTOOLCHAIN=local UV_PYTHON_DOWNLOADS=never UV_PROJECT_ENVIRONMENT=/opt/venv
 COPY --from=astral/uv:0.11.32 /uv /usr/local/bin/uv
