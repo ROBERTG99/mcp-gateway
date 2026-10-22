@@ -61,7 +61,7 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v5
-      - uses: azure/setup-helm@v4
+      - uses: azure/setup-helm@v5
         with:
           version: v3.22.1
       - name: Package and push the chart
